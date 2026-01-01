@@ -1,1 +1,45 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 certbot/
+
+# dependencies
+nextjs/node_modules
+nextjs/.pnp
+nextjs/.pnp.*
+nextjs/.yarn/*
+nextjs/!.yarn/patches
+nextjs/!.yarn/plugins
+nextjs/!.yarn/releases
+nextjs/!.yarn/versions
+
+# testing
+nextjs/coverage
+
+# next.js
+nextjs/.next/
+nextjs/out/
+
+# production
+nextjs/build
+
+# misc
+nextjs/.DS_Store
+nextjs/*.pem
+
+# debug
+nextjs/npm-debug.log*
+nextjs/yarn-debug.log*
+nextjs/yarn-error.log*
+nextjs/.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+.idea
