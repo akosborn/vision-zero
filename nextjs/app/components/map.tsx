@@ -96,7 +96,7 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
   const [viewport, setViewport] = React.useState({
     latitude: 39.7392,
     longitude: -104.9903,
-    zoom: 13,
+    zoom: 14,
   });
 
   const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
@@ -206,14 +206,33 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
                 'circle-color': [
                   'case',
                   ['>', ['get', 'fatalities'], 0],
-                  '#ef4444', // Red (Tailwind red-500)
+                  '#ef4444', // Red
                   ['>', ['get', 'serious_injuries'], 0],
-                  '#facc15', // Yellow (Tailwind yellow-400)
-                  '#22c55e'  // Green (Tailwind green-500)
+                  '#facc15', // Yellow
+                  '#22c55e'  // Green
                 ],
-                'circle-radius': 5,
+                'circle-radius': [
+                  'case',
+                  ['get', 'bicycle_involved'],
+                  8, // Make the circle slightly larger if it's a bicycle to fit the icon
+                  5
+                ],
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#ffffff'
+              }}
+            />
+            <Layer
+              id="bicycle-icon-layer"
+              type="symbol"
+              filter={['==', ['get', 'bicycle_involved'], true]}
+              layout={{
+                'icon-image': 'bicycle-15',
+                'icon-size': 1,
+                'icon-allow-overlap': true,
+              }}
+              paint={{
+                // We keep the icon white so it "cuts out" of the colored circle
+                'icon-color': '#ffffff' 
               }}
             />
           </Source>
@@ -301,9 +320,9 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
                   <div>
                     <div className="flex items-center gap-1">
                       <span className={'text-sm text-gray-500'}>Total Comprehensive Cost</span>
-                      <a 
-                        href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf" 
-                        target="_blank" 
+                      <a
+                        href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-gray-400 hover:text-blue-500 transition-colors"
                         title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
