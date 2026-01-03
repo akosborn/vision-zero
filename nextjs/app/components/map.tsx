@@ -14,10 +14,16 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
 
   const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
+
+  const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
+
   const mapRef = React.useRef<any>(null);
 
   const fetchIncidents = React.useCallback((mapTarget: any) => {
-    if (!mapTarget) return;
+    if (!mapTarget) {
+      return;
+    }
+
     const bounds = mapTarget.getBounds();
     const bbox = [
       bounds.getWest(),
@@ -26,11 +32,16 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
       bounds.getNorth()
     ].join(',');
 
-    console.log('fetching incidents for bbox:', bbox, 'year:', selectedYear);
     fetch(`/api/incidents?bbox=${bbox}&year=${selectedYear}`).then((response) => {
       return response.json();
     }).then((json) => {
       setIncidentGeoJson(json);
+    });
+
+    fetch(`/api/street-centerlines?bbox=${bbox}`).then((response) => {
+      return response.json();
+    }).then((json) => {
+      setStreetCenterlines(json);
     });
   }, [selectedYear]);
 
@@ -40,7 +51,7 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
     }
   }, [selectedYear, fetchIncidents]);
 
-  const onMoveEnd = React.useCallback((event: any) => {
+  const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
     fetchIncidents(event.target);
   }, [fetchIncidents]);
 
@@ -69,6 +80,21 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
         {incidentGeoJson &&
           <Source type={'geojson'} data={incidentGeoJson}>
             <Layer id="incident-layer" type={'circle'} />
+          </Source>
+        }
+        {streetCenterlines &&
+          <Source type={'geojson'} data={streetCenterlines}>
+            <Layer id="street-centerline-layer" type={'line'} paint={{
+              'line-width': 2,
+              'line-color': [
+                'step',
+                ['get', 'speedlimit'],
+                '#33ea2d', // Default color (for < 25)
+                26, '#fafa37', // Yellow for 26-34
+                35, '#ff8c00', // Orange for 36-44
+                45, '#ff0000'  // Red for 50+
+              ]
+            }} />
           </Source>
         }
 
