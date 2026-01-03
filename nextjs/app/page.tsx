@@ -21,27 +21,46 @@ export default function Home() {
         <div className={`p-4 ${isPanelOpen ? 'block' : 'hidden'} whitespace-nowrap`}>
           <h2 className="text-xl font-bold mb-6">Filters</h2>
           
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-400">Start Date</label>
-                  <input 
-                    type="date"
-                    value={dateRange.start}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-slate-400">End Date</label>
-                  <input 
-                    type="date"
-                    value={dateRange.end}
-                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-400">Start Date</label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-400">End Date</label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <h3 className="text-sm font-semibold mb-3 text-slate-400 tracking-wider">Severity</h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>
+                <span className="text-sm text-slate-200">Fatality</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>
+                <span className="text-sm text-slate-200">Serious Injury</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>
+                <span className="text-sm text-slate-200 text-wrap">Minor Injury or Property Damage</span>
               </div>
             </div>
+          </div>
+
+        </div>
       </div>
 
       {/* Toggle Button */}

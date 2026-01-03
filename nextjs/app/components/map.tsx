@@ -158,7 +158,7 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
       .then(data => {
         setLocationSummary(summarizeIncidents(data.features));
       });
-  }, [startDate, endDate])
+  }, [startDate, endDate]);
 
   const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
     fetchIncidents(event.target);
@@ -199,7 +199,23 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
       >
         {incidentGeoJson &&
           <Source type={'geojson'} data={incidentGeoJson}>
-            <Layer id="incident-layer" type={'circle'} />
+            <Layer
+              id="incident-layer"
+              type="circle"
+              paint={{
+                'circle-color': [
+                  'case',
+                  ['>', ['get', 'fatalities'], 0],
+                  '#ef4444', // Red (Tailwind red-500)
+                  ['>', ['get', 'serious_injuries'], 0],
+                  '#facc15', // Yellow (Tailwind yellow-400)
+                  '#22c55e'  // Green (Tailwind green-500)
+                ],
+                'circle-radius': 5,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#ffffff'
+              }}
+            />
           </Source>
         }
         {streetCenterlines &&
