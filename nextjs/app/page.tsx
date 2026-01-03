@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import Map from './components/map';
 
 export default function Home() {
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [dateRange, setDateRange] = useState({
+    start: '2024-01-01',
+    end: new Date().toISOString().split('T')[0]
+  });
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-
-  const years = [2025, 2024, 2023, 2022, 2021];
 
   return (
     <main className="relative flex h-screen w-screen overflow-hidden">
@@ -20,22 +21,24 @@ export default function Home() {
         <div className={`p-4 ${isPanelOpen ? 'block' : 'hidden'} whitespace-nowrap`}>
           <h2 className="text-xl font-bold mb-6">Filters</h2>
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2 text-slate-400">Occurrence Year</label>
-            <div className="space-y-2">
-              {years.map((year) => (
-                <button
-                  key={year}
-                  onClick={() => setSelectedYear(year)}
-                  className={`w-full text-left px-3 py-2 rounded transition-colors ${
-                    selectedYear === year 
-                      ? 'bg-blue-600 text-white' 
-                      : 'hover:bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {year}
-                </button>
-              ))}
+          <div className="mb-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-400">Start Date</label>
+              <input 
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-slate-400">End Date</label>
+              <input 
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
         </div>
@@ -52,7 +55,7 @@ export default function Home() {
 
       {/* Map Area */}
       <div className="flex-1 relative">
-        <Map selectedYear={selectedYear} />
+        <Map startDate={dateRange.start} endDate={dateRange.end} />
       </div>
     </main>
   );

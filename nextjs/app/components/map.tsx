@@ -4,6 +4,7 @@ import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy'
 import React, {useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapMouseEvent} from 'mapbox-gl';
+import {DateTime} from 'luxon';
 
 const RADIUS_METERS = 20;
 
@@ -91,7 +92,7 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
   };
 };
 
-export default function Map({ selectedYear }: { selectedYear: number }) {
+export default function Map({ startDate, endDate }: { startDate: string, endDate: string }) {
   const [viewport, setViewport] = React.useState({
     latitude: 39.7392,
     longitude: -104.9903,
@@ -122,7 +123,7 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
       bounds.getNorth()
     ].join(',');
 
-    fetch(`/api/incidents?bbox=${bbox}&year=${selectedYear}`).then((response) => {
+    fetch(`/api/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
       return response.json();
     }).then((json) => {
       setIncidentGeoJson(json);
@@ -135,13 +136,29 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
         setStreetCenterlines(json);
       });
     }
-  }, [selectedYear]);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     if (mapRef.current) {
         fetchIncidents(mapRef.current.getMap());
     }
-  }, [selectedYear, fetchIncidents]);
+  }, [startDate, endDate, fetchIncidents]);
+
+  useEffect(() => {
+    if (!droppedPin) {
+      return;
+    }
+
+    const lng = droppedPin.lng;
+    const lat = droppedPin.lat;
+
+    setLocationSummary(null);
+    fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&startDate=${startDate}&endDate=${endDate}`)
+      .then(res => res.json())
+      .then(data => {
+        setLocationSummary(summarizeIncidents(data.features));
+      });
+  }, [startDate, endDate])
 
   const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
     fetchIncidents(event.target);
@@ -157,7 +174,7 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
       setDroppedPin({ lng, lat });
       setSelectedPoint(null);
       
-      fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&year=${selectedYear}`)
+      fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&startDate=${startDate}&endDate=${endDate}`)
         .then(res => res.json())
         .then(data => {
           setLocationSummary(summarizeIncidents(data.features));
@@ -255,6 +272,11 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
             <div className="p-2 text-black">
               {locationSummary ? (
                 <div>
+                  <h5 className={'mb-2 text-gray-800 text-lg'}>
+                    {DateTime.fromISO(startDate, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)} to {' '}
+                    {DateTime.fromISO(endDate, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)}
+                  </h5>
+
                   <div>
                     <span className={'text-sm text-gray-500'}>Total Crashes</span>
                     <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.totalIncidents}</h4>

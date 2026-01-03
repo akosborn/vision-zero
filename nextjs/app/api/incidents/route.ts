@@ -4,7 +4,8 @@ import { NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const bbox = searchParams.get('bbox');
-  const year = searchParams.get('year');
+  const startDate = searchParams.get('startDate');
+  const endDate = searchParams.get('endDate');
   const lat = searchParams.get('lat');
   const lng = searchParams.get('lng');
   const radius = searchParams.get('radius'); // in meters
@@ -13,12 +14,14 @@ export async function GET(request: NextRequest) {
   const queryParams: any[] = [];
   let paramIndex = 1;
 
-  if (year) {
-    whereClause += ` AND EXTRACT(YEAR FROM first_occurrence_date) = $${paramIndex++}`;
-    queryParams.push(parseInt(year));
-  } else {
-    // Default fallback if no year is selected
-    whereClause += " AND first_occurrence_date > '2025-06-25'";
+  if (startDate) {
+    whereClause += ` AND first_occurrence_date >= $${paramIndex++}`;
+    queryParams.push(startDate);
+  }
+
+  if (endDate) {
+    whereClause += ` AND first_occurrence_date <= $${paramIndex++}`;
+    queryParams.push(endDate);
   }
 
   if (bbox) {
