@@ -2,8 +2,94 @@
 
 import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy';
 import React, {useEffect} from 'react';
-import {FeatureCollection, Point} from 'geojson';
+import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapMouseEvent} from 'mapbox-gl';
+
+const RADIUS_METERS = 20;
+
+const createGeoJSONCircle = (center: {lng: number, lat: number}, radiusInKm: number, points: number = 64): GeoJSON => {
+  const coords = {
+    latitude: center.lat,
+    longitude: center.lng
+  };
+
+  const km = radiusInKm;
+
+  const ret = [];
+  const distanceX = km / (111.32 * Math.cos((coords.latitude * Math.PI) / 180));
+  const distanceY = km / 110.574;
+
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+
+    ret.push([coords.longitude + x, coords.latitude + y]);
+  }
+  ret.push(ret[0]);
+
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [ret]
+    },
+    properties: {},
+  };
+};
+
+const COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY = {
+  K: 15988000,
+  A: 1705100,
+  B: 384000,
+  C: 204600,
+  O: 18100,
+};
+
+const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSummary => {
+  const aggregate = features.reduce((acc, f) => {
+    let maxSeverity: keyof typeof COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY = 'O';
+
+    const fatalities = f.properties.fatalities;
+    const seriousInjuries = f.properties.serious_injuries;
+
+    if (seriousInjuries > 0) {
+      maxSeverity = 'A';
+    }
+
+    if (fatalities > 0) {
+      maxSeverity = 'K';
+    }
+
+    acc.severityCounts['Fatalities'] += fatalities;
+    acc.severityCounts['Serious Injuries'] += seriousInjuries;
+
+    if (f.properties.fatalities + f.properties.serious_injuries === 0) {
+      acc.severityCounts['Property Damage or Non-Serious Injuries'] += 1;
+    }
+
+    acc.comprehensiveCosts += COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY[maxSeverity];
+
+    acc.bicyclesInvolved += f.properties.bicycle_count;
+    acc.pedestriansInvolved += f.properties.pedestrian_count;
+
+    return acc;
+  }, {
+    comprehensiveCosts: 0,
+    bicyclesInvolved: 0,
+    pedestriansInvolved: 0,
+    severityCounts: {
+      'Fatalities': 0,
+      'Serious Injuries': 0,
+      'Property Damage or Non-Serious Injuries': 0,
+    },
+  });
+
+  return {
+    totalIncidents: features.length,
+    ...aggregate,
+  };
+};
 
 export default function Map({ selectedYear }: { selectedYear: number }) {
   const [viewport, setViewport] = React.useState({
@@ -14,6 +100,10 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
 
   const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
+  const [droppedPin, setDroppedPin] = React.useState<{lng: number, lat: number} | null>(null);
+  const [locationSummary, setLocationSummary] = React.useState<LocationSummary | null>(null);
+
+  const displayStreetCenterlines = false;
 
   const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
 
@@ -38,11 +128,13 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
       setIncidentGeoJson(json);
     });
 
-    fetch(`/api/street-centerlines?bbox=${bbox}`).then((response) => {
-      return response.json();
-    }).then((json) => {
-      setStreetCenterlines(json);
-    });
+    if (displayStreetCenterlines) {
+      fetch(`/api/street-centerlines?bbox=${bbox}`).then((response) => {
+        return response.json();
+      }).then((json) => {
+        setStreetCenterlines(json);
+      });
+    }
   }, [selectedYear]);
 
   useEffect(() => {
@@ -59,10 +151,21 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
     const feature = event.features && event.features[0];
     if (feature) {
       setSelectedPoint(feature);
+      setDroppedPin(null);
     } else {
+      const { lng, lat } = event.lngLat;
+      setDroppedPin({ lng, lat });
       setSelectedPoint(null);
+      
+      fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&year=${selectedYear}`)
+        .then(res => res.json())
+        .then(data => {
+          setLocationSummary(summarizeIncidents(data.features));
+        });
     }
   };
+
+  const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, RADIUS_METERS / 1000) : null;
 
   return (
     <div className="h-full w-full">
@@ -98,6 +201,28 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
           </Source>
         }
 
+        {radiusGeoJSON && (
+          <Source type="geojson" data={radiusGeoJSON}>
+            <Layer
+              id="radius-fill"
+              type="fill"
+              paint={{
+                'fill-color': '#3b82f6',
+                'fill-opacity': 0.1
+              }}
+            />
+            <Layer
+              id="radius-outline"
+              type="line"
+              paint={{
+                'line-color': '#3b82f6',
+                'line-width': 2,
+                'line-dasharray': [2, 2]
+              }}
+            />
+          </Source>
+        )}
+
         {selectedPoint && (
           <Popup
             longitude={(selectedPoint.geometry as Point).coordinates[0]}
@@ -114,7 +239,142 @@ export default function Map({ selectedYear }: { selectedYear: number }) {
             </div>
           </Popup>
         )}
+
+        {droppedPin && (
+          <Popup
+            key={`${droppedPin.lng}-${droppedPin.lat}`}
+            longitude={droppedPin.lng}
+            latitude={droppedPin.lat}
+            anchor="bottom"
+            onClose={() => {
+              setDroppedPin(null);
+              setLocationSummary(null);
+            }}
+            maxWidth={'none'}
+          >
+            <div className="p-2 text-black">
+              {locationSummary ? (
+                <div>
+                  <div>
+                    <span className={'text-sm text-gray-500'}>Total Crashes</span>
+                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.totalIncidents}</h4>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <span className={'text-sm text-gray-500'}>Total Comprehensive Cost</span>
+                      <a 
+                        href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                        </svg>
+                      </a>
+                    </div>
+                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{usdFormatter.format(locationSummary.comprehensiveCosts)}</h4>
+                  </div>
+
+                  {Object.entries(locationSummary.severityCounts).map(([severity, count]) => {
+                    if (count === 0) {
+                      return null;
+                    }
+
+                    return  (
+                      <div key={severity}>
+                        <span className={'text-sm text-gray-500'}>{severity}</span>
+                        <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{count}</h4>
+                      </div>
+                    );
+                  })}
+
+                  <div>
+                    <span className={'text-sm text-gray-500'}>Bicyclists Involved</span>
+                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.bicyclesInvolved}</h4>
+                  </div>
+
+                  <div>
+                    <span className={'text-sm text-gray-500'}>Pedestrians Involved</span>
+                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.pedestriansInvolved}</h4>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs">Loading...</p>
+              )}
+            </div>
+          </Popup>
+        )}
       </ReactMap>
     </div>
   );
 }
+
+type Incident = {
+  incident_id: string | number;
+  first_occurrence_date: string | Date;
+  address: string | null;
+  google_maps_url: string | null;
+  neighborhood_id: string | null;
+  top_traffic_accident_offense: string | null;
+  serious_injuries: number;
+  fatalities: number;
+  bicycle_involved: boolean;
+  bicycle_count: number;
+  pedestrian_involved: boolean;
+  pedestrian_count: number;
+  tu1_vehicle_movement: string | null;
+  tu1_driver_action: string | null;
+  tu1_driver_humancontribfactor: string | null;
+  tu1_pedestrian_action: string | null;
+  tu1_vehicle_type: string | null;
+  tu1_travel_direction: string | null;
+  harmful_event_seq_1: string | null;
+  harmful_event_seq_2: string | null;
+  harmful_event_seq_3: string | null;
+  object_id: number;
+  offense_id: string | number;
+  offense_code: string | number;
+  offense_code_extension: string | number;
+  reported_date: string | Date;
+  geo: any; // Typically GeoJSON or WKT string depending on driver
+  geo_x: number | null;
+  geo_y: number | null;
+  geo_lon: number | null;
+  geo_lat: number | null;
+  district_id: string | null;
+  precinct_id: string | null;
+  road_location: string | null;
+  road_description: string | null;
+  road_contour: string | null;
+  road_condition: string | null;
+  light_condition: string | null;
+  tu2_vehicle_type: string | null;
+  tu2_travel_direction: string | null;
+  tu2_vehicle_movement: string | null;
+  tu2_driver_action: string | null;
+  tu2_driver_humancontribfactor: string | null;
+  tu2_pedestrian_action: string | null;
+  fatality_mode_1: string | null;
+  fatality_mode_2: string | null;
+  seriously_injured_mode_1: string | null;
+  seriously_injured_mode_2: string | null;
+  data_notes: string | null;
+};
+
+type LocationSummary = {
+  totalIncidents: number;
+  comprehensiveCosts: number;
+  bicyclesInvolved: number;
+  pedestriansInvolved: number;
+  severityCounts: { Fatalities: number; 'Serious Injuries': number; 'Property Damage or Non-Serious Injuries': number },
+};
+
+const usdFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
