@@ -206,15 +206,15 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
                 'circle-color': [
                   'case',
                   ['>', ['get', 'fatalities'], 0],
-                  '#ef4444', // Red
+                  '#ef4444', // Red (Tailwind red-500)
                   ['>', ['get', 'serious_injuries'], 0],
-                  '#facc15', // Yellow
+                  '#facc15', // Yellow (Tailwind yellow-400)
                   '#22c55e'  // Green
                 ],
                 'circle-radius': [
                   'case',
-                  ['get', 'bicycle_involved'],
-                  8, // Make the circle slightly larger if it's a bicycle to fit the icon
+                  ['any', ['get', 'bicycle_involved']],
+                  8, // Larger circle for icons
                   5
                 ],
                 'circle-stroke-width': 1,
@@ -229,10 +229,6 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
                 'icon-image': 'bicycle-15',
                 'icon-size': 1,
                 'icon-allow-overlap': true,
-              }}
-              paint={{
-                // We keep the icon white so it "cuts out" of the colored circle
-                'icon-color': '#ffffff' 
               }}
             />
           </Source>
