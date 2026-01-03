@@ -8,6 +8,7 @@ export default function Home() {
     start: '2024-01-01',
     end: new Date().toISOString().split('T')[0]
   });
+  const [radiusFeet, setRadiusFeet] = useState(100);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
 
   return (
@@ -42,6 +43,22 @@ export default function Home() {
             </div>
           </div>
 
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-slate-400">Location Summary Radius</label>
+              <span className="text-xs font-mono text-blue-400">{radiusFeet} ft</span>
+            </div>
+            <input
+              type="range"
+              min="50"
+              max="1000"
+              step="50"
+              value={radiusFeet}
+              onChange={(e) => setRadiusFeet(parseInt(e.target.value))}
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+
           <div className="mt-8">
             <h3 className="text-sm font-semibold mb-3 text-slate-400 tracking-wider">Severity</h3>
             <div className="space-y-2">
@@ -74,7 +91,7 @@ export default function Home() {
 
       {/* Map Area */}
       <div className="flex-1 relative">
-        <Map startDate={dateRange.start} endDate={dateRange.end} />
+        <Map startDate={dateRange.start} endDate={dateRange.end} radiusFeet={radiusFeet} />
       </div>
     </main>
   );

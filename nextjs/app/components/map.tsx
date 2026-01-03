@@ -6,7 +6,7 @@ import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapMouseEvent} from 'mapbox-gl';
 import {DateTime} from 'luxon';
 
-const RADIUS_METERS = 20;
+const FEET_TO_METERS = 0.3048;
 
 const createGeoJSONCircle = (center: {lng: number, lat: number}, radiusInKm: number, points: number = 64): GeoJSON => {
   const coords = {
@@ -92,7 +92,7 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
   };
 };
 
-export default function Map({ startDate, endDate }: { startDate: string, endDate: string }) {
+export default function Map({ startDate, endDate, radiusFeet }: { startDate: string, endDate: string, radiusFeet: number }) {
   const [viewport, setViewport] = React.useState({
     latitude: 39.7392,
     longitude: -104.9903,
@@ -151,14 +151,15 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
 
     const lng = droppedPin.lng;
     const lat = droppedPin.lat;
+    const radiusMeters = radiusFeet * FEET_TO_METERS;
 
     setLocationSummary(null);
-    fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&startDate=${startDate}&endDate=${endDate}`)
+    fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
       .then(res => res.json())
       .then(data => {
         setLocationSummary(summarizeIncidents(data.features));
       });
-  }, [startDate, endDate]);
+  }, [startDate, endDate, radiusFeet, droppedPin]);
 
   const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
     fetchIncidents(event.target);
@@ -174,7 +175,9 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
       setDroppedPin({ lng, lat });
       setSelectedPoint(null);
       
-      fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${RADIUS_METERS}&startDate=${startDate}&endDate=${endDate}`)
+      const radiusMeters = radiusFeet * FEET_TO_METERS;
+
+      fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
         .then(res => res.json())
         .then(data => {
           setLocationSummary(summarizeIncidents(data.features));
@@ -182,7 +185,7 @@ export default function Map({ startDate, endDate }: { startDate: string, endDate
     }
   };
 
-  const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, RADIUS_METERS / 1000) : null;
+  const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000) : null;
 
   return (
     <div className="h-full w-full">
