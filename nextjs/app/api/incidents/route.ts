@@ -4,15 +4,23 @@ import { NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const bbox = searchParams.get('bbox');
+  const year = searchParams.get('year');
 
-  let whereClause = "WHERE first_occurrence_date > '2025-12-25'";
+  let whereClause = "WHERE 1=1";
   const queryParams: any[] = [];
+  let paramIndex = 1;
+
+  if (year) {
+    whereClause += ` AND EXTRACT(YEAR FROM first_occurrence_date) = $${paramIndex++}`;
+    queryParams.push(parseInt(year));
+  } else {
+    // Default fallback if no year is selected
+    whereClause += " AND first_occurrence_date > '2025-12-25'";
+  }
 
   if (bbox) {
     const [minX, minY, maxX, maxY] = bbox.split(',').map(Number);
-    // Use ST_MakeEnvelope(minX, minY, maxX, maxY, srid)
-    // 4326 is standard WGS 84 (lat/lng)
-    whereClause += ` AND ST_Intersects(geo, ST_MakeEnvelope($1, $2, $3, $4, 4326))`;
+    whereClause += ` AND ST_Intersects(geo, ST_MakeEnvelope($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 4326))`;
     queryParams.push(minX, minY, maxX, maxY);
   }
 

@@ -5,36 +5,44 @@ import React, {useEffect} from 'react';
 import {FeatureCollection, Point} from 'geojson';
 import {GeoJSONFeature, MapMouseEvent} from 'mapbox-gl';
 
-export default function Map() {
+export default function Map({ selectedYear }: { selectedYear: number }) {
   const [viewport, setViewport] = React.useState({
     latitude: 39.7392,
     longitude: -104.9903,
     zoom: 13,
   });
 
-    const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
-    const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
+  const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
+  const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
+  const mapRef = React.useRef<any>(null);
 
-    const fetchIncidents = React.useCallback((mapTarget: any) => {
-        const bounds = mapTarget.getBounds();
-        const bbox = [
-            bounds.getWest(),
-            bounds.getSouth(),
-            bounds.getEast(),
-            bounds.getNorth()
-        ].join(',');
+  const fetchIncidents = React.useCallback((mapTarget: any) => {
+    if (!mapTarget) return;
+    const bounds = mapTarget.getBounds();
+    const bbox = [
+      bounds.getWest(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getNorth()
+    ].join(',');
 
-        console.log('fetching incidents for bbox:', bbox);
-        fetch(`/api/incidents?bbox=${bbox}`).then((response) => {
-            return response.json();
-        }).then((json) => {
-            setIncidentGeoJson(json);
-        });
-    }, []);
+    console.log('fetching incidents for bbox:', bbox, 'year:', selectedYear);
+    fetch(`/api/incidents?bbox=${bbox}&year=${selectedYear}`).then((response) => {
+      return response.json();
+    }).then((json) => {
+      setIncidentGeoJson(json);
+    });
+  }, [selectedYear]);
 
-    const onMoveEnd = React.useCallback((event: any) => {
-        fetchIncidents(event.target);
-    }, [fetchIncidents]);
+  useEffect(() => {
+    if (mapRef.current) {
+        fetchIncidents(mapRef.current.getMap());
+    }
+  }, [selectedYear, fetchIncidents]);
+
+  const onMoveEnd = React.useCallback((event: any) => {
+    fetchIncidents(event.target);
+  }, [fetchIncidents]);
 
   const onClick = (event: MapMouseEvent) => {
     const feature = event.features && event.features[0];
@@ -45,22 +53,23 @@ export default function Map() {
     }
   };
 
-    return (
-        <div className="h-screen w-screen">
-            <ReactMap
-                {...viewport}
-                onMove={evt => setViewport(evt.viewState)}
-                onMoveEnd={onMoveEnd}
-                onLoad={evt => fetchIncidents(evt.target)}
-                onClick={onClick}
+  return (
+    <div className="h-full w-full">
+      <ReactMap
+        {...viewport}
+        ref={mapRef}
+        onMove={evt => setViewport(evt.viewState)}
+        onMoveEnd={onMoveEnd}
+        onLoad={evt => fetchIncidents(evt.target)}
+        onClick={onClick}
         interactiveLayerIds={['incident-layer']}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
         {incidentGeoJson &&
-            <Source type={'geojson'} data={incidentGeoJson}>
-                <Layer id="incident-layer" type={'circle'} />
-            </Source>
+          <Source type={'geojson'} data={incidentGeoJson}>
+            <Layer id="incident-layer" type={'circle'} />
+          </Source>
         }
 
         {selectedPoint && (
