@@ -7,7 +7,10 @@ import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
 
 const FEET_TO_METERS = 0.3048;
 
-const createGeoJSONCircle = (center: {lng: number, lat: number}, radiusInKm: number, points: number = 64): GeoJSON => {
+const createGeoJSONCircle = (center: {
+  lng: number,
+  lat: number
+}, radiusInKm: number, points: number = 64): GeoJSON => {
   const coords = {
     latitude: center.lat,
     longitude: center.lng
@@ -97,9 +100,17 @@ export const defaultViewport = {
   zoom: 16,
 };
 
-export default function Map({ droppedPin, locationSummary, setLocationSummary, setDroppedPin, startDate, endDate, radiusFeet }: {
-  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number} | null;
-  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number} | null>>
+export default function Map({
+                              droppedPin,
+                              locationSummary,
+                              setLocationSummary,
+                              setDroppedPin,
+                              startDate,
+                              endDate,
+                              radiusFeet
+                            }: {
+  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number } | null;
+  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number } | null>>
   locationSummary: LocationSummary | null;
   setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
 }) {
@@ -108,6 +119,7 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
   const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
 
+  const loadAllIncidents = false;
   const displayStreetCenterlines = false;
 
   const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
@@ -127,11 +139,13 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
       bounds.getNorth()
     ].join(',');
 
-    fetch(`/api/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
-      return response.json();
-    }).then((json) => {
-      setIncidentGeoJson(json);
-    });
+    if (loadAllIncidents) {
+      fetch(`/api/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
+        return response.json();
+      }).then((json) => {
+        setIncidentGeoJson(json);
+      });
+    }
 
     if (displayStreetCenterlines) {
       fetch(`/api/street-centerlines?bbox=${bbox}`).then((response) => {
@@ -144,32 +158,44 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
 
   useEffect(() => {
     if (mapRef.current) {
-        fetchIncidents(mapRef.current.getMap());
+      fetchIncidents(mapRef.current.getMap());
+
+      const radiusMeters = radiusFeet * FEET_TO_METERS;
+      fetch(`/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+        .then(res => res.json())
+        .then(data => {
+          setIncidentGeoJson(data);
+          setLocationSummary(summarizeIncidents(data.features));
+        });
     }
   }, [startDate, endDate, fetchIncidents]);
 
-  useEffect(() => {
-    if (!droppedPin) {
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      return;
-    }
-
-    const lng = droppedPin.lng;
-    const lat = droppedPin.lat;
-    const radiusMeters = radiusFeet * FEET_TO_METERS;
-
-    setLocationSummary(null);
-    fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-      .then(res => res.json())
-      .then(data => {
-        setLocationSummary(summarizeIncidents(data.features));
-      });
-  }, [startDate, endDate, radiusFeet, droppedPin]);
+  // useEffect(() => {
+  //   if (!droppedPin) {
+  //     return;
+  //   }
+  //
+  //   if (!startDate || !endDate) {
+  //     return;
+  //   }
+  //
+  //   const lng = droppedPin.lng;
+  //   const lat = droppedPin.lat;
+  //   const radiusMeters = radiusFeet * FEET_TO_METERS;
+  //
+  //   setLocationSummary(null);
+  //   fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+  //     .then(res => res.json())
+  //     .then(data => {
+  //       setLocationSummary(summarizeIncidents(data.features));
+  //     });
+  // }, [startDate, endDate, radiusFeet, droppedPin]);
 
   const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
+    if (!loadAllIncidents) {
+      return;
+    }
+
     fetchIncidents(event.target);
   }, [fetchIncidents]);
 
@@ -179,15 +205,16 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
       setSelectedPoint(feature);
       setDroppedPin(null);
     } else {
-      const { lng, lat } = event.lngLat;
-      setDroppedPin({ lng, lat });
+      const {lng, lat} = event.lngLat;
+      setDroppedPin({lng, lat});
       setSelectedPoint(null);
-      
+
       const radiusMeters = radiusFeet * FEET_TO_METERS;
 
       fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
         .then(res => res.json())
         .then(data => {
+          setIncidentGeoJson(data);
           setLocationSummary(summarizeIncidents(data.features));
         });
     }
@@ -196,6 +223,18 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
   const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000) : null;
 
   const onLoad = (event: MapEvent) => {
+    if (!loadAllIncidents && droppedPin && radiusFeet > 0) {
+      const radiusMeters = radiusFeet * FEET_TO_METERS;
+
+      fetch(`/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+        .then(res => res.json())
+        .then(data => {
+          setIncidentGeoJson(data);
+          setLocationSummary(summarizeIncidents(data.features));
+        });
+      return;
+    }
+
     const map = event.target;
     fetchIncidents(map);
   };
@@ -214,39 +253,45 @@ export default function Map({ droppedPin, locationSummary, setLocationSummary, s
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
         {incidentGeoJson &&
-          <Source type={'geojson'} data={incidentGeoJson}>
-            <Layer
-              id="incident-layer"
-              type="circle"
-              paint={{
-                'circle-color': [
-                  'case',
-                  ['>', ['get', 'fatalities'], 0],
-                  '#ef4444', // Red (Tailwind red-500)
-                  ['>', ['get', 'serious_injuries'], 0],
-                  '#facc15', // Yellow (Tailwind yellow-400)
-                  '#22c55e'  // Green
-                ],
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#ffffff'
-              }}
-            />
-          </Source>
+            <Source
+                id="incidents"
+                type="geojson"
+                data={incidentGeoJson}
+            >
+                <Layer
+                    id="incident-layer"
+                    type="circle"
+                    filter={['!', ['has', 'point_count']]}
+                    paint={{
+                      'circle-color': [
+                        'case',
+                        ['>', ['get', 'fatalities'], 0],
+                        '#ef4444', // Red (Tailwind red-500)
+                        ['>', ['get', 'serious_injuries'], 0],
+                        '#facc15', // Yellow (Tailwind yellow-400)
+                        '#22c55e'  // Green
+                      ],
+                      'circle-stroke-width': 1,
+                      'circle-stroke-color': '#ffffff'
+                    }}
+                />
+            </Source>
         }
+
         {streetCenterlines &&
-          <Source type={'geojson'} data={streetCenterlines}>
-            <Layer id="street-centerline-layer" type={'line'} paint={{
-              'line-width': 2,
-              'line-color': [
-                'step',
-                ['get', 'speedlimit'],
-                '#33ea2d', // Default color (for < 25)
-                26, '#fafa37', // Yellow for 26-34
-                35, '#ff8c00', // Orange for 36-44
-                45, '#ff0000'  // Red for 50+
-              ]
-            }} />
-          </Source>
+            <Source type={'geojson'} data={streetCenterlines}>
+                <Layer id="street-centerline-layer" type={'line'} paint={{
+                  'line-width': 2,
+                  'line-color': [
+                    'step',
+                    ['get', 'speedlimit'],
+                    '#33ea2d', // Default color (for < 25)
+                    26, '#fafa37', // Yellow for 26-34
+                    35, '#ff8c00', // Orange for 36-44
+                    45, '#ff0000'  // Red for 50+
+                  ]
+                }}/>
+            </Source>
         }
 
         {radiusGeoJSON && (
