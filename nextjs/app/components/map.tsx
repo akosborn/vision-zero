@@ -227,16 +227,6 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate?: st
                 'circle-stroke-color': '#ffffff'
               }}
             />
-            <Layer
-              id="bicycle-icon-layer"
-              type="symbol"
-              filter={['==', ['get', 'bicycle_involved'], true]}
-              layout={{
-                'icon-image': 'person-walking',
-                'icon-size': 1,
-                'icon-allow-overlap': true,
-              }}
-            />
           </Source>
         }
         {streetCenterlines &&

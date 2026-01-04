@@ -77,14 +77,14 @@ export default function Home() {
         <div className="flex items-center gap-4">
           <Field>
             <FieldLabel htmlFor={'radius-feet'}>
-              Location summary radius (ft)
+              Location summary radius: {radiusFeet} ft
             </FieldLabel>
             <Slider id={'radius-feet'} min={10}
                     step={10}
                     max={500}
                     value={[radiusFeet]}
                     onValueChange={(values) => setRadiusFeet(values[0])}
-                    className={'h-9'}
+                    className={'h-6'}
             />
           </Field>
         </div>
