@@ -4,7 +4,6 @@ import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy'
 import React, {useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
-import {DateTime} from 'luxon';
 
 const FEET_TO_METERS = 0.3048;
 
@@ -92,17 +91,22 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
   };
 };
 
-export default function Map({ startDate, endDate, radiusFeet }: { startDate?: string, endDate?: string, radiusFeet: number }) {
-  const [viewport, setViewport] = React.useState({
-    latitude: 39.7392,
-    longitude: -104.9903,
-    zoom: 14,
-  });
+export const defaultViewport = {
+  latitude: 39.7400,
+  longitude: -104.9874,
+  zoom: 16,
+};
+
+export default function Map({ droppedPin, locationSummary, setLocationSummary, setDroppedPin, startDate, endDate, radiusFeet }: {
+  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number} | null;
+  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number} | null>>
+  locationSummary: LocationSummary | null;
+  setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
+}) {
+  const [viewport, setViewport] = React.useState(defaultViewport);
 
   const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
-  const [droppedPin, setDroppedPin] = React.useState<{lng: number, lat: number} | null>(null);
-  const [locationSummary, setLocationSummary] = React.useState<LocationSummary | null>(null);
 
   const displayStreetCenterlines = false;
 
@@ -283,79 +287,6 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate?: st
             </div>
           </Popup>
         )}
-
-        {droppedPin && (
-          <Popup
-            key={`${droppedPin.lng}-${droppedPin.lat}`}
-            longitude={droppedPin.lng}
-            latitude={droppedPin.lat}
-            anchor="bottom"
-            onClose={() => {
-              setDroppedPin(null);
-              setLocationSummary(null);
-            }}
-            maxWidth={'none'}
-          >
-            <div className="p-2 text-black">
-              {startDate && endDate && locationSummary ? (
-                <div>
-                  <h5 className={'mb-2 text-gray-800 text-lg'}>
-                    {DateTime.fromISO(startDate, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)} to {' '}
-                    {DateTime.fromISO(endDate, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)}
-                  </h5>
-
-                  <div>
-                    <span className={'text-sm text-gray-500'}>Total Crashes</span>
-                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.totalIncidents}</h4>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-1">
-                      <span className={'text-sm text-gray-500'}>Total Comprehensive Cost</span>
-                      <a
-                        href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-gray-400 hover:text-blue-500 transition-colors"
-                        title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
-                        </svg>
-                      </a>
-                    </div>
-                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{usdFormatter.format(locationSummary.comprehensiveCosts)}</h4>
-                  </div>
-
-                  {Object.entries(locationSummary.severityCounts).map(([severity, count]) => {
-                    if (count === 0) {
-                      return null;
-                    }
-
-                    return  (
-                      <div key={severity}>
-                        <span className={'text-sm text-gray-500'}>{severity}</span>
-                        <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{count}</h4>
-                      </div>
-                    );
-                  })}
-
-                  <div>
-                    <span className={'text-sm text-gray-500'}>Bicyclists Involved</span>
-                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.bicyclesInvolved}</h4>
-                  </div>
-
-                  <div>
-                    <span className={'text-sm text-gray-500'}>Pedestrians Involved</span>
-                    <h4 className={'mb-2 font-bold text-gray-800 text-xl'}>{locationSummary.pedestriansInvolved}</h4>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs">Loading...</p>
-              )}
-            </div>
-          </Popup>
-        )}
       </ReactMap>
     </div>
   );
@@ -413,17 +344,10 @@ type Incident = {
   data_notes: string | null;
 };
 
-type LocationSummary = {
+export type LocationSummary = {
   totalIncidents: number;
   comprehensiveCosts: number;
   bicyclesInvolved: number;
   pedestriansInvolved: number;
   severityCounts: { Fatalities: number; 'Serious Injuries': number; 'Property Damage or Non-Serious Injuries': number },
 };
-
-const usdFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
