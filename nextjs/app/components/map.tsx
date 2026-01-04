@@ -160,13 +160,15 @@ export default function Map({
     if (mapRef.current) {
       fetchIncidents(mapRef.current.getMap());
 
-      const radiusMeters = radiusFeet * FEET_TO_METERS;
-      fetch(`/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-        .then(res => res.json())
-        .then(data => {
-          setIncidentGeoJson(data);
-          setLocationSummary(summarizeIncidents(data.features));
-        });
+      if (droppedPin) {
+        const radiusMeters = radiusFeet * FEET_TO_METERS;
+        fetch(`/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+          .then(res => res.json())
+          .then(data => {
+            setIncidentGeoJson(data);
+            setLocationSummary(summarizeIncidents(data.features));
+          });
+      }
     }
   }, [startDate, endDate, fetchIncidents]);
 
