@@ -3,7 +3,7 @@
 import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy';
 import React, {useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
-import {GeoJSONFeature, MapMouseEvent} from 'mapbox-gl';
+import {GeoJSONFeature, MapEvent, MapEventType, MapMouseEvent} from 'mapbox-gl';
 import {DateTime} from 'luxon';
 
 const FEET_TO_METERS = 0.3048;
@@ -187,6 +187,26 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
 
   const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000) : null;
 
+  const onLoad = (event: MapEvent) => {
+    const map = event.target;
+
+    // Load custom svgs
+    // map.loadImage('/icons/person-walking.webp', (error: unknown, image: any) => {
+    //   if (error) throw error;
+    //   if (!map.hasImage('person-walking')) {
+    //     map.addImage('person-walking', image, { sdf: true });
+    //   }
+    // });
+    // map.loadImage('/icons/person-biking.webp', (error: unknown, image: any) => {
+    //   if (error) throw error;
+    //   if (!map.hasImage('person-biking')) {
+    //     map.addImage('person-biking', image, { sdf: true });
+    //   }
+    // });
+
+    fetchIncidents(map);
+  };
+
   return (
     <div className="h-full w-full">
       <ReactMap
@@ -194,7 +214,7 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
         ref={mapRef}
         onMove={evt => setViewport(evt.viewState)}
         onMoveEnd={onMoveEnd}
-        onLoad={evt => fetchIncidents(evt.target)}
+        onLoad={onLoad}
         onClick={onClick}
         interactiveLayerIds={['incident-layer']}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
@@ -229,7 +249,7 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
               type="symbol"
               filter={['==', ['get', 'bicycle_involved'], true]}
               layout={{
-                'icon-image': 'bicycle-15',
+                'icon-image': 'person-walking',
                 'icon-size': 1,
                 'icon-allow-overlap': true,
               }}
