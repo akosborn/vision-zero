@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import Map from './components/map';
+import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
+import {faSquareCaretLeft, faSquareCaretRight} from '@fortawesome/free-regular-svg-icons';
 
 export default function Home() {
   const [dateRange, setDateRange] = useState({
@@ -80,13 +82,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Toggle Button */}
       <button
         onClick={() => setIsPanelOpen(!isPanelOpen)}
-        className="absolute left-0 top-4 z-20 bg-slate-900 text-white p-2 rounded-r-md shadow-md hover:bg-slate-800 transition-all"
+        className="absolute left-0 top-4 z-20 bg-slate-900 text-white p-2 rounded-r-md shadow-md hover:bg-slate-800 transition-all cursor-pointer"
         style={{ left: isPanelOpen ? '16rem' : '0' }}
       >
-        {isPanelOpen ? '◀' : '▶'}
+        {isPanelOpen ? <FontAwesomeIcon icon={faSquareCaretLeft} /> : <FontAwesomeIcon icon={faSquareCaretRight} />}
       </button>
 
       {/* Map Area */}
