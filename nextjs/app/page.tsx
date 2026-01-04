@@ -1,99 +1,115 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import Map from './components/map';
-import {FontAwesomeIcon} from '@fortawesome/react-fontawesome';
-import {faSquareCaretLeft, faSquareCaretRight} from '@fortawesome/free-regular-svg-icons';
+import {DateTime} from 'luxon';
+import 'flatpickr/dist/themes/dark.css';
+import {Calendar} from '@/components/ui/calendar';
+import {Button} from '@/components/ui/button';
+import {CalendarIcon} from 'lucide-react';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
+import {Label} from '@/components/ui/label';
+import {Slider} from '@/components/ui/slider';
+import {Field, FieldDescription, FieldLabel} from '@/components/ui/field';
 
 export default function Home() {
-  const [dateRange, setDateRange] = useState({
-    start: '2024-01-01',
-    end: new Date().toISOString().split('T')[0]
+  const [dateRange, setDateRange] = useState<{ from?: string; to?: string } | undefined>({
+    from: DateTime.now().setZone('America/Denver').minus({months: 12}).toFormat('yyyy-MM-dd'),
+    to: DateTime.now().setZone('America/Denver').toFormat('yyyy-MM-dd'),
   });
   const [radiusFeet, setRadiusFeet] = useState(100);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
+
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
 
   return (
     <main className="relative flex h-screen w-screen overflow-hidden">
-      {/* Sidebar Panel */}
-      <div 
-        className={`bg-slate-900 text-white transition-all duration-300 ease-in-out z-10 shadow-xl ${
-          isPanelOpen ? 'w-64' : 'w-0'
-        }`}
-      >
-        <div className={`p-4 ${isPanelOpen ? 'block' : 'hidden'} whitespace-nowrap`}>
-          <h2 className="text-xl font-bold mb-6">Filters</h2>
-          
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm font-medium mb-1 text-slate-400">Start Date</label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-slate-400">End Date</label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
+      {/* Map Area */}
+      <div className="absolute inset-0">
+        <Map startDate={dateRange?.from} endDate={dateRange?.to} radiusFeet={radiusFeet}/>
+      </div>
 
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-400">Location Summary Radius</label>
-              <span className="text-xs font-mono text-blue-400">{radiusFeet} ft</span>
-            </div>
-            <input
-              type="range"
-              min="50"
-              max="1000"
-              step="50"
-              value={radiusFeet}
-              onChange={(e) => setRadiusFeet(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+      {/* Top Filter Panel Overlay */}
+      <div className="absolute top-6 left-6 z-10 flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
+        <div className="flex items-center gap-4 border-r pr-6">
+          <div className="flex flex-col gap-3">
+            <FieldLabel htmlFor="date">
+              Date range
+            </FieldLabel>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  id="date"
+                  className="w-60 justify-between font-normal"
+                >
+                  {dateRange?.from && dateRange.to
+                        ? `${DateTime.fromISO(dateRange?.from, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)} to ${DateTime.fromISO(dateRange.to, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)}`
+                        : 'Select dates'}
+                      <CalendarIcon size={3.5}/>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                <Calendar
+                  className={'pointer-events-auto'}
+                  mode="range"
+                  defaultMonth={dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined}
+                  selected={{
+                    from: dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined,
+                    to: dateRange?.to ? DateTime.fromISO(dateRange.to).toJSDate() : undefined
+                  }}
+                  onSelect={(range) => {
+                    if (!range) {
+                      setDateRange(undefined);
+                    }
+
+                    setDateRange({
+                      from: range?.from ? DateTime.fromJSDate(range.from).toISODate()! : undefined,
+                      to: range?.to ? DateTime.fromJSDate(range.to).toISODate()! : undefined
+                    });
+                  }}
+                  captionLayout="dropdown"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Field>
+            <FieldLabel htmlFor={'radius-feet'}>
+              Location summary radius (ft)
+            </FieldLabel>
+            <Slider id={'radius-feet'} min={10}
+                    step={10}
+                    max={500}
+                    value={[radiusFeet]}
+                    onValueChange={(values) => setRadiusFeet(values[0])}
+                    className={'h-9'}
             />
-          </div>
-
-          <div className="mt-8">
-            <h3 className="text-sm font-semibold mb-3 text-slate-400 tracking-wider">Severity</h3>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>
-                <span className="text-sm text-slate-200">Fatality</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>
-                <span className="text-sm text-slate-200">Serious Injury</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>
-                <span className="text-sm text-slate-200 text-wrap">Minor Injury or Property Damage</span>
-              </div>
-            </div>
-          </div>
-
+          </Field>
         </div>
       </div>
 
-      <button
-        onClick={() => setIsPanelOpen(!isPanelOpen)}
-        className="absolute left-0 top-4 z-20 bg-slate-900 text-white p-2 rounded-r-md shadow-md hover:bg-slate-800 transition-all cursor-pointer"
-        style={{ left: isPanelOpen ? '16rem' : '0' }}
-      >
-        {isPanelOpen ? <FontAwesomeIcon icon={faSquareCaretLeft} /> : <FontAwesomeIcon icon={faSquareCaretRight} />}
-      </button>
-
-      {/* Map Area */}
-      <div className="flex-1 relative">
-        <Map startDate={dateRange.start} endDate={dateRange.end} radiusFeet={radiusFeet} />
+      {/* Legend Overlay */}
+      <div
+        className="absolute bottom-6 right-6 z-10 p-4 rounded-lg shadow-xl bg-background text-foreground">
+        <h3 className="text-xs font-semibold mb-3 tracking-wider uppercase">Crash Severity</h3>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>
+            <span className="text-sm">Fatality</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>
+            <span className="text-sm">Serious Injury</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>
+            <span className="text-sm">Minor Injury or Only Property Damage</span>
+          </div>
+        </div>
       </div>
     </main>
-  );
+  )
+    ;
 }

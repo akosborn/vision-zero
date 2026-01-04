@@ -3,7 +3,7 @@
 import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy';
 import React, {useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
-import {GeoJSONFeature, MapEvent, MapEventType, MapMouseEvent} from 'mapbox-gl';
+import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
 import {DateTime} from 'luxon';
 
 const FEET_TO_METERS = 0.3048;
@@ -92,7 +92,7 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
   };
 };
 
-export default function Map({ startDate, endDate, radiusFeet }: { startDate: string, endDate: string, radiusFeet: number }) {
+export default function Map({ startDate, endDate, radiusFeet }: { startDate?: string, endDate?: string, radiusFeet: number }) {
   const [viewport, setViewport] = React.useState({
     latitude: 39.7392,
     longitude: -104.9903,
@@ -149,6 +149,10 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
       return;
     }
 
+    if (!startDate || !endDate) {
+      return;
+    }
+
     const lng = droppedPin.lng;
     const lat = droppedPin.lat;
     const radiusMeters = radiusFeet * FEET_TO_METERS;
@@ -189,21 +193,6 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
 
   const onLoad = (event: MapEvent) => {
     const map = event.target;
-
-    // Load custom svgs
-    // map.loadImage('/icons/person-walking.webp', (error: unknown, image: any) => {
-    //   if (error) throw error;
-    //   if (!map.hasImage('person-walking')) {
-    //     map.addImage('person-walking', image, { sdf: true });
-    //   }
-    // });
-    // map.loadImage('/icons/person-biking.webp', (error: unknown, image: any) => {
-    //   if (error) throw error;
-    //   if (!map.hasImage('person-biking')) {
-    //     map.addImage('person-biking', image, { sdf: true });
-    //   }
-    // });
-
     fetchIncidents(map);
   };
 
@@ -233,12 +222,6 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
                   ['>', ['get', 'serious_injuries'], 0],
                   '#facc15', // Yellow (Tailwind yellow-400)
                   '#22c55e'  // Green
-                ],
-                'circle-radius': [
-                  'case',
-                  ['any', ['get', 'bicycle_involved']],
-                  8, // Larger circle for icons
-                  5
                 ],
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#ffffff'
@@ -324,7 +307,7 @@ export default function Map({ startDate, endDate, radiusFeet }: { startDate: str
             maxWidth={'none'}
           >
             <div className="p-2 text-black">
-              {locationSummary ? (
+              {startDate && endDate && locationSummary ? (
                 <div>
                   <h5 className={'mb-2 text-gray-800 text-lg'}>
                     {DateTime.fromISO(startDate, { zone: 'America/Denver' }).toLocaleString(DateTime.DATE_MED)} to {' '}
