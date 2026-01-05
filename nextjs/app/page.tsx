@@ -17,12 +17,16 @@ import {LngLatBounds} from 'mapbox-gl';
 import {MapRef} from 'react-map-gl/mapbox-legacy';
 
 const STREET_NAMES_OPTIONS = [
+  { id: '7THAVE', label: '7th Ave' },
+  { id: '29THAVE', label: '29th Ave' },
   { id: 'ALAMEDAAVE', label: 'Alameda Ave' },
   { id: 'COLFAXAVE', label: 'Colfax Ave' },
   { id: 'COLORADOBLVD', label: 'Colorado Blvd' },
   { id: 'FEDERALBLVD', label: 'Federal Blvd' },
   { id: 'LARIMERST', label: 'Larimer St' },
   { id: 'SPEERBLVD', label: 'Speer Blvd' },
+  { id: 'TEJONST', label: 'Tejon St' },
+  { id: 'YORKST', label: 'York St' },
 ];
 
 export default function Home() {
@@ -39,6 +43,7 @@ export default function Home() {
   const [streetName, setStreetName] = useState<string | null>(null);
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
 
+console.log('streetName', streetName);
 
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [droppedPin, setDroppedPin] = React.useState<{ lng: number, lat: number } | null>({
@@ -147,7 +152,7 @@ export default function Home() {
         <div className={'flex items-center gap-4'}>
           <Field className={'w-45'}>
             <FieldLabel htmlFor={'area-of-interest'}>Jump to area of interest</FieldLabel>
-            <Select value={streetName || undefined} onValueChange={(value) => {
+            <Select value={streetName || ''} onValueChange={(value) => {
               setIncidentGeoJson(null);
               setAreaOfInterestIncidentGeoJson(null);
               setLocationSummary(null);
