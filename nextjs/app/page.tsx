@@ -43,8 +43,6 @@ export default function Home() {
   const [streetName, setStreetName] = useState<string | null>(null);
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
 
-console.log('streetName', streetName);
-
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [droppedPin, setDroppedPin] = React.useState<{ lng: number, lat: number } | null>({
     lng: defaultViewport.longitude,
