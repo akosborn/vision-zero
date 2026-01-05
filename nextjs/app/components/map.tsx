@@ -1,6 +1,6 @@
 'use client';
 
-import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy';
+import {Layer, Map as ReactMap, MapRef, Popup, Source} from 'react-map-gl/mapbox-legacy';
 import React, {forwardRef, useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
@@ -114,7 +114,7 @@ type Props = {
   streetName: string | null;
 };
 
-export default forwardRef<any, Props>(function Map({
+export default forwardRef<MapRef | null, Props>(function Map({
   areaOfInterestIncidentGeoJson,
   incidentGeoJson,
   setIncidentGeoJson,
@@ -184,7 +184,7 @@ export default forwardRef<any, Props>(function Map({
   }, [startDate, endDate, streetName, radiusFeet]);
 
   useEffect(() => {
-    if ((mapRef as any)?.current) {
+    if (mapRef && 'current' in mapRef && mapRef.current) {
       fetchIncidents(mapRef.current.getMap());
 
       if (droppedPin) {

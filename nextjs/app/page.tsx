@@ -14,6 +14,7 @@ import {Separator} from '@/components/ui/separator';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {FeatureCollection} from 'geojson';
 import {LngLatBounds} from 'mapbox-gl';
+import {MapRef} from 'react-map-gl/mapbox-legacy';
 
 const STREET_NAMES_OPTIONS = [
   { id: 'ALAMEDAAVE', label: 'Alameda Ave' },
@@ -25,7 +26,7 @@ const STREET_NAMES_OPTIONS = [
 ];
 
 export default function Home() {
-  const mapRef = React.useRef<any>(null);
+  const mapRef = React.useRef<MapRef | null>(null);
 
   const [viewport, setViewport] = React.useState(defaultViewport);
 
