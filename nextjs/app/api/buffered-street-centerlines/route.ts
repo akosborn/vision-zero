@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       )
     ) AS geojson
     FROM public.denver_street_centerlines
-    WHERE name = '${streetName}';
+    WHERE CONCAT(name, type) = '${streetName}';
   `;
 
   const results = await dbClient.query(query);

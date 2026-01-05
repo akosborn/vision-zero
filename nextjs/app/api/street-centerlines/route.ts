@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (streetName) {
-    whereClause += ` AND name = '${streetName}'`;
+    whereClause += ` AND CONCAT(name, type) = '${streetName}'`;
   }
 
   const query = `

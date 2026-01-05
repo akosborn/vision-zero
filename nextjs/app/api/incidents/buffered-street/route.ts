@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
            ${bufferInMeters}
        )::geometry AS line
 FROM public.denver_street_centerlines
-WHERE name = '${streetName}'
+WHERE CONCAT(name, type) = '${streetName}'
 )
 SELECT
                         incident_id,

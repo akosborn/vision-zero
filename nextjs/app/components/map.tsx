@@ -1,7 +1,7 @@
 'use client';
 
 import {Layer, Map as ReactMap, Popup, Source} from 'react-map-gl/mapbox-legacy';
-import React, {useEffect} from 'react';
+import React, {forwardRef, useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
 import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
 
@@ -100,7 +100,25 @@ export const defaultViewport = {
   zoom: 13,
 };
 
-export default function Map({
+type Props = {
+  incidentGeoJson?: FeatureCollection | null;
+  setIncidentGeoJson: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  setStreetName: React.Dispatch<React.SetStateAction<string | null>>;
+  areaOfInterestIncidentGeoJson?: FeatureCollection | null;
+  setAreaOfInterestIncidentGeoJson: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  viewport: { latitude: number, longitude: number, zoom: number },
+  setViewport: React.Dispatch<React.SetStateAction<{ latitude: number, longitude: number, zoom: number }>>,
+  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number } | null;
+  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number } | null>>
+  setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
+  streetName: string | null;
+};
+
+export default forwardRef<any, Props>(function Map({
+  areaOfInterestIncidentGeoJson,
+  incidentGeoJson,
+  setIncidentGeoJson,
+  setAreaOfInterestIncidentGeoJson,
                               droppedPin,
                               setLocationSummary,
                               setDroppedPin,
@@ -108,15 +126,10 @@ export default function Map({
                               endDate,
                               radiusFeet,
   streetName,
-                            }: {
-  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number } | null;
-  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number } | null>>
-  setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
-  streetName: string | null;
-}) {
-  const [viewport, setViewport] = React.useState(defaultViewport);
-
-  const [incidentGeoJson, setIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
+  setStreetName,
+  viewport,
+  setViewport,
+                            }, mapRef) {
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
 
   const loadAllIncidents = false;
@@ -124,9 +137,6 @@ export default function Map({
 
   const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
   const [bufferedStreet, setBufferedStreet] = React.useState<FeatureCollection | null>(null);
-  const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
-
-  const mapRef = React.useRef<any>(null);
 
   const fetchIncidents = React.useCallback((mapTarget: any) => {
     if (!mapTarget) {
@@ -166,14 +176,15 @@ export default function Map({
 
       fetch(`/api/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
         return response.json();
-      }).then((json) => {
-        setAreaOfInterestIncidentGeoJson(json);
+      }).then((data) => {
+        setAreaOfInterestIncidentGeoJson(data);
+        setLocationSummary(summarizeIncidents(data.features));
       });
     }
   }, [startDate, endDate, streetName, radiusFeet]);
 
   useEffect(() => {
-    if (mapRef.current) {
+    if ((mapRef as any)?.current) {
       fetchIncidents(mapRef.current.getMap());
 
       if (droppedPin) {
@@ -223,6 +234,12 @@ export default function Map({
       setSelectedPoint(feature);
       setDroppedPin(null);
     } else {
+      setStreetName('');
+      setAreaOfInterestIncidentGeoJson(null);
+      setLocationSummary(null);
+      setIncidentGeoJson(null);
+      setStreetCenterlines(null);
+      setBufferedStreet(null);
       const {lng, lat} = event.lngLat;
       setDroppedPin({lng, lat});
       setSelectedPoint(null);
@@ -298,12 +315,12 @@ export default function Map({
 
         {areaOfInterestIncidentGeoJson &&
             <Source
-                id="incidents"
+                id="area-of-interest-incidents"
                 type="geojson"
                 data={areaOfInterestIncidentGeoJson}
             >
                 <Layer
-                    id="incident-layer"
+                    id="area-of-interest-incident-layer"
                     type="circle"
                     filter={['!', ['has', 'point_count']]}
                     paint={{
@@ -403,7 +420,7 @@ export default function Map({
       </ReactMap>
     </div>
   );
-}
+})
 
 type Incident = {
   incident_id: string | number;
