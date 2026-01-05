@@ -6,7 +6,7 @@ import {DateTime} from 'luxon';
 import 'flatpickr/dist/themes/dark.css';
 import {Calendar} from '@/components/ui/calendar';
 import {Button} from '@/components/ui/button';
-import {CalendarIcon, LocateFixedIcon} from 'lucide-react';
+import {AlertCircleIcon, CalendarIcon, LocateFixedIcon, PopcornIcon} from 'lucide-react';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {Slider} from '@/components/ui/slider';
 import {Field, FieldLabel} from '@/components/ui/field';
@@ -15,6 +15,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {FeatureCollection} from 'geojson';
 import {LngLatBounds} from 'mapbox-gl';
 import {MapRef} from 'react-map-gl/mapbox-legacy';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 
 const STREET_NAMES_OPTIONS = [
   { id: '7THAVE', label: '7th Ave' },
@@ -101,72 +102,78 @@ export default function Home() {
       </div>
 
       {/* Top Filter Panel Overlay */}
-      <div
-        className="absolute top-6 left-6 z-10 flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
-        <div className="flex items-center gap-4 border-r pr-6">
-          <div className="flex flex-col gap-3">
-            <FieldLabel htmlFor="date">
-              Date range
-            </FieldLabel>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  id="date"
-                  className="w-60 justify-between font-normal"
-                >
-                  {dateRange?.from && dateRange.to
-                    ? `${DateTime.fromISO(dateRange?.from, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)} to ${DateTime.fromISO(dateRange.to, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)}`
-                    : 'Select dates'}
-                  <CalendarIcon size={3.5}/>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-                <Calendar
-                  className={'pointer-events-auto'}
-                  mode="range"
-                  defaultMonth={dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined}
-                  selected={{
-                    from: dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined,
-                    to: dateRange?.to ? DateTime.fromISO(dateRange.to).toJSDate() : undefined
-                  }}
-                  onSelect={(range) => {
-                    if (!range) {
-                      setDateRange(undefined);
-                    }
-
-                    setDateRange({
-                      from: range?.from ? DateTime.fromJSDate(range.from).toISODate()! : undefined,
-                      to: range?.to ? DateTime.fromJSDate(range.to).toISODate()! : undefined
-                    });
-                  }}
-                  captionLayout="dropdown"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+      <div className={'absolute top-6 left-6 z-10 flex items-start flex-col gap-2'}>
+        <div className="flex items-center">
+          <Alert>
+            <AlertTitle>To get started, select an area of interest or click anywhere on the map to pin a location.</AlertTitle>
+          </Alert>
         </div>
+        <div className="flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
+          <div className="flex items-center gap-4 border-r pr-6">
+            <div className="flex flex-col gap-3">
+              <FieldLabel htmlFor="date">
+                Date range
+              </FieldLabel>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    id="date"
+                    className="w-60 justify-between font-normal"
+                  >
+                    {dateRange?.from && dateRange.to
+                      ? `${DateTime.fromISO(dateRange?.from, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)} to ${DateTime.fromISO(dateRange.to, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)}`
+                      : 'Select dates'}
+                    <CalendarIcon size={3.5}/>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                  <Calendar
+                    className={'pointer-events-auto'}
+                    mode="range"
+                    defaultMonth={dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined}
+                    selected={{
+                      from: dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined,
+                      to: dateRange?.to ? DateTime.fromISO(dateRange.to).toJSDate() : undefined
+                    }}
+                    onSelect={(range) => {
+                      if (!range) {
+                        setDateRange(undefined);
+                      }
 
-        <div className={'flex items-center gap-4'}>
-          <Field className={'w-45'}>
-            <FieldLabel htmlFor={'area-of-interest'}>Jump to area of interest</FieldLabel>
-            <Select value={streetName || ''} onValueChange={(value) => {
-              setIncidentGeoJson(null);
-              setAreaOfInterestIncidentGeoJson(null);
-              setLocationSummary(null);
-              setDroppedPin(null);
-              setStreetName(value)
-            }}>
-              <SelectTrigger id={'area-of-interest'}>
-                <SelectValue placeholder="Select an area" />
-              </SelectTrigger>
-              <SelectContent>
-                {STREET_NAMES_OPTIONS.map(({ id, label }) => (
-                  <SelectItem key={id} value={id}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+                      setDateRange({
+                        from: range?.from ? DateTime.fromJSDate(range.from).toISODate()! : undefined,
+                        to: range?.to ? DateTime.fromJSDate(range.to).toISODate()! : undefined
+                      });
+                    }}
+                    captionLayout="dropdown"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <div className={'flex items-center gap-4'}>
+            <Field className={'w-45'}>
+              <FieldLabel htmlFor={'area-of-interest'}>Jump to area of interest</FieldLabel>
+              <Select value={streetName || ''} onValueChange={(value) => {
+                setIncidentGeoJson(null);
+                setAreaOfInterestIncidentGeoJson(null);
+                setLocationSummary(null);
+                setDroppedPin(null);
+                setStreetName(value)
+              }}>
+                <SelectTrigger id={'area-of-interest'}>
+                  <SelectValue placeholder="Select an area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STREET_NAMES_OPTIONS.map(({ id, label }) => (
+                    <SelectItem key={id} value={id}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
         </div>
       </div>
 

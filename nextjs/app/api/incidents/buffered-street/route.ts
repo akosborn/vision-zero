@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   let whereClause = "WHERE 1=1";
-  const queryParams: any[] = [];
+  const queryParams: (string | number)[] = [];
   let paramIndex = 1;
 
   if (startDate) {

@@ -1,5 +1,6 @@
 'use client';
 
+import { Map } from 'mapbox-gl';
 import {Layer, Map as ReactMap, MapRef, Popup, Source} from 'react-map-gl/mapbox-legacy';
 import React, {forwardRef, useEffect} from 'react';
 import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
@@ -138,12 +139,16 @@ export default forwardRef<MapRef | null, Props>(function Map({
   const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
   const [bufferedStreet, setBufferedStreet] = React.useState<FeatureCollection | null>(null);
 
-  const fetchIncidents = React.useCallback((mapTarget: any) => {
+  const fetchIncidents = React.useCallback((mapTarget: Map) => {
     if (!mapTarget) {
       return;
     }
 
     const bounds = mapTarget.getBounds();
+    if (!bounds) {
+      throw new Error('Bounds undefined');
+    }
+
     const bbox = [
       bounds.getWest(),
       bounds.getSouth(),
