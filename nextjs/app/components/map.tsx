@@ -97,22 +97,22 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
 export const defaultViewport = {
   latitude: 39.7400,
   longitude: -104.9874,
-  zoom: 16,
+  zoom: 13,
 };
 
 export default function Map({
                               droppedPin,
-                              locationSummary,
                               setLocationSummary,
                               setDroppedPin,
                               startDate,
                               endDate,
-                              radiusFeet
+                              radiusFeet,
+  streetName,
                             }: {
   startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number } | null;
   setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number } | null>>
-  locationSummary: LocationSummary | null;
   setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
+  streetName: string | null;
 }) {
   const [viewport, setViewport] = React.useState(defaultViewport);
 
@@ -120,9 +120,11 @@ export default function Map({
   const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
 
   const loadAllIncidents = false;
-  const displayStreetCenterlines = false;
+  const displayStreetCenterlines = true;
 
   const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
+  const [bufferedStreet, setBufferedStreet] = React.useState<FeatureCollection | null>(null);
+  const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] = React.useState<FeatureCollection | null>(null);
 
   const mapRef = React.useRef<any>(null);
 
@@ -147,14 +149,28 @@ export default function Map({
       });
     }
 
-    if (displayStreetCenterlines) {
-      fetch(`/api/street-centerlines?bbox=${bbox}`).then((response) => {
+    if (displayStreetCenterlines && streetName) {
+      fetch(`/api/street-centerlines?streetName=${streetName}`).then((response) => {
         return response.json();
       }).then((json) => {
         setStreetCenterlines(json);
       });
     }
-  }, [startDate, endDate]);
+
+    if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
+      fetch(`/api/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`).then((response) => {
+        return response.json();
+      }).then((json) => {
+        setBufferedStreet(json);
+      });
+
+      fetch(`/api/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
+        return response.json();
+      }).then((json) => {
+        setAreaOfInterestIncidentGeoJson(json);
+      });
+    }
+  }, [startDate, endDate, streetName, radiusFeet]);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -280,6 +296,32 @@ export default function Map({
             </Source>
         }
 
+        {areaOfInterestIncidentGeoJson &&
+            <Source
+                id="incidents"
+                type="geojson"
+                data={areaOfInterestIncidentGeoJson}
+            >
+                <Layer
+                    id="incident-layer"
+                    type="circle"
+                    filter={['!', ['has', 'point_count']]}
+                    paint={{
+                      'circle-color': [
+                        'case',
+                        ['>', ['get', 'fatalities'], 0],
+                        '#ef4444', // Red (Tailwind red-500)
+                        ['>', ['get', 'serious_injuries'], 0],
+                        '#facc15', // Yellow (Tailwind yellow-400)
+                        '#22c55e'  // Green
+                      ],
+                      'circle-stroke-width': 1,
+                      'circle-stroke-color': '#ffffff'
+                    }}
+                />
+            </Source>
+        }
+
         {streetCenterlines &&
             <Source type={'geojson'} data={streetCenterlines}>
                 <Layer id="street-centerline-layer" type={'line'} paint={{
@@ -295,6 +337,30 @@ export default function Map({
                 }}/>
             </Source>
         }
+
+        {bufferedStreet && (
+            <Source type={'geojson'} data={bufferedStreet}>
+                {/* The background fill */}
+                <Layer
+                    id="buffered-street-fill"
+                    type="fill"
+                    paint={{
+                      'fill-color': '#3b82f6',
+                      'fill-opacity': 0.1
+                    }}
+                />
+                {/* The dashed border */}
+                <Layer
+                    id="buffered-street-outline"
+                    type="line"
+                    paint={{
+                      'line-color': '#3b82f6',
+                      'line-width': 2,
+                      'line-dasharray': [2, 2]
+                    }}
+                />
+            </Source>
+        )}
 
         {radiusGeoJSON && (
           <Source type="geojson" data={radiusGeoJSON}>

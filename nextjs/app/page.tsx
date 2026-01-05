@@ -11,13 +11,21 @@ import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {Slider} from '@/components/ui/slider';
 import {Field, FieldLabel} from '@/components/ui/field';
 import {Separator} from '@/components/ui/separator';
+import {Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectValue} from '@/components/ui/select';
+
+const STREET_NAMES_OPTIONS = [
+  { id: 'ALAMEDA', label: 'Alameda Ave' },
+  { id: 'FEDERAL', label: 'Federal Blvd' },
+];
 
 export default function Home() {
   const [dateRange, setDateRange] = useState<{ from?: string; to?: string } | undefined>({
     from: DateTime.now().setZone('America/Denver').minus({months: 12}).toFormat('yyyy-MM-dd'),
     to: DateTime.now().setZone('America/Denver').toFormat('yyyy-MM-dd'),
   });
-  const [radiusFeet, setRadiusFeet] = useState(100);
+  const [radiusFeet, setRadiusFeet] = useState(20);
+
+  const [streetName, setStreetName] = useState<string | null>(null);
 
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [droppedPin, setDroppedPin] = React.useState<{ lng: number, lat: number } | null>({
@@ -30,8 +38,8 @@ export default function Home() {
     <main className="relative flex h-screen w-screen overflow-hidden">
       {/* Map Area */}
       <div className="absolute inset-0">
-        <Map droppedPin={droppedPin} locationSummary={locationSummary} setLocationSummary={setLocationSummary}
-             setDroppedPin={setDroppedPin} startDate={dateRange?.from} endDate={dateRange?.to} radiusFeet={radiusFeet}/>
+        <Map droppedPin={droppedPin} setLocationSummary={setLocationSummary}
+             setDroppedPin={setDroppedPin} startDate={dateRange?.from} endDate={dateRange?.to} radiusFeet={radiusFeet} streetName={streetName}/>
       </div>
 
       {/* Top Filter Panel Overlay */}
@@ -81,6 +89,22 @@ export default function Home() {
           </div>
         </div>
 
+        <div className={'flex items-center gap-4'}>
+          <Field className={'w-45'}>
+            <FieldLabel htmlFor={'area-of-interest'}>Area of interest</FieldLabel>
+            <Select value={streetName || undefined} onValueChange={(value) => setStreetName(value)}>
+              <SelectTrigger id={'area-of-interest'}>
+                <SelectValue placeholder="Select an area" />
+              </SelectTrigger>
+              <SelectContent>
+                {STREET_NAMES_OPTIONS.map(({ id, label }) => (
+                  <SelectItem key={id} value={id}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
         <div className="flex items-center gap-4">
           <Field>
             <FieldLabel htmlFor={'radius-feet'}>
@@ -103,7 +127,7 @@ export default function Home() {
           className="absolute bottom-6 left-6 z-10 flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
           {dateRange?.from && dateRange.to && locationSummary ? (
             <div>
-              <h3 className={'font-semibold uppercase'}>Location Summary</h3>
+              <h3 className={'font-semibold uppercase'}>Pinned Location Summary</h3>
               <p className={'text-sm font-light mb-2'}>{droppedPin.lng}, {droppedPin.lat}</p>
 
               <div>

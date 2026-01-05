@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const bbox = searchParams.get('bbox');
+  const streetName = searchParams.get('streetName');
 
   let whereClause = "WHERE 1=1";
   const queryParams: any[] = [];
@@ -13,6 +14,10 @@ export async function GET(request: NextRequest) {
     const [minX, minY, maxX, maxY] = bbox.split(',').map(Number);
     whereClause += ` AND ST_Intersects(geom, ST_MakeEnvelope($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 4326))`;
     queryParams.push(minX, minY, maxX, maxY);
+  }
+
+  if (streetName) {
+    whereClause += ` AND name = '${streetName}'`;
   }
 
   const query = `
@@ -29,7 +34,8 @@ export async function GET(request: NextRequest) {
                      ) AS feature
               FROM (SELECT *
                     FROM public.denver_street_centerlines
-                    ${whereClause}) inputs) features;
+                    ${whereClause}) inputs
+              ) features;
     `;
 
   const results = await dbClient.query(query, queryParams);
