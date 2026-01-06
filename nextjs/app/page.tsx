@@ -107,8 +107,8 @@ export default function Home() {
           <Alert>
             <AlertTitle>
               To get started, select an area of interest or click anywhere on the map to pin a location.
-              The mobile UX is a work in progress. Desktop is recommended for now.
             </AlertTitle>
+            <AlertDescription>The mobile UX is a work in progress. Desktop is recommended for now.</AlertDescription>
           </Alert>
         </div>
         <div className="flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
