@@ -24,11 +24,11 @@ COPY . .
 
 # Declare the ARGs so they are available during build
 ARG NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN
-ARG NEXT_BASE_PATH
+ARG NEXT_PUBLIC_BASE_PATH
 
 # Set them as ENV so Next.js can read them
 ENV NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN=$NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN
-ENV NEXT_BASE_PATH=$NEXT_BASE_PATH
+ENV NEXT_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
