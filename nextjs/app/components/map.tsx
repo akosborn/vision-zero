@@ -101,7 +101,7 @@ export const defaultViewport = {
   zoom: 13,
 };
 
-const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH ? '/' + process.env.NEXT_PUBLIC_BASE_PATH : ''}/api`;
+const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api`;
 
 type Props = {
   incidentGeoJson?: FeatureCollection | null;
