@@ -105,7 +105,10 @@ export default function Home() {
       <div className={'absolute top-6 left-6 z-10 flex items-start flex-col gap-2'}>
         <div className="flex items-center">
           <Alert>
-            <AlertTitle>To get started, select an area of interest or click anywhere on the map to pin a location.</AlertTitle>
+            <AlertTitle>
+              To get started, select an area of interest or click anywhere on the map to pin a location.
+              The mobile UX is a work in progress. Desktop is recommended for now.
+            </AlertTitle>
           </Alert>
         </div>
         <div className="flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
