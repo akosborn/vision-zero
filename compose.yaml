@@ -51,6 +51,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${DATABASE_USER}
       - DB_PASSWORD=${DATABASE_PASSWORD}
+      - DB_NAME=primary
       - NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN=${NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
     depends_on:
       - postgres
