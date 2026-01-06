@@ -101,6 +101,8 @@ export const defaultViewport = {
   zoom: 13,
 };
 
+const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api`;
+
 type Props = {
   incidentGeoJson?: FeatureCollection | null;
   setIncidentGeoJson: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
@@ -157,7 +159,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
     ].join(',');
 
     if (loadAllIncidents) {
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
+      fetch(`${API_PATH_BASE}/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
         return response.json();
       }).then((json) => {
         setIncidentGeoJson(json);
@@ -165,7 +167,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
     }
 
     if (displayStreetCenterlines && streetName) {
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/street-centerlines?streetName=${streetName}`).then((response) => {
+      fetch(`${API_PATH_BASE}/street-centerlines?streetName=${streetName}`).then((response) => {
         return response.json();
       }).then((json) => {
         setStreetCenterlines(json);
@@ -173,13 +175,13 @@ export default forwardRef<MapRef | null, Props>(function Map({
     }
 
     if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`).then((response) => {
+      fetch(`${API_PATH_BASE}/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`).then((response) => {
         return response.json();
       }).then((json) => {
         setBufferedStreet(json);
       });
 
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
+      fetch(`${API_PATH_BASE}/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
         return response.json();
       }).then((data) => {
         setAreaOfInterestIncidentGeoJson(data);
@@ -194,7 +196,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
 
       if (droppedPin) {
         const radiusMeters = radiusFeet * FEET_TO_METERS;
-        fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+        fetch(`${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
           .then(res => res.json())
           .then(data => {
             setIncidentGeoJson(data);
@@ -251,7 +253,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
 
       const radiusMeters = radiusFeet * FEET_TO_METERS;
 
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+      fetch(`${API_PATH_BASE}/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
         .then(res => res.json())
         .then(data => {
           setIncidentGeoJson(data);
@@ -266,7 +268,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
     if (!loadAllIncidents && droppedPin && radiusFeet > 0) {
       const radiusMeters = radiusFeet * FEET_TO_METERS;
 
-      fetch(`${process.env.NEXT_PUBLIC_BASE_PATH}/api/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
+      fetch(`${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
         .then(res => res.json())
         .then(data => {
           setIncidentGeoJson(data);
