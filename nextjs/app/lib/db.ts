@@ -11,6 +11,4 @@ const dbClient = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-await dbClient.connect();
-
 export default dbClient;
