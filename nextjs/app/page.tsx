@@ -6,7 +6,7 @@ import {DateTime} from 'luxon';
 import 'flatpickr/dist/themes/dark.css';
 import {Calendar} from '@/components/ui/calendar';
 import {Button} from '@/components/ui/button';
-import {AlertCircleIcon, CalendarIcon, LocateFixedIcon, PopcornIcon} from 'lucide-react';
+import {CalendarIcon, LocateFixedIcon} from 'lucide-react';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {Slider} from '@/components/ui/slider';
 import {Field, FieldLabel} from '@/components/ui/field';
@@ -15,7 +15,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import {FeatureCollection} from 'geojson';
 import {LngLatBounds} from 'mapbox-gl';
 import {MapRef} from 'react-map-gl/mapbox-legacy';
-import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import {Alert, AlertDescription} from '@/components/ui/alert';
 
 const STREET_NAMES_OPTIONS = [
   { id: '7THAVE', label: '7th Ave' },
