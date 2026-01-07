@@ -1,10 +1,20 @@
 # Ignore artifacts:
-build
-.next
+build/
+.next/
 .node_modules
-public
+
+# Ignore static assets and binaries
+public/
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.svg
+**/*.ico
+**/*.pdf
 
 # Ignore lock files and system files
+package.json
 yarn.lock
 package-lock.json
 .DS_Store
