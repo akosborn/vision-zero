@@ -102,92 +102,88 @@ export default function Home() {
       </div>
 
       {/* Top Filter Panel Overlay */}
-      <div className={'absolute top-6 left-6 z-10 flex items-start flex-col gap-2'}>
-        <div className="flex items-center">
-          <Alert>
-            <AlertTitle>
-              To get started, select an area of interest or click anywhere on the map to pin a location.
-            </AlertTitle>
-            <AlertDescription>The mobile UX is a work in progress. Desktop is recommended for now.</AlertDescription>
+      <div className={'absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-auto z-10 flex items-start flex-col gap-2'}>
+        <div className="flex items-center w-full md:w-auto">
+          <Alert className="py-2 px-3">
+            <AlertDescription className="text-xs md:text-sm">
+              To get started, select an area of interest or click anywhere on the map.
+            </AlertDescription>
           </Alert>
         </div>
-        <div className="flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
-          <div className="flex items-center gap-4 border-r pr-6">
-            <div className="flex flex-col gap-3">
-              <FieldLabel htmlFor="date">
-                Date range
-              </FieldLabel>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    id="date"
-                    className="w-60 justify-between font-normal"
-                  >
-                    {dateRange?.from && dateRange.to
-                      ? `${DateTime.fromISO(dateRange?.from, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)} to ${DateTime.fromISO(dateRange.to, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)}`
-                      : 'Select dates'}
-                    <CalendarIcon size={3.5}/>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-                  <Calendar
-                    className={'pointer-events-auto'}
-                    mode="range"
-                    defaultMonth={dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined}
-                    selected={{
-                      from: dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined,
-                      to: dateRange?.to ? DateTime.fromISO(dateRange.to).toJSDate() : undefined
-                    }}
-                    onSelect={(range) => {
-                      if (!range) {
-                        setDateRange(undefined);
-                      }
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto">
+          <div className="flex flex-col gap-2 md:border-r md:pr-6">
+            <FieldLabel htmlFor="date" className="text-xs md:text-sm">
+              Date range
+            </FieldLabel>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  id="date"
+                  className="w-full md:w-60 justify-between font-normal text-xs md:text-sm"
+                >
+                  {dateRange?.from && dateRange.to
+                    ? `${DateTime.fromISO(dateRange?.from, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)} - ${DateTime.fromISO(dateRange.to, {zone: 'America/Denver'}).toLocaleString(DateTime.DATE_MED)}`
+                    : 'Select dates'}
+                  <CalendarIcon size={14}/>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                <Calendar
+                  className={'pointer-events-auto'}
+                  mode="range"
+                  defaultMonth={dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined}
+                  selected={{
+                    from: dateRange?.from ? DateTime.fromISO(dateRange.from).toJSDate() : undefined,
+                    to: dateRange?.to ? DateTime.fromISO(dateRange.to).toJSDate() : undefined
+                  }}
+                  onSelect={(range) => {
+                    if (!range) {
+                      setDateRange(undefined);
+                    }
 
-                      setDateRange({
-                        from: range?.from ? DateTime.fromJSDate(range.from).toISODate()! : undefined,
-                        to: range?.to ? DateTime.fromJSDate(range.to).toISODate()! : undefined
-                      });
-                    }}
-                    captionLayout="dropdown"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                    setDateRange({
+                      from: range?.from ? DateTime.fromJSDate(range.from).toISODate()! : undefined,
+                      to: range?.to ? DateTime.fromJSDate(range.to).toISODate()! : undefined
+                    });
+                  }}
+                  captionLayout="dropdown"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <div className={'flex items-center gap-4'}>
-            <Field className={'w-45'}>
-              <FieldLabel htmlFor={'area-of-interest'}>Jump to area of interest</FieldLabel>
-              <Select value={streetName || ''} onValueChange={(value) => {
-                setIncidentGeoJson(null);
-                setAreaOfInterestIncidentGeoJson(null);
-                setLocationSummary(null);
-                setDroppedPin(null);
-                setStreetName(value)
-              }}>
-                <SelectTrigger id={'area-of-interest'}>
-                  <SelectValue placeholder="Select an area" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STREET_NAMES_OPTIONS.map(({ id, label }) => (
-                    <SelectItem key={id} value={id}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <div className={'flex flex-col gap-2'}>
+            <FieldLabel htmlFor={'area-of-interest'} className="text-xs md:text-sm">Jump to area of interest</FieldLabel>
+            <Select value={streetName || ''} onValueChange={(value) => {
+              setIncidentGeoJson(null);
+              setAreaOfInterestIncidentGeoJson(null);
+              setLocationSummary(null);
+              setDroppedPin(null);
+              setStreetName(value)
+            }}>
+              <SelectTrigger id={'area-of-interest'} className="w-full md:w-45 text-xs md:text-sm">
+                <SelectValue placeholder="Select an area" />
+              </SelectTrigger>
+              <SelectContent>
+                {STREET_NAMES_OPTIONS.map(({ id, label }) => (
+                  <SelectItem key={id} value={id}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
 
       {/* Location Summary Overlay */}
-      <div className="absolute bottom-6 left-6 z-10 flex items-center gap-6 p-4 rounded-lg shadow-xl bg-background text-foreground">
+      <div className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto md:max-w-xs max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none">
+        <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-4 md:hidden" />
         <div>
-          <h3 className={'font-semibold uppercase'}>
+          <h3 className={'font-semibold uppercase text-xs md:text-sm mb-2'}>
             {streetName ? 'Area of Interest' : 'Pinned Location' } Report
           </h3>
           <div className="flex items-center gap-4 mb-2">
-            <div className={'cursor-pointer'}
+            <div className={'cursor-pointer p-1'}
                  onClick={() => {
                    if (droppedPin) {
                      if (incidentGeoJson?.features.length) {
@@ -201,20 +197,19 @@ export default function Home() {
                      zoomToLayer(areaOfInterestIncidentGeoJson);
                    }
                  }}>
-              <LocateFixedIcon size={20} className={'text-foreground'} />
+              <LocateFixedIcon size={18} className={'text-foreground'} />
             </div>
-            <div>
-              <p className={'text-sm font-light'}>
+            <div className="overflow-hidden">
+              <p className={'text-xs font-light truncate'}>
                 {streetName && (<>{STREET_NAMES_OPTIONS.find((option) => option.id === streetName)?.label}</>)}
-                {droppedPin?.lng && droppedPin?.lat && (<>{droppedPin.lng}, {droppedPin.lat}</>)}
+                {droppedPin?.lng && droppedPin?.lat && (<>{droppedPin.lng.toFixed(4)}, {droppedPin.lat.toFixed(4)}</>)}
               </p>
             </div>
-
           </div>
 
           <div className="flex items-center gap-4">
-            <Field>
-              <FieldLabel htmlFor={'radius-feet'}>
+            <Field className="w-full">
+              <FieldLabel htmlFor={'radius-feet'} className="text-xs">
                 {streetName ? 'Buffer' : 'Radius'}: {radiusFeet} ft
               </FieldLabel>
               <Slider id={'radius-feet'} min={10}
@@ -227,77 +222,56 @@ export default function Home() {
             </Field>
           </div>
 
-          <Separator className={'my-4'}/>
+          <Separator className={'my-3 md:my-4'}/>
 
           {locationSummary ?
-            <>
-            <div>
-              <span className={'text-sm'}>Total Crashes</span>
-              <h4 className={'mb-2 font-bold text-xl'}>{locationSummary.totalIncidents}</h4>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-1">
-                <span className={'text-sm'}>Total Comprehensive Cost</span>
-                <a
-                  href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-blue-500 transition-colors"
-                  title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 16v-4"/>
-                    <path d="M12 8h.01"/>
-                  </svg>
-                </a>
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4">
+              <div className="mb-2">
+                <span className={'text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground'}>Total Crashes</span>
+                <h4 className={'font-bold text-lg md:text-xl'}>{locationSummary.totalIncidents}</h4>
               </div>
-              <h4 className={'mb-2 font-bold text-xl'}>{usdFormatter.format(locationSummary.comprehensiveCosts)}</h4>
-            </div>
 
-            <Separator />
-
-            {Object.entries(locationSummary.severityCounts).map(([severity, count]) => {
-              if (count === 0) {
-                return null;
-              }
-
-              return (
-                <div key={severity}>
-                  <span className={'text-sm'}>{severity}</span>
-                  <h4 className={'mb-2 font-bold text-xl'}>{count}</h4>
+              <div className="mb-2 col-span-2 md:col-span-1">
+                <div className="flex items-center gap-1">
+                  <span className={'text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground'}>Comprehensive Cost</span>
+                  <a
+                    href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-blue-500 transition-colors"
+                    title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                  </a>
                 </div>
-              );
-            })}
-
-            <Separator />
-
-            {locationSummary.bicyclesInvolved ?
-              <div>
-                <span className={'text-sm'}>Bicyclists Involved</span>
-                <h4 className={'mb-2 font-bold text-xl'}>{locationSummary.bicyclesInvolved}</h4>
+                <h4 className={'font-bold text-lg md:text-xl'}>{usdFormatter.format(locationSummary.comprehensiveCosts)}</h4>
               </div>
-              : null
-            }
 
-            {locationSummary.pedestriansInvolved ?
-              <div>
-                <span className={'text-sm'}>Pedestrians Involved</span>
-                <h4 className={'mb-2 font-bold text-xl'}>{locationSummary.pedestriansInvolved}</h4>
-              </div>
-              : null
-            }
-            </>
-            : <>Loading...</>}
+              <Separator className="col-span-2 hidden md:block my-2" />
+
+              {Object.entries(locationSummary.severityCounts).map(([severity, count]) => {
+                if (count === 0) return null;
+                return (
+                  <div key={severity} className="mb-2">
+                    <span className={'text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground'}>{severity}</span>
+                    <h4 className={'font-bold text-lg md:text-xl'}>{count}</h4>
+                  </div>
+                );
+              })}
+            </div>
+            : <div className="text-sm italic">Loading report...</div>}
         </div>
       </div>
 
-      {/* Legend Overlay */}
-      <div className="absolute bottom-6 right-6 z-10 p-4 rounded-lg shadow-xl bg-background text-foreground">
-        <h3 className="text-xs font-semibold mb-3 tracking-wider uppercase">Crash Severity</h3>
-        <div className="space-y-2">
+      {/* Legend Overlay - Hidden on very small screens or moved */}
+      <div className="hidden sm:block absolute bottom-6 right-6 z-10 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground border md:border-none">
+        <h3 className="text-[10px] md:text-xs font-semibold mb-2 md:mb-3 tracking-wider uppercase">Crash Severity</h3>
+        <div className="space-y-1 md:space-y-2">
           <div className="flex items-center gap-3">
             <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>
             <span className="text-sm">Fatality</span>
