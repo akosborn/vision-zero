@@ -1,24 +1,24 @@
-import dbClient from '@/app/lib/db';
-import { NextRequest } from 'next/server';
+import dbClient from "@/app/lib/db";
+import { NextRequest } from "next/server";
 
 const METERS_PER_FEET = 0.3048;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
-  const streetName = searchParams.get('streetName');
-  const bufferInFeet = searchParams.get('bufferInFeet');
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+  const streetName = searchParams.get("streetName");
+  const bufferInFeet = searchParams.get("bufferInFeet");
 
   if (!streetName) {
     return Response.json({
-      error: 'streetName is required'
+      error: "streetName is required",
     });
   }
 
   if (!bufferInFeet) {
     return Response.json({
-      error: 'bufferInFeet is required'
+      error: "bufferInFeet is required",
     });
   }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet);
 
-    const query = `
+  const query = `
         SELECT jsonb_build_object(
                        'type', 'FeatureCollection',
                        'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)

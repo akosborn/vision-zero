@@ -1,20 +1,30 @@
-'use client';
+"use client";
 
-import { Map } from 'mapbox-gl';
-import {Layer, Map as ReactMap, MapRef, Popup, Source} from 'react-map-gl/mapbox-legacy';
-import React, {forwardRef, useEffect} from 'react';
-import {Feature, FeatureCollection, GeoJSON, Point} from 'geojson';
-import {GeoJSONFeature, MapEvent, MapMouseEvent} from 'mapbox-gl';
+import { Map } from "mapbox-gl";
+import {
+  Layer,
+  Map as ReactMap,
+  MapRef,
+  Popup,
+  Source,
+} from "react-map-gl/mapbox-legacy";
+import React, { forwardRef, useEffect } from "react";
+import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
+import { GeoJSONFeature, MapEvent, MapMouseEvent } from "mapbox-gl";
 
 const FEET_TO_METERS = 0.3048;
 
-const createGeoJSONCircle = (center: {
-  lng: number,
-  lat: number
-}, radiusInKm: number, points: number = 64): GeoJSON => {
+const createGeoJSONCircle = (
+  center: {
+    lng: number;
+    lat: number;
+  },
+  radiusInKm: number,
+  points: number = 64,
+): GeoJSON => {
   const coords = {
     latitude: center.lat,
-    longitude: center.lng
+    longitude: center.lng,
   };
 
   const km = radiusInKm;
@@ -33,10 +43,10 @@ const createGeoJSONCircle = (center: {
   ret.push(ret[0]);
 
   return {
-    type: 'Feature',
+    type: "Feature",
     geometry: {
-      type: 'Polygon',
-      coordinates: [ret]
+      type: "Polygon",
+      coordinates: [ret],
     },
     properties: {},
   };
@@ -50,44 +60,51 @@ const COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY = {
   O: 18100,
 };
 
-const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSummary => {
-  const aggregate = features.reduce((acc, f) => {
-    let maxSeverity: keyof typeof COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY = 'O';
+const summarizeIncidents = (
+  features: Feature<Point, Incident>[],
+): LocationSummary => {
+  const aggregate = features.reduce(
+    (acc, f) => {
+      let maxSeverity: keyof typeof COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY =
+        "O";
 
-    const fatalities = f.properties.fatalities;
-    const seriousInjuries = f.properties.serious_injuries;
+      const fatalities = f.properties.fatalities;
+      const seriousInjuries = f.properties.serious_injuries;
 
-    if (seriousInjuries > 0) {
-      maxSeverity = 'A';
-    }
+      if (seriousInjuries > 0) {
+        maxSeverity = "A";
+      }
 
-    if (fatalities > 0) {
-      maxSeverity = 'K';
-    }
+      if (fatalities > 0) {
+        maxSeverity = "K";
+      }
 
-    acc.severityCounts['Fatalities'] += fatalities;
-    acc.severityCounts['Serious Injuries'] += seriousInjuries;
+      acc.severityCounts["Fatalities"] += fatalities;
+      acc.severityCounts["Serious Injuries"] += seriousInjuries;
 
-    if (f.properties.fatalities + f.properties.serious_injuries === 0) {
-      acc.severityCounts['Property Damage or Non-Serious Injuries'] += 1;
-    }
+      if (f.properties.fatalities + f.properties.serious_injuries === 0) {
+        acc.severityCounts["Property Damage or Non-Serious Injuries"] += 1;
+      }
 
-    acc.comprehensiveCosts += COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY[maxSeverity];
+      acc.comprehensiveCosts +=
+        COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY[maxSeverity];
 
-    acc.bicyclesInvolved += f.properties.bicycle_count;
-    acc.pedestriansInvolved += f.properties.pedestrian_count;
+      acc.bicyclesInvolved += f.properties.bicycle_count;
+      acc.pedestriansInvolved += f.properties.pedestrian_count;
 
-    return acc;
-  }, {
-    comprehensiveCosts: 0,
-    bicyclesInvolved: 0,
-    pedestriansInvolved: 0,
-    severityCounts: {
-      'Fatalities': 0,
-      'Serious Injuries': 0,
-      'Property Damage or Non-Serious Injuries': 0,
+      return acc;
     },
-  });
+    {
+      comprehensiveCosts: 0,
+      bicyclesInvolved: 0,
+      pedestriansInvolved: 0,
+      severityCounts: {
+        Fatalities: 0,
+        "Serious Injuries": 0,
+        "Property Damage or Non-Serious Injuries": 0,
+      },
+    },
+  );
 
   return {
     totalIncidents: features.length,
@@ -96,109 +113,147 @@ const summarizeIncidents = (features: Feature<Point, Incident>[]): LocationSumma
 };
 
 export const defaultViewport = {
-  latitude: 39.7400,
+  latitude: 39.74,
   longitude: -104.9874,
   zoom: 13,
 };
 
-const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api`;
+const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
 
 type Props = {
   incidentGeoJson?: FeatureCollection | null;
-  setIncidentGeoJson: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  setIncidentGeoJson: React.Dispatch<
+    React.SetStateAction<FeatureCollection | null>
+  >;
   setStreetName: React.Dispatch<React.SetStateAction<string | null>>;
   areaOfInterestIncidentGeoJson?: FeatureCollection | null;
-  setAreaOfInterestIncidentGeoJson: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
-  viewport: { latitude: number, longitude: number, zoom: number },
-  setViewport: React.Dispatch<React.SetStateAction<{ latitude: number, longitude: number, zoom: number }>>,
-  startDate?: string, endDate?: string, radiusFeet: number, droppedPin?: { lng: number, lat: number } | null;
-  setDroppedPin: React.Dispatch<React.SetStateAction<{ lng: number, lat: number } | null>>
-  setLocationSummary: React.Dispatch<React.SetStateAction<LocationSummary | null>>,
+  setAreaOfInterestIncidentGeoJson: React.Dispatch<
+    React.SetStateAction<FeatureCollection | null>
+  >;
+  viewport: { latitude: number; longitude: number; zoom: number };
+  setViewport: React.Dispatch<
+    React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
+  >;
+  startDate?: string;
+  endDate?: string;
+  radiusFeet: number;
+  droppedPin?: { lng: number; lat: number } | null;
+  setDroppedPin: React.Dispatch<
+    React.SetStateAction<{ lng: number; lat: number } | null>
+  >;
+  setLocationSummary: React.Dispatch<
+    React.SetStateAction<LocationSummary | null>
+  >;
   streetName: string | null;
 };
 
-export default forwardRef<MapRef | null, Props>(function Map({
-  areaOfInterestIncidentGeoJson,
-  incidentGeoJson,
-  setIncidentGeoJson,
-  setAreaOfInterestIncidentGeoJson,
-                              droppedPin,
-                              setLocationSummary,
-                              setDroppedPin,
-                              startDate,
-                              endDate,
-                              radiusFeet,
-  streetName,
-  setStreetName,
-  viewport,
-  setViewport,
-                            }, mapRef) {
-  const [selectedPoint, setSelectedPoint] = React.useState<GeoJSONFeature | null>(null);
+export default forwardRef<MapRef | null, Props>(function Map(
+  {
+    areaOfInterestIncidentGeoJson,
+    incidentGeoJson,
+    setIncidentGeoJson,
+    setAreaOfInterestIncidentGeoJson,
+    droppedPin,
+    setLocationSummary,
+    setDroppedPin,
+    startDate,
+    endDate,
+    radiusFeet,
+    streetName,
+    setStreetName,
+    viewport,
+    setViewport,
+  },
+  mapRef,
+) {
+  const [selectedPoint, setSelectedPoint] =
+    React.useState<GeoJSONFeature | null>(null);
 
   const loadAllIncidents = false;
   const displayStreetCenterlines = true;
 
-  const [streetCenterlines, setStreetCenterlines] = React.useState<FeatureCollection | null>(null);
-  const [bufferedStreet, setBufferedStreet] = React.useState<FeatureCollection | null>(null);
+  const [streetCenterlines, setStreetCenterlines] =
+    React.useState<FeatureCollection | null>(null);
+  const [bufferedStreet, setBufferedStreet] =
+    React.useState<FeatureCollection | null>(null);
 
-  const fetchIncidents = React.useCallback((mapTarget: Map) => {
-    if (!mapTarget) {
-      return;
-    }
+  const fetchIncidents = React.useCallback(
+    (mapTarget: Map) => {
+      if (!mapTarget) {
+        return;
+      }
 
-    const bounds = mapTarget.getBounds();
-    if (!bounds) {
-      throw new Error('Bounds undefined');
-    }
+      const bounds = mapTarget.getBounds();
+      if (!bounds) {
+        throw new Error("Bounds undefined");
+      }
 
-    const bbox = [
-      bounds.getWest(),
-      bounds.getSouth(),
-      bounds.getEast(),
-      bounds.getNorth()
-    ].join(',');
+      const bbox = [
+        bounds.getWest(),
+        bounds.getSouth(),
+        bounds.getEast(),
+        bounds.getNorth(),
+      ].join(",");
 
-    if (loadAllIncidents) {
-      fetch(`${API_PATH_BASE}/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
-        return response.json();
-      }).then((json) => {
-        setIncidentGeoJson(json);
-      });
-    }
+      if (loadAllIncidents) {
+        fetch(
+          `${API_PATH_BASE}/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`,
+        )
+          .then((response) => {
+            return response.json();
+          })
+          .then((json) => {
+            setIncidentGeoJson(json);
+          });
+      }
 
-    if (displayStreetCenterlines && streetName) {
-      fetch(`${API_PATH_BASE}/street-centerlines?streetName=${streetName}`).then((response) => {
-        return response.json();
-      }).then((json) => {
-        setStreetCenterlines(json);
-      });
-    }
+      if (displayStreetCenterlines && streetName) {
+        fetch(`${API_PATH_BASE}/street-centerlines?streetName=${streetName}`)
+          .then((response) => {
+            return response.json();
+          })
+          .then((json) => {
+            setStreetCenterlines(json);
+          });
+      }
 
-    if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
-      fetch(`${API_PATH_BASE}/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`).then((response) => {
-        return response.json();
-      }).then((json) => {
-        setBufferedStreet(json);
-      });
+      if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
+        fetch(
+          `${API_PATH_BASE}/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`,
+        )
+          .then((response) => {
+            return response.json();
+          })
+          .then((json) => {
+            setBufferedStreet(json);
+          });
 
-      fetch(`${API_PATH_BASE}/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`).then((response) => {
-        return response.json();
-      }).then((data) => {
-        setAreaOfInterestIncidentGeoJson(data);
-        setLocationSummary(summarizeIncidents(data.features));
-      });
-    }
-  }, [startDate, endDate, streetName, radiusFeet]);
+        fetch(
+          `${API_PATH_BASE}/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`,
+        )
+          .then((response) => {
+            return response.json();
+          })
+          .then((data) => {
+            setAreaOfInterestIncidentGeoJson(data);
+            setLocationSummary(summarizeIncidents(data.features));
+          });
+      }
+    },
+    [startDate, endDate, streetName, radiusFeet],
+  );
 
   useEffect(() => {
-    if (mapRef && 'current' in mapRef && mapRef.current) {
+    if (mapRef && "current" in mapRef && mapRef.current) {
       fetchIncidents(mapRef.current.getMap());
 
       if (droppedPin) {
         const radiusMeters = radiusFeet * FEET_TO_METERS;
-        fetch(`${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-          .then(res => res.json())
-          .then(data => {
+        fetch(
+          `${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
+        )
+          .then((res) => res.json())
+          .then((data) => {
             setIncidentGeoJson(data);
             setLocationSummary(summarizeIncidents(data.features));
           });
@@ -227,13 +282,16 @@ export default forwardRef<MapRef | null, Props>(function Map({
   //     });
   // }, [startDate, endDate, radiusFeet, droppedPin]);
 
-  const onMoveEnd = React.useCallback((event: MapMouseEvent) => {
-    if (!loadAllIncidents) {
-      return;
-    }
+  const onMoveEnd = React.useCallback(
+    (event: MapMouseEvent) => {
+      if (!loadAllIncidents) {
+        return;
+      }
 
-    fetchIncidents(event.target);
-  }, [fetchIncidents]);
+      fetchIncidents(event.target);
+    },
+    [fetchIncidents],
+  );
 
   const onClick = (event: MapMouseEvent) => {
     const feature = event.features && event.features[0];
@@ -241,36 +299,42 @@ export default forwardRef<MapRef | null, Props>(function Map({
       setSelectedPoint(feature);
       setDroppedPin(null);
     } else {
-      setStreetName('');
+      setStreetName("");
       setAreaOfInterestIncidentGeoJson(null);
       setLocationSummary(null);
       setIncidentGeoJson(null);
       setStreetCenterlines(null);
       setBufferedStreet(null);
-      const {lng, lat} = event.lngLat;
-      setDroppedPin({lng, lat});
+      const { lng, lat } = event.lngLat;
+      setDroppedPin({ lng, lat });
       setSelectedPoint(null);
 
       const radiusMeters = radiusFeet * FEET_TO_METERS;
 
-      fetch(`${API_PATH_BASE}/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-        .then(res => res.json())
-        .then(data => {
+      fetch(
+        `${API_PATH_BASE}/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
+      )
+        .then((res) => res.json())
+        .then((data) => {
           setIncidentGeoJson(data);
           setLocationSummary(summarizeIncidents(data.features));
         });
     }
   };
 
-  const radiusGeoJSON = droppedPin ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000) : null;
+  const radiusGeoJSON = droppedPin
+    ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000)
+    : null;
 
   const onLoad = (event: MapEvent) => {
     if (!loadAllIncidents && droppedPin && radiusFeet > 0) {
       const radiusMeters = radiusFeet * FEET_TO_METERS;
 
-      fetch(`${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-        .then(res => res.json())
-        .then(data => {
+      fetch(
+        `${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
+      )
+        .then((res) => res.json())
+        .then((data) => {
           setIncidentGeoJson(data);
           setLocationSummary(summarizeIncidents(data.features));
         });
@@ -286,104 +350,107 @@ export default forwardRef<MapRef | null, Props>(function Map({
       <ReactMap
         {...viewport}
         ref={mapRef}
-        onMove={evt => setViewport(evt.viewState)}
+        onMove={(evt) => setViewport(evt.viewState)}
         onMoveEnd={onMoveEnd}
         onLoad={onLoad}
         onClick={onClick}
-        interactiveLayerIds={['incident-layer']}
+        interactiveLayerIds={["incident-layer"]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
-        {incidentGeoJson &&
-            <Source
-                id="incidents"
-                type="geojson"
-                data={incidentGeoJson}
-            >
-                <Layer
-                    id="incident-layer"
-                    type="circle"
-                    filter={['!', ['has', 'point_count']]}
-                    paint={{
-                      'circle-color': [
-                        'case',
-                        ['>', ['get', 'fatalities'], 0],
-                        '#ef4444', // Red (Tailwind red-500)
-                        ['>', ['get', 'serious_injuries'], 0],
-                        '#facc15', // Yellow (Tailwind yellow-400)
-                        '#22c55e'  // Green
-                      ],
-                      'circle-stroke-width': 1,
-                      'circle-stroke-color': '#ffffff'
-                    }}
-                />
-            </Source>
-        }
+        {incidentGeoJson && (
+          <Source id="incidents" type="geojson" data={incidentGeoJson}>
+            <Layer
+              id="incident-layer"
+              type="circle"
+              filter={["!", ["has", "point_count"]]}
+              paint={{
+                "circle-color": [
+                  "case",
+                  [">", ["get", "fatalities"], 0],
+                  "#ef4444", // Red (Tailwind red-500)
+                  [">", ["get", "serious_injuries"], 0],
+                  "#facc15", // Yellow (Tailwind yellow-400)
+                  "#22c55e", // Green
+                ],
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#ffffff",
+              }}
+            />
+          </Source>
+        )}
 
-        {areaOfInterestIncidentGeoJson &&
-            <Source
-                id="area-of-interest-incidents"
-                type="geojson"
-                data={areaOfInterestIncidentGeoJson}
-            >
-                <Layer
-                    id="area-of-interest-incident-layer"
-                    type="circle"
-                    filter={['!', ['has', 'point_count']]}
-                    paint={{
-                      'circle-color': [
-                        'case',
-                        ['>', ['get', 'fatalities'], 0],
-                        '#ef4444', // Red (Tailwind red-500)
-                        ['>', ['get', 'serious_injuries'], 0],
-                        '#facc15', // Yellow (Tailwind yellow-400)
-                        '#22c55e'  // Green
-                      ],
-                      'circle-stroke-width': 1,
-                      'circle-stroke-color': '#ffffff'
-                    }}
-                />
-            </Source>
-        }
+        {areaOfInterestIncidentGeoJson && (
+          <Source
+            id="area-of-interest-incidents"
+            type="geojson"
+            data={areaOfInterestIncidentGeoJson}
+          >
+            <Layer
+              id="area-of-interest-incident-layer"
+              type="circle"
+              filter={["!", ["has", "point_count"]]}
+              paint={{
+                "circle-color": [
+                  "case",
+                  [">", ["get", "fatalities"], 0],
+                  "#ef4444", // Red (Tailwind red-500)
+                  [">", ["get", "serious_injuries"], 0],
+                  "#facc15", // Yellow (Tailwind yellow-400)
+                  "#22c55e", // Green
+                ],
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#ffffff",
+              }}
+            />
+          </Source>
+        )}
 
-        {streetCenterlines &&
-            <Source type={'geojson'} data={streetCenterlines}>
-                <Layer id="street-centerline-layer" type={'line'} paint={{
-                  'line-width': 2,
-                  'line-color': [
-                    'step',
-                    ['get', 'speedlimit'],
-                    '#33ea2d', // Default color (for < 25)
-                    26, '#fafa37', // Yellow for 26-34
-                    35, '#ff8c00', // Orange for 36-44
-                    45, '#ff0000'  // Red for 50+
-                  ]
-                }}/>
-            </Source>
-        }
+        {streetCenterlines && (
+          <Source type={"geojson"} data={streetCenterlines}>
+            <Layer
+              id="street-centerline-layer"
+              type={"line"}
+              paint={{
+                "line-width": 2,
+                "line-color": [
+                  "step",
+                  ["get", "speedlimit"],
+                  "#33ea2d", // Default color (for < 25)
+                  26,
+                  "#fafa37", // Yellow for 26-34
+                  35,
+                  "#ff8c00", // Orange for 36-44
+                  45,
+                  "#ff0000", // Red for 50+
+                ],
+              }}
+            />
+          </Source>
+        )}
 
         {bufferedStreet && (
-            <Source type={'geojson'} data={bufferedStreet}>
-                {/* The background fill */}
-                <Layer
-                    id="buffered-street-fill"
-                    type="fill"
-                    paint={{
-                      'fill-color': '#3b82f6',
-                      'fill-opacity': 0.1
-                    }}
-                />
-                {/* The dashed border */}
-                <Layer
-                    id="buffered-street-outline"
-                    type="line"
-                    paint={{
-                      'line-color': '#3b82f6',
-                      'line-width': 2,
-                      'line-dasharray': [2, 2]
-                    }}
-                />
-            </Source>
+          <Source type={"geojson"} data={bufferedStreet}>
+            {/* The background fill */}
+            <Layer
+              id="buffered-street-fill"
+              type="fill"
+              paint={{
+                "fill-color": "#3b82f6",
+                "fill-opacity": 0.1,
+              }}
+            />
+            {/* The dashed border */}
+            <Layer
+              id="buffered-street-outline"
+              type="line"
+              paint={{
+                "line-color": "#3b82f6",
+                "line-width": 2,
+                "line-dasharray": [2, 2],
+              }}
+            />
+          </Source>
         )}
 
         {radiusGeoJSON && (
@@ -392,17 +459,17 @@ export default forwardRef<MapRef | null, Props>(function Map({
               id="radius-fill"
               type="fill"
               paint={{
-                'fill-color': '#3b82f6',
-                'fill-opacity': 0.1
+                "fill-color": "#3b82f6",
+                "fill-opacity": 0.1,
               }}
             />
             <Layer
               id="radius-outline"
               type="line"
               paint={{
-                'line-color': '#3b82f6',
-                'line-width': 2,
-                'line-dasharray': [2, 2]
+                "line-color": "#3b82f6",
+                "line-width": 2,
+                "line-dasharray": [2, 2],
               }}
             />
           </Source>
@@ -414,7 +481,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
             latitude={(selectedPoint.geometry as Point).coordinates[1]}
             anchor="bottom"
             onClose={() => setSelectedPoint(null)}
-            maxWidth={'none'}
+            maxWidth={"none"}
           >
             <div className="p-2 text-black">
               <h3 className="font-bold">Incident Info</h3>
@@ -427,7 +494,7 @@ export default forwardRef<MapRef | null, Props>(function Map({
       </ReactMap>
     </div>
   );
-})
+});
 
 type Incident = {
   incident_id: string | number;
@@ -486,5 +553,9 @@ export type LocationSummary = {
   comprehensiveCosts: number;
   bicyclesInvolved: number;
   pedestriansInvolved: number;
-  severityCounts: { Fatalities: number; 'Serious Injuries': number; 'Property Damage or Non-Serious Injuries': number },
+  severityCounts: {
+    Fatalities: number;
+    "Serious Injuries": number;
+    "Property Damage or Non-Serious Injuries": number;
+  };
 };

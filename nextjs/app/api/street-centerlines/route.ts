@@ -1,17 +1,17 @@
-import dbClient from '@/app/lib/db';
-import { NextRequest } from 'next/server';
+import dbClient from "@/app/lib/db";
+import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const bbox = searchParams.get('bbox');
-  const streetName = searchParams.get('streetName');
+  const bbox = searchParams.get("bbox");
+  const streetName = searchParams.get("streetName");
 
   let whereClause = "WHERE 1=1";
   const queryParams: (string | number)[] = [];
   let paramIndex = 1;
 
   if (bbox) {
-    const [minX, minY, maxX, maxY] = bbox.split(',').map(Number);
+    const [minX, minY, maxX, maxY] = bbox.split(",").map(Number);
     whereClause += ` AND ST_Intersects(geom, ST_MakeEnvelope($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 4326))`;
     queryParams.push(minX, minY, maxX, maxY);
   }

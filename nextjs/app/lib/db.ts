@@ -1,4 +1,4 @@
-import {Pool} from 'pg';
+import { Pool } from "pg";
 
 const dbClient = new Pool({
   user: process.env.DB_USER,
