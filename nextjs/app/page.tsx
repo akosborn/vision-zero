@@ -226,12 +226,12 @@ export default function Home() {
 
           {locationSummary ?
             <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4">
-              <div className="mb-2">
+              <div className="mb-2 col-span-1">
                 <span className={'text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground'}>Total Crashes</span>
                 <h4 className={'font-bold text-lg md:text-xl'}>{locationSummary.totalIncidents}</h4>
               </div>
 
-              <div className="mb-2 col-span-2 md:col-span-1">
+              <div className="mb-2 col-span-1">
                 <div className="flex items-center gap-1">
                   <span className={'text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground'}>Comprehensive Cost</span>
                   <a
