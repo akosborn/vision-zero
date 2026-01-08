@@ -126,7 +126,7 @@ const FilterPanel: React.FC<Props> = ({
         </Popover>
       </div>
 
-      <div className={"flex flex-col gap-2"}>
+      <div className={"flex flex-col gap-2 flex-grow-1"}>
         <FieldLabel htmlFor={"area-of-interest"} className="text-xs md:text-sm">
           Jump to area of interest
         </FieldLabel>

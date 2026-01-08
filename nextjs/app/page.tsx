@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Map, { defaultViewport, LocationSummary } from "./components/map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { LocateFixedIcon } from "lucide-react";
+import { LocateFixedIcon, SquareX } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
@@ -61,6 +61,8 @@ export default function Home() {
 
   const [locationSummary, setLocationSummary] =
     React.useState<LocationSummary | null>(null);
+
+  const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
@@ -133,15 +135,7 @@ export default function Home() {
           "absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-auto z-10 flex items-start flex-col gap-2"
         }
       >
-        <div className="flex items-center w-full md:w-auto">
-          <Alert className="py-2 px-3">
-            <AlertDescription className="text-xs md:text-sm">
-              To get started, select an area of interest or click anywhere on
-              the map.
-            </AlertDescription>
-          </Alert>
-        </div>
-        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto">
+        <div className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto">
           <FilterPanel
             calendarOpen={calendarOpen}
             setCalendarOpen={setCalendarOpen}
@@ -157,6 +151,20 @@ export default function Home() {
             setDroppedPin={setDroppedPin}
           />
         </div>
+        {getStartedInfoIsOpen && (
+          <div className="flex items-center w-full md:w-auto">
+            <Alert className="py-2 px-3">
+              <SquareX
+                className="h-4 w-4 cursor-pointer"
+                onClick={() => setGetStartedInfoIsOpen(false)}
+              />
+              <AlertDescription className="text-xs md:text-sm">
+                To get started, select an area of interest or click anywhere on
+                the map.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
       </div>
 
       {/* Location Summary Overlay */}
