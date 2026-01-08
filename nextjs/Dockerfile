@@ -11,7 +11,7 @@ WORKDIR /app
 # Install dependencies based on the preferred package manager
 COPY package.json yarn.lock* ./
 RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 100000; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
