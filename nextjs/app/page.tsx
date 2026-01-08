@@ -229,7 +229,7 @@ export default function Home() {
           <Separator className={"my-3 md:my-4"} />
 
           {locationSummary ? (
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4">
+            <div className="grid grid-cols-2 gap-x-4">
               <div className="mb-2 col-span-1">
                 <span
                   className={
