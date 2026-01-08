@@ -4,29 +4,16 @@ import React, { useEffect, useState } from "react";
 import Map, { defaultViewport, LocationSummary } from "./components/map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
-import { CalendarIcon, LocateFixedIcon } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { LocateFixedIcon } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FeatureCollection, Position } from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import _ from "lodash";
+import FilterPanel from "@/app/components/overlays/FilterPanel";
 
 const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -155,95 +142,20 @@ export default function Home() {
           </Alert>
         </div>
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto">
-          <div className="flex flex-col gap-2 md:border-r md:pr-6">
-            <FieldLabel htmlFor="date" className="text-xs md:text-sm">
-              Date range
-            </FieldLabel>
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  id="date"
-                  className="w-full md:w-60 justify-between font-normal text-xs md:text-sm"
-                >
-                  {dateRange?.from && dateRange.to
-                    ? `${DateTime.fromISO(dateRange?.from, { zone: "America/Denver" }).toLocaleString(DateTime.DATE_MED)} - ${DateTime.fromISO(dateRange.to, { zone: "America/Denver" }).toLocaleString(DateTime.DATE_MED)}`
-                    : "Select dates"}
-                  <CalendarIcon size={14} />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-auto overflow-hidden p-0"
-                align="start"
-              >
-                <Calendar
-                  className={"pointer-events-auto"}
-                  mode="range"
-                  defaultMonth={
-                    dateRange?.from
-                      ? DateTime.fromISO(dateRange.from).toJSDate()
-                      : undefined
-                  }
-                  selected={{
-                    from: dateRange?.from
-                      ? DateTime.fromISO(dateRange.from).toJSDate()
-                      : undefined,
-                    to: dateRange?.to
-                      ? DateTime.fromISO(dateRange.to).toJSDate()
-                      : undefined,
-                  }}
-                  onSelect={(range) => {
-                    if (!range) {
-                      setDateRange(undefined);
-                    }
-
-                    setDateRange({
-                      from: range?.from
-                        ? DateTime.fromJSDate(range.from).toISODate()!
-                        : undefined,
-                      to: range?.to
-                        ? DateTime.fromJSDate(range.to).toISODate()!
-                        : undefined,
-                    });
-                  }}
-                  captionLayout="dropdown"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className={"flex flex-col gap-2"}>
-            <FieldLabel
-              htmlFor={"area-of-interest"}
-              className="text-xs md:text-sm"
-            >
-              Jump to area of interest
-            </FieldLabel>
-            <Select
-              value={streetName || ""}
-              onValueChange={(value) => {
-                setIncidentGeoJson(null);
-                setAreaOfInterestIncidentGeoJson(null);
-                setLocationSummary(null);
-                setDroppedPin(null);
-                setStreetName(value);
-              }}
-            >
-              <SelectTrigger
-                id={"area-of-interest"}
-                className="w-full md:w-45 text-xs md:text-sm"
-              >
-                <SelectValue placeholder="Select an area" />
-              </SelectTrigger>
-              <SelectContent>
-                {STREET_NAMES_OPTIONS.map(({ id, label }) => (
-                  <SelectItem key={id} value={id}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterPanel
+            calendarOpen={calendarOpen}
+            setCalendarOpen={setCalendarOpen}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            streetName={streetName}
+            setStreetName={setStreetName}
+            setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
+            incidentGeoJson={incidentGeoJson}
+            setIncidentGeoJson={setIncidentGeoJson}
+            setLocationSummary={setLocationSummary}
+            droppedPin={droppedPin}
+            setDroppedPin={setDroppedPin}
+          />
         </div>
       </div>
 
