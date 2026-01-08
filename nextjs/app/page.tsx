@@ -1,32 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Map, { defaultViewport, LocationSummary } from "./components/map";
+import Map, { defaultViewport, LocationSummary } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { LocateFixedIcon, SquareX } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Separator } from "@/components/ui/separator";
+import { SquareX } from "lucide-react";
 import { FeatureCollection, Position } from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import _ from "lodash";
-import FilterPanel from "@/app/components/overlays/FilterPanel";
-
-const STREET_NAMES_OPTIONS = [
-  { id: "7THAVE", label: "7th Ave" },
-  { id: "29THAVE", label: "29th Ave" },
-  { id: "ALAMEDAAVE", label: "Alameda Ave" },
-  { id: "COLFAXAVE", label: "Colfax Ave" },
-  { id: "COLORADOBLVD", label: "Colorado Blvd" },
-  { id: "FEDERALBLVD", label: "Federal Blvd" },
-  { id: "LARIMERST", label: "Larimer St" },
-  { id: "SPEERBLVD", label: "Speer Blvd" },
-  { id: "TEJONST", label: "Tejon St" },
-  { id: "YORKST", label: "York St" },
-];
+import FilterPanel from "@/app/components/FilterPanel";
+import LocationReport from "@/app/components/LocationReport";
 
 export default function Home() {
   const mapRef = React.useRef<MapRef | null>(null);
@@ -168,153 +153,18 @@ export default function Home() {
       </div>
 
       {/* Location Summary Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto md:max-w-xs max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none">
-        <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-4 md:hidden" />
-        <div>
-          <h3 className={"font-semibold uppercase text-xs md:text-sm mb-2"}>
-            {streetName ? "Area of Interest" : "Pinned Location"} Report
-          </h3>
-          <div className="flex items-center gap-4 mb-2">
-            <div
-              className={"cursor-pointer p-1"}
-              onClick={() => {
-                if (droppedPin) {
-                  if (incidentGeoJson?.features.length) {
-                    zoomToLayer(incidentGeoJson);
-                  } else {
-                    setViewport({
-                      zoom: 17,
-                      longitude: droppedPin.lng,
-                      latitude: droppedPin.lat,
-                    });
-                  }
-                }
-
-                if (streetName && areaOfInterestIncidentGeoJson) {
-                  zoomToLayer(areaOfInterestIncidentGeoJson);
-                }
-              }}
-            >
-              <LocateFixedIcon size={18} className={"text-foreground"} />
-            </div>
-            <div className="overflow-hidden">
-              <p className={"text-xs font-light truncate"}>
-                {streetName && (
-                  <>
-                    {
-                      STREET_NAMES_OPTIONS.find(
-                        (option) => option.id === streetName,
-                      )?.label
-                    }
-                  </>
-                )}
-                {droppedPin?.lng && droppedPin?.lat && (
-                  <>
-                    {droppedPin.lng.toFixed(4)}, {droppedPin.lat.toFixed(4)}
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Field className="w-full">
-              <FieldLabel htmlFor={"radius-feet"} className="text-xs">
-                {streetName ? "Buffer" : "Radius"}: {radiusFeet} ft
-              </FieldLabel>
-              <Slider
-                id={"radius-feet"}
-                min={10}
-                step={10}
-                max={500}
-                value={[radiusFeet]}
-                onValueChange={(values) => setRadiusFeet(values[0])}
-                className={"h-6"}
-              />
-            </Field>
-          </div>
-
-          <Separator className={"my-3 md:my-4"} />
-
-          {locationSummary ? (
-            <div className="grid grid-cols-2 gap-x-4">
-              <div className="mb-2 col-span-1">
-                <span
-                  className={
-                    "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                  }
-                >
-                  Total Crashes
-                </span>
-                <h4 className={"font-bold text-lg md:text-xl"}>
-                  {locationSummary.totalIncidents}
-                </h4>
-              </div>
-
-              <div className="mb-2 col-span-1">
-                <div className="flex items-center gap-1">
-                  <span
-                    className={
-                      "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                    }
-                  >
-                    Comprehensive Cost
-                  </span>
-                  <a
-                    href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-blue-500 transition-colors"
-                    title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 16v-4" />
-                      <path d="M12 8h.01" />
-                    </svg>
-                  </a>
-                </div>
-                <h4 className={"font-bold text-lg md:text-xl"}>
-                  {usdFormatter.format(locationSummary.comprehensiveCosts)}
-                </h4>
-              </div>
-
-              <Separator className="col-span-2 hidden md:block my-2" />
-
-              {Object.entries(locationSummary.severityCounts).map(
-                ([severity, count]) => {
-                  if (count === 0) return null;
-                  return (
-                    <div key={severity} className="mb-2">
-                      <span
-                        className={
-                          "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                        }
-                      >
-                        {severity}
-                      </span>
-                      <h4 className={"font-bold text-lg md:text-xl"}>
-                        {count}
-                      </h4>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          ) : (
-            <div className="text-sm italic">Loading report...</div>
-          )}
-        </div>
+      <div className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none">
+        <LocationReport
+          radiusFeet={radiusFeet}
+          setRadiusFeet={setRadiusFeet}
+          locationSummary={locationSummary}
+          setViewport={setViewport}
+          zoomToLayer={zoomToLayer}
+          streetName={streetName}
+          droppedPin={droppedPin}
+          incidentGeoJson={incidentGeoJson}
+          areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+        />
       </div>
 
       {/* Legend Overlay - Hidden on very small screens or moved */}
@@ -342,10 +192,3 @@ export default function Home() {
     </main>
   );
 }
-
-const usdFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});

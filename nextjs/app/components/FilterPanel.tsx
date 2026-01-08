@@ -18,9 +18,9 @@ import {
 } from "@/components/ui/select";
 import React from "react";
 import { FeatureCollection } from "geojson";
-import { LocationSummary } from "@/app/components/map";
+import { LocationSummary } from "@/app/components/Map";
 
-const STREET_NAMES_OPTIONS = [
+export const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
   { id: "29THAVE", label: "29th Ave" },
   { id: "ALAMEDAAVE", label: "Alameda Ave" },

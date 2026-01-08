@@ -496,9 +496,9 @@ export default forwardRef<MapRef | null, Props>(function Map(
   );
 });
 
-type Incident = {
+export type Incident = {
   incident_id: string | number;
-  first_occurrence_date: string | Date;
+  first_occurrence_date: string;
   address: string | null;
   google_maps_url: string | null;
   neighborhood_id: string | null;
@@ -523,7 +523,7 @@ type Incident = {
   offense_code: string | number;
   offense_code_extension: string | number;
   reported_date: string | Date;
-  geo: any; // Typically GeoJSON or WKT string depending on driver
+  geo: JSON;
   geo_x: number | null;
   geo_y: number | null;
   geo_lon: number | null;
