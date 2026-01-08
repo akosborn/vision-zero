@@ -22,10 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FeatureCollection } from "geojson";
+import { FeatureCollection, Position } from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import _ from "lodash";
 
 const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -90,17 +91,15 @@ export default function Home() {
         feature.geometry.type === "Polygon"
       ) {
         // For lines/polygons, we need to iterate through the nested coordinates
-        const coords = (feature.geometry as any).coordinates;
-        const flatten = (arr: any[]): any[] =>
-          arr.reduce(
-            (acc, val) =>
-              Array.isArray(val[0])
-                ? acc.concat(flatten(val))
-                : acc.concat([val]),
-            [],
-          );
+        const coords = feature.geometry.coordinates;
 
-        flatten(coords).forEach((coord) => bounds.extend(coord));
+        const flattenedCoordinates = Array.isArray(coords[0])
+          ? _.flatten(coords as Position[])
+          : coords;
+
+        flattenedCoordinates.forEach((coordinate) =>
+          bounds.extend(coordinate as [number, number]),
+        );
       }
     });
 
