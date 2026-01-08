@@ -12,7 +12,7 @@ services:
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
     ports:
       - 5432:5432
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf && apt-get && apt-get install -y postgis postgresql-17-postgis-3
     restart: always
 
   metabase:
@@ -43,6 +43,7 @@ services:
   nextjs:
     build:
       context: ./nextjs
+      network: host # Uses host network to bypass Docker's virtual network DNS issues with `yarn install`
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN=${NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
