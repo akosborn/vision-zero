@@ -207,10 +207,10 @@ const LocationReport: React.FC<Props> = ({
                   },
                 )}
 
-                {(locationSummary.bicyclesInvolved ||
-                  locationSummary.pedestriansInvolved) && (
-                  <Separator className="col-span-2 hidden md:block my-2" />
-                )}
+                {!!(
+                  locationSummary.bicyclesInvolved ||
+                  locationSummary.pedestriansInvolved
+                ) && <Separator className="col-span-2 hidden md:block my-2" />}
 
                 {locationSummary.bicyclesInvolved ? (
                   <div>
