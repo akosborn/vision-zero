@@ -11,7 +11,7 @@
 ## Reenabling PostGIS After Container Deletion
 
 1. Connect to the container `docker exec -it postgres17 bash`
-2. Install the postgis libary: `apt-get install -y postgis postgresql-17-postgis-3`
+2. Install the postgis libary: `apt-get update && apt-get install -y postgis postgresql-17-postgis-3`
 
 ### Long-Term Solution
 
