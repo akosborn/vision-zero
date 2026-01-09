@@ -11,6 +11,12 @@ import {
 import React, { forwardRef, useEffect } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
 import { GeoJSONFeature, MapEvent, MapMouseEvent } from "mapbox-gl";
+import {
+  getBufferedStreetCenterlines,
+  getIncidents,
+  getIncidentsWithinBufferedStreet,
+  getStreetCenterlines,
+} from "@/app/lib/api-client";
 
 const FEET_TO_METERS = 0.3048;
 
@@ -196,48 +202,34 @@ export default forwardRef<MapRef | null, Props>(function Map(
       ].join(",");
 
       if (loadAllIncidents) {
-        fetch(
-          `${API_PATH_BASE}/incidents?bbox=${bbox}&startDate=${startDate}&endDate=${endDate}`,
-        )
-          .then((response) => {
-            return response.json();
-          })
-          .then((json) => {
-            setIncidentGeoJson(json);
-          });
+        getIncidents({ startDate, endDate, bbox }).then((json) => {
+          setIncidentGeoJson(json);
+        });
       }
 
       if (displayStreetCenterlines && streetName) {
-        fetch(`${API_PATH_BASE}/street-centerlines?streetName=${streetName}`)
-          .then((response) => {
-            return response.json();
-          })
-          .then((json) => {
-            setStreetCenterlines(json);
-          });
+        getStreetCenterlines(streetName).then((json) => {
+          setStreetCenterlines(json);
+        });
       }
 
       if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
-        fetch(
-          `${API_PATH_BASE}/buffered-street-centerlines?streetName=${streetName}&bufferInFeet=${radiusFeet}`,
-        )
-          .then((response) => {
-            return response.json();
-          })
-          .then((json) => {
-            setBufferedStreet(json);
-          });
+        getBufferedStreetCenterlines({
+          streetName,
+          bufferInFeet: radiusFeet,
+        }).then((json) => {
+          setBufferedStreet(json);
+        });
 
-        fetch(
-          `${API_PATH_BASE}/incidents/buffered-street?streetName=${streetName}&bufferInFeet=${radiusFeet}&startDate=${startDate}&endDate=${endDate}`,
-        )
-          .then((response) => {
-            return response.json();
-          })
-          .then((data) => {
-            setAreaOfInterestIncidentGeoJson(data);
-            setLocationSummary(summarizeIncidents(data.features));
-          });
+        getIncidentsWithinBufferedStreet({
+          streetName,
+          bufferInFeet: radiusFeet,
+          startDate,
+          endDate,
+        }).then((data) => {
+          setAreaOfInterestIncidentGeoJson(data);
+          setLocationSummary(summarizeIncidents(data.features));
+        });
       }
     },
     [startDate, endDate, streetName, radiusFeet],
@@ -248,39 +240,19 @@ export default forwardRef<MapRef | null, Props>(function Map(
       fetchIncidents(mapRef.current.getMap());
 
       if (droppedPin) {
-        const radiusMeters = radiusFeet * FEET_TO_METERS;
-        fetch(
-          `${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
-        )
-          .then((res) => res.json())
-          .then((data) => {
-            setIncidentGeoJson(data);
-            setLocationSummary(summarizeIncidents(data.features));
-          });
+        getIncidents({
+          startDate,
+          endDate,
+          lat: droppedPin.lat,
+          lng: droppedPin.lng,
+          radiusInFeet: radiusFeet,
+        }).then((data) => {
+          setIncidentGeoJson(data);
+          setLocationSummary(summarizeIncidents(data.features));
+        });
       }
     }
   }, [startDate, endDate, fetchIncidents]);
-
-  // useEffect(() => {
-  //   if (!droppedPin) {
-  //     return;
-  //   }
-  //
-  //   if (!startDate || !endDate) {
-  //     return;
-  //   }
-  //
-  //   const lng = droppedPin.lng;
-  //   const lat = droppedPin.lat;
-  //   const radiusMeters = radiusFeet * FEET_TO_METERS;
-  //
-  //   setLocationSummary(null);
-  //   fetch(`/api/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`)
-  //     .then(res => res.json())
-  //     .then(data => {
-  //       setLocationSummary(summarizeIncidents(data.features));
-  //     });
-  // }, [startDate, endDate, radiusFeet, droppedPin]);
 
   const onMoveEnd = React.useCallback(
     (event: MapMouseEvent) => {
@@ -309,16 +281,16 @@ export default forwardRef<MapRef | null, Props>(function Map(
       setDroppedPin({ lng, lat });
       setSelectedPoint(null);
 
-      const radiusMeters = radiusFeet * FEET_TO_METERS;
-
-      fetch(
-        `${API_PATH_BASE}/incidents?lat=${lat}&lng=${lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          setIncidentGeoJson(data);
-          setLocationSummary(summarizeIncidents(data.features));
-        });
+      getIncidents({
+        startDate,
+        endDate,
+        lat,
+        lng,
+        radiusInFeet: radiusFeet,
+      }).then((data) => {
+        setIncidentGeoJson(data);
+        setLocationSummary(summarizeIncidents(data.features));
+      });
     }
   };
 
@@ -328,16 +300,16 @@ export default forwardRef<MapRef | null, Props>(function Map(
 
   const onLoad = (event: MapEvent) => {
     if (!loadAllIncidents && droppedPin && radiusFeet > 0) {
-      const radiusMeters = radiusFeet * FEET_TO_METERS;
-
-      fetch(
-        `${API_PATH_BASE}/incidents?lat=${droppedPin.lat}&lng=${droppedPin.lng}&radius=${radiusMeters}&startDate=${startDate}&endDate=${endDate}`,
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          setIncidentGeoJson(data);
-          setLocationSummary(summarizeIncidents(data.features));
-        });
+      getIncidents({
+        startDate,
+        endDate,
+        lat: droppedPin.lat,
+        lng: droppedPin.lng,
+        radiusInFeet: radiusFeet,
+      }).then((data) => {
+        setIncidentGeoJson(data);
+        setLocationSummary(summarizeIncidents(data.features));
+      });
       return;
     }
 

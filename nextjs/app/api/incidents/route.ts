@@ -1,6 +1,8 @@
 import dbClient from "@/app/lib/db";
 import { NextRequest } from "next/server";
 
+const METERS_PER_FEET = 0.3048;
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const bbox = searchParams.get("bbox");
@@ -8,7 +10,7 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("endDate");
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");
-  const radius = searchParams.get("radius"); // in meters
+  const radiusFeet = searchParams.get("radiusInFeet");
 
   let whereClause = "WHERE 1=1";
   const queryParams: (string | number)[] = [];
@@ -28,9 +30,10 @@ export async function GET(request: NextRequest) {
     const [minX, minY, maxX, maxY] = bbox.split(",").map(Number);
     whereClause += ` AND ST_Intersects(geo, ST_MakeEnvelope($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, 4326))`;
     queryParams.push(minX, minY, maxX, maxY);
-  } else if (lat && lng && radius) {
+  } else if (lat && lng && radiusFeet) {
+    const radiusInMeters = parseFloat(radiusFeet) * METERS_PER_FEET;
     whereClause += ` AND ST_DWithin(geo, ST_SetSRID(ST_Point($${paramIndex++}, $${paramIndex++}), 4326)::geography, $${paramIndex++})`;
-    queryParams.push(parseFloat(lng), parseFloat(lat), parseFloat(radius));
+    queryParams.push(parseFloat(lng), parseFloat(lat), radiusInMeters);
   }
 
   const query = `
