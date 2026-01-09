@@ -206,6 +206,41 @@ const LocationReport: React.FC<Props> = ({
                     );
                   },
                 )}
+
+                {(locationSummary.bicyclesInvolved ||
+                  locationSummary.pedestriansInvolved) && (
+                  <Separator className="col-span-2 hidden md:block my-2" />
+                )}
+
+                {locationSummary.bicyclesInvolved ? (
+                  <div>
+                    <span
+                      className={
+                        "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
+                      }
+                    >
+                      Bicyclists Involved
+                    </span>
+                    <h4 className={"font-bold text-lg md:text-xl"}>
+                      {locationSummary.bicyclesInvolved}
+                    </h4>
+                  </div>
+                ) : null}
+
+                {locationSummary.pedestriansInvolved ? (
+                  <div>
+                    <span
+                      className={
+                        "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
+                      }
+                    >
+                      Pedestrians Involved
+                    </span>
+                    <h4 className={"font-bold text-lg md:text-xl"}>
+                      {locationSummary.pedestriansInvolved}
+                    </h4>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="text-sm italic">Loading report...</div>
