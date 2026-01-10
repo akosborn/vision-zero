@@ -4,13 +4,13 @@ import React, { useEffect, useState } from "react";
 import Map, { defaultViewport, LocationSummary } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { SquareX } from "lucide-react";
 import { FeatureCollection, Position } from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
+import { Alert, CloseButton, Paper } from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 
 export default function Home() {
@@ -33,7 +33,6 @@ export default function Home() {
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] =
     React.useState<FeatureCollection | null>(null);
 
-  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [droppedPin, setDroppedPin] = React.useState<{
     lng: number;
     lat: number;
@@ -92,9 +91,21 @@ export default function Home() {
   }, [streetName, areaOfInterestIncidentGeoJson]);
 
   return (
-    <main className="relative flex h-screen w-screen overflow-hidden">
+    <main
+      className="relative flex h-screen w-screen overflow-hidden"
+      style={{
+        position: "relative",
+        display: "flex",
+        height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
+      }}
+    >
       {/* Map Area */}
-      <div className="absolute inset-0">
+      <div
+        className="absolute inset-0"
+        style={{ position: "absolute", inset: 0 }}
+      >
         <Map
           droppedPin={droppedPin}
           setLocationSummary={setLocationSummary}
@@ -119,11 +130,39 @@ export default function Home() {
         className={
           "absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-auto z-10 flex items-start flex-col gap-2"
         }
+        style={{
+          position: "absolute",
+          top: "1rem",
+          left: "1rem",
+          right: "1rem",
+          zIndex: 10,
+          display: "flex",
+          alignItems: "start",
+          flexDirection: "column",
+          gap: "0.5rem",
+        }}
       >
-        <div className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto">
+        <Paper
+          shadow={"xs"}
+          radius={"md"}
+          p={"sm"}
+          className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
+        >
+          {getStartedInfoIsOpen && (
+            <Alert
+              variant={"light"}
+              icon={<IconInfoCircle />}
+              withCloseButton={true}
+              onClose={() => setGetStartedInfoIsOpen(false)}
+              color={"cyan"}
+              p={"sm"}
+              mb={"xs"}
+            >
+              To get started, select an area of interest or click anywhere on
+              the map.
+            </Alert>
+          )}
           <FilterPanel
-            calendarOpen={calendarOpen}
-            setCalendarOpen={setCalendarOpen}
             dateRange={dateRange}
             setDateRange={setDateRange}
             streetName={streetName}
@@ -135,60 +174,65 @@ export default function Home() {
             droppedPin={droppedPin}
             setDroppedPin={setDroppedPin}
           />
-        </div>
-        {getStartedInfoIsOpen && (
-          <div className="flex items-center w-full md:w-auto">
-            <Alert className="py-2 px-3">
-              <SquareX
-                className="h-4 w-4 cursor-pointer"
-                onClick={() => setGetStartedInfoIsOpen(false)}
-              />
-              <AlertDescription className="text-xs md:text-sm">
-                To get started, select an area of interest or click anywhere on
-                the map.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
+        </Paper>
       </div>
 
       {/* Location Summary Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none">
-        <LocationReport
-          radiusFeet={radiusFeet}
-          setRadiusFeet={setRadiusFeet}
-          locationSummary={locationSummary}
-          setViewport={setViewport}
-          zoomToLayer={zoomToLayer}
-          streetName={streetName}
-          droppedPin={droppedPin}
-          incidentGeoJson={incidentGeoJson}
-          areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-        />
+      <div
+        className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none"
+        style={{
+          position: "absolute",
+          bottom: "1rem",
+          left: "1rem",
+          zIndex: 10,
+          display: "flex",
+          alignItems: "start",
+          flexDirection: "column",
+          gap: "0.5rem",
+        }}
+      >
+        <Paper
+          shadow={"xs"}
+          radius={"md"}
+          p={"sm"}
+          className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
+        >
+          <LocationReport
+            radiusFeet={radiusFeet}
+            setRadiusFeet={setRadiusFeet}
+            locationSummary={locationSummary}
+            setViewport={setViewport}
+            zoomToLayer={zoomToLayer}
+            streetName={streetName}
+            droppedPin={droppedPin}
+            incidentGeoJson={incidentGeoJson}
+            areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+          />
+        </Paper>
       </div>
 
-      {/* Legend Overlay - Hidden on very small screens or moved */}
-      <div className="hidden sm:block absolute bottom-6 right-6 z-10 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground border md:border-none">
-        <h3 className="text-[10px] md:text-xs font-semibold mb-2 md:mb-3 tracking-wider uppercase">
-          Crash Severity
-        </h3>
-        <div className="space-y-1 md:space-y-2">
-          <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>
-            <span className="text-sm">Fatality</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>
-            <span className="text-sm">Serious Injury</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>
-            <span className="text-sm">
-              Minor Injury or Only Property Damage
-            </span>
-          </div>
-        </div>
-      </div>
+      {/*/!* Legend Overlay - Hidden on very small screens or moved *!/*/}
+      {/*<div className="hidden sm:block absolute bottom-6 right-6 z-10 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground border md:border-none">*/}
+      {/*  <h3 className="text-[10px] md:text-xs font-semibold mb-2 md:mb-3 tracking-wider uppercase">*/}
+      {/*    Crash Severity*/}
+      {/*  </h3>*/}
+      {/*  <div className="space-y-1 md:space-y-2">*/}
+      {/*    <div className="flex items-center gap-3">*/}
+      {/*      <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>*/}
+      {/*      <span className="text-sm">Fatality</span>*/}
+      {/*    </div>*/}
+      {/*    <div className="flex items-center gap-3">*/}
+      {/*      <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>*/}
+      {/*      <span className="text-sm">Serious Injury</span>*/}
+      {/*    </div>*/}
+      {/*    <div className="flex items-center gap-3">*/}
+      {/*      <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>*/}
+      {/*      <span className="text-sm">*/}
+      {/*        Minor Injury or Only Property Damage*/}
+      {/*      </span>*/}
+      {/*    </div>*/}
+      {/*  </div>*/}
+      {/*</div>*/}
     </main>
   );
 }
