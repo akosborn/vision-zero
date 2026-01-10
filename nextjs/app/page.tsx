@@ -27,7 +27,7 @@ export default function Home() {
       .toFormat("yyyy-MM-dd"),
     to: DateTime.now().setZone("America/Denver").toFormat("yyyy-MM-dd"),
   });
-  const [radiusFeet, setRadiusFeet] = useState(20);
+  const [radiusInFeet, setRadiusInFeet] = useState(20);
 
   const [streetName, setStreetName] = useState<string | null>(null);
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] =
@@ -112,7 +112,7 @@ export default function Home() {
           setDroppedPin={setDroppedPin}
           startDate={dateRange?.from}
           endDate={dateRange?.to}
-          radiusFeet={radiusFeet}
+          radiusFeet={radiusInFeet}
           streetName={streetName}
           viewport={viewport}
           setViewport={setViewport}
@@ -173,6 +173,8 @@ export default function Home() {
             setLocationSummary={setLocationSummary}
             droppedPin={droppedPin}
             setDroppedPin={setDroppedPin}
+            radiusFeet={radiusInFeet}
+            setRadiusFeet={setRadiusInFeet}
           />
         </Paper>
       </div>
@@ -198,8 +200,8 @@ export default function Home() {
           className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
         >
           <LocationReport
-            radiusFeet={radiusFeet}
-            setRadiusFeet={setRadiusFeet}
+            radiusFeet={radiusInFeet}
+            setRadiusFeet={setRadiusInFeet}
             locationSummary={locationSummary}
             setViewport={setViewport}
             zoomToLayer={zoomToLayer}

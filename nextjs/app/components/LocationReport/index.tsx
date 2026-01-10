@@ -7,7 +7,7 @@ import React from "react";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Slider } from "@/components/ui/slider";
 import CrashList from "@/app/components/LocationReport/CrashList";
-import { Anchor, Flex, Text } from "@mantine/core";
+import { Anchor, Flex, NumberInput, Text } from "@mantine/core";
 
 type Props = {
   streetName: string | null;
@@ -38,23 +38,34 @@ const LocationReport: React.FC<Props> = ({
 
   return (
     <div>
-      <Flex direction={'row'} align={'center'} gap={'xl'} justify={'space-between'} className={"flex flex-row items-center gap-4 justify-between mb-2"}>
+      <Flex
+        direction={"row"}
+        align={"center"}
+        gap={"xl"}
+        justify={"space-between"}
+        className={"flex flex-row items-center gap-4 justify-between mb-2"}
+      >
         <div>
-          <Text size={'md'} fw={700} className={"font-semibold uppercase text-xs md:text-sm"}>
+          <Text
+            size={"md"}
+            fw={700}
+            className={"font-semibold uppercase text-xs md:text-sm"}
+          >
             {streetName ? "Area of Interest" : "Pinned Location"} Report
           </Text>
         </div>
         <Anchor
-          underline={'never'}
-          component={'button'}
+          underline={"never"}
+          component={"button"}
           onClick={() => setShowIncidentDetails(!showIncidentDetails)}
         >
           {showIncidentDetails ? "Show Summary" : "List Crashes"}
         </Anchor>
       </Flex>
-      <div className="flex items-center gap-4 mb-2">
-        <div
-          className={"cursor-pointer p-1"}
+      <Flex align={"center"} gap={"sm"}>
+        <LocateFixedIcon
+          size={18}
+          cursor={"pointer"}
           onClick={() => {
             if (droppedPin) {
               if (incidentGeoJson?.features.length) {
@@ -67,16 +78,11 @@ const LocationReport: React.FC<Props> = ({
                 });
               }
             }
-
-            if (streetName && areaOfInterestIncidentGeoJson) {
-              zoomToLayer(areaOfInterestIncidentGeoJson);
-            }
           }}
-        >
-          <LocateFixedIcon size={18} className={"text-foreground"} />
-        </div>
-        <div className="overflow-hidden">
-          <p className={"text-xs font-light truncate"}>
+        />
+
+        <div style={{ overflow: "hidden" }}>
+          <Text size={"sm"}>
             {streetName && (
               <>
                 {
@@ -91,9 +97,9 @@ const LocationReport: React.FC<Props> = ({
                 {droppedPin.lng.toFixed(4)}, {droppedPin.lat.toFixed(4)}
               </>
             )}
-          </p>
+          </Text>
         </div>
-      </div>
+      </Flex>
 
       {showIncidentDetails ? (
         <>
@@ -106,28 +112,11 @@ const LocationReport: React.FC<Props> = ({
               }
             />
           ) : (
-            <div className="text-sm italic">Loading crashes...</div>
+            <Text size={"sm"}>Loading crashes...</Text>
           )}
         </>
       ) : (
         <>
-          <div className="flex items-center gap-4">
-            <Field className="w-full">
-              <FieldLabel htmlFor={"radius-feet"} className="text-xs">
-                {streetName ? "Buffer" : "Radius"}: {radiusFeet} ft
-              </FieldLabel>
-              <Slider
-                id={"radius-feet"}
-                min={10}
-                step={10}
-                max={500}
-                value={[radiusFeet]}
-                onValueChange={(values) => setRadiusFeet(values[0])}
-                className={"h-6"}
-              />
-            </Field>
-          </div>
-
           <Separator className={"my-3 md:my-4"} />
 
           {locationSummary ? (
