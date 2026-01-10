@@ -70,6 +70,7 @@ const FilterPanel: React.FC<Props> = ({
             to: values[1] || undefined,
           });
         }}
+        valueFormat={'MMM D, YYYY'}
       />
 
       <Select
@@ -89,6 +90,7 @@ const FilterPanel: React.FC<Props> = ({
           setDroppedPin(null);
           setStreetName(value);
         }}
+        style={{ width: 230 }}
       />
 
       <NumberInput
