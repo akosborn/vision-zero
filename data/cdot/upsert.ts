@@ -5,20 +5,47 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {DateTime} from 'luxon';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const run = async () => {
-  // const client = new Client({
-  //   user: process.env.DB_USER,
-  //   password: process.env.DB_PASSWORD,
-  //   host: process.env.DB_HOST,
-  //   port: parseInt(process.env.DB_PORT as string),
-  //   database: process.env.DB_NAME,
-  // });
-  // await client.connect();
-
   const csvPath = path.join(__dirname, 'raw/denver/2025.csv');
-  await readCsv(csvPath);
+  const srcRecords = await readCsv(csvPath);
+
+  if (srcRecords.length === 0) {
+    console.log('No records found in csv.');
+    return;
+  }
+
+  const client = new Client({
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT as string),
+    database: process.env.DB_NAME,
+  });
+  await client.connect();
+
+  const tableName = 'vision_zero.cdot_crashes';
+  
+  const computedColumns = ['geo'];
+  
+  const columns = [...Object.keys(srcRecords[0]), ...computedColumns];
+  const columnNames = columns.join(', ');
+
+  // Create placeholders ($1, $2, etc.)
+  const placeholders = columns.slice(0, -computedColumns.length).map((_, i) => `$${i + 1}`).join(', ');
+
+  await Promise.all(srcRecords.map(async (record) => {
+    const computedValues = [`ST_SetSRID(ST_MakePoint(${record.latitude}, ${record.longitude}), 4326)::geography`];
+    const values = columns.slice(0, -computedColumns.length).map(col => record[col]);
+
+    const query = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}, ${computedValues.join(', ')}) ON CONFLICT DO NOTHING RETURNING cuid, ${computedColumns.join(', ')};`;
+
+    return client.query(query, values)
+      .catch((err) => console.error(err, record));
+  }));
+
+  await client.end();
 };
 
 const readCsv = async (path: string) => {
@@ -26,8 +53,12 @@ const readCsv = async (path: string) => {
   const parser = fs.createReadStream(path).pipe(
     parse({
       columns: (header) =>
-        header.map((column: string) => column.toLowerCase().replace(/[\s-]+/g, '_')),
+        header.map((column: string) => column.trim().toLowerCase().replace(/[\s-]+/g, '_')),
       cast: (value, context) => {
+        if (value === '') {
+          return null;
+        }
+
         const numericColumns = [
           'latitude', 'longitude', 'number_killed', 'number_injured', 'injury_00', 'injury_01', 'injury_02', 'injury_03',
           'injury_04', 'total_vehicles', 'tu1_speed_limit', 'tu1_estimated_speed', 'tu1_speed', 'tu1_age', 'tu2_speed_limit',
@@ -52,6 +83,10 @@ const readCsv = async (path: string) => {
   );
 
   for await (const record of parser) {
+    if (record.city !== 'DENVER') {
+      continue;
+    }
+
     records.push(record);
   }
 
