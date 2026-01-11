@@ -9,11 +9,14 @@ import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
-import { Alert, CloseButton, Paper } from "@mantine/core";
+import { Alert, Button, Drawer, em, Paper, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 
 export default function Home() {
+  const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
+
   const mapRef = React.useRef<MapRef | null>(null);
 
   const [viewport, setViewport] = React.useState(defaultViewport);
@@ -47,6 +50,8 @@ export default function Home() {
     React.useState<LocationSummary | null>(null);
 
   const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
+
+  const [opened, { open, close }] = useDisclosure(false);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
@@ -184,33 +189,68 @@ export default function Home() {
         className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none"
         style={{
           position: "absolute",
-          bottom: "1rem",
-          left: "1rem",
+          bottom: "0rem",
+          left: "0rem",
+          padding: isMobile ? 0 : "1rem",
           zIndex: 10,
           display: "flex",
           alignItems: "start",
           flexDirection: "column",
           gap: "0.5rem",
+          minWidth: isMobile ? "100%" : "30vw",
+          maxWidth: isMobile ? "100%" : "70%",
         }}
       >
-        <Paper
-          shadow={"xs"}
-          radius={"md"}
-          p={"sm"}
-          className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
-        >
-          <LocationReport
-            radiusFeet={radiusInFeet}
-            setRadiusFeet={setRadiusInFeet}
-            locationSummary={locationSummary}
-            setViewport={setViewport}
-            zoomToLayer={zoomToLayer}
-            streetName={streetName}
-            droppedPin={droppedPin}
-            incidentGeoJson={incidentGeoJson}
-            areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-          />
-        </Paper>
+        {isMobile ? (
+          <>
+            <Drawer.Root opened={opened} onClose={close} position={"bottom"}>
+              <Drawer.Content style={{ height: "auto" }}>
+                <Drawer.Header>
+                  <Drawer.Title fw={700}>Location Report</Drawer.Title>
+                  <Drawer.CloseButton />
+                </Drawer.Header>
+                <Drawer.Body>
+                  <LocationReport
+                    locationSummary={locationSummary}
+                    setViewport={setViewport}
+                    zoomToLayer={zoomToLayer}
+                    streetName={streetName}
+                    droppedPin={droppedPin}
+                    incidentGeoJson={incidentGeoJson}
+                    areaOfInterestIncidentGeoJson={
+                      areaOfInterestIncidentGeoJson
+                    }
+                  />
+                </Drawer.Body>
+              </Drawer.Content>
+            </Drawer.Root>
+
+            <Button variant="default" onClick={open}>
+              Open Location Report
+            </Button>
+          </>
+        ) : (
+          <Paper
+            shadow={"xs"}
+            radius={"md"}
+            p={"sm"}
+            w={"100%"}
+            className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
+          >
+            <Text size={"md"} fw={700} mb={'sm'}>
+              Location Report
+            </Text>
+            <LocationReport
+              locationSummary={locationSummary}
+              setViewport={setViewport}
+              zoomToLayer={zoomToLayer}
+              streetName={streetName}
+              droppedPin={droppedPin}
+              incidentGeoJson={incidentGeoJson}
+              areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+            />
+          </Paper>
+        )}
       </div>
 
       {/*/!* Legend Overlay - Hidden on very small screens or moved *!/*/}

@@ -1,21 +1,23 @@
-import { Separator } from "@/components/ui/separator";
 import { Incident, LocationSummary } from "@/app/components/Map";
-import { LocateFixedIcon } from "lucide-react";
-import { STREET_NAMES_OPTIONS } from "@/app/components/FilterPanel";
 import { Feature, FeatureCollection, Geometry } from "geojson";
 import React from "react";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Slider } from "@/components/ui/slider";
 import CrashList from "@/app/components/LocationReport/CrashList";
-import { Anchor, Flex, NumberInput, Text } from "@mantine/core";
+import {
+  Anchor,
+  Container,
+  Flex,
+  Paper,
+  SegmentedControl,
+  SimpleGrid,
+  Text,
+} from "@mantine/core";
+import { IconInfoCircle } from "@tabler/icons-react";
 
 type Props = {
   streetName: string | null;
   droppedPin: { lng: number; lat: number } | null;
   incidentGeoJson: FeatureCollection | null;
   areaOfInterestIncidentGeoJson: FeatureCollection | null;
-  radiusFeet: number;
-  setRadiusFeet: React.Dispatch<React.SetStateAction<number>>;
   locationSummary: LocationSummary | null;
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
@@ -28,209 +30,146 @@ const LocationReport: React.FC<Props> = ({
   droppedPin,
   incidentGeoJson,
   areaOfInterestIncidentGeoJson,
-  radiusFeet,
-  setRadiusFeet,
   locationSummary,
   setViewport,
   zoomToLayer,
 }) => {
-  const [showIncidentDetails, setShowIncidentDetails] = React.useState(false);
+  const [selectedView, setSelectedView] = React.useState<"Summary" | "Crashes">(
+    "Summary",
+  );
 
   return (
     <div>
-      <Flex
-        direction={"row"}
-        align={"center"}
-        gap={"xl"}
-        justify={"space-between"}
-        className={"flex flex-row items-center gap-4 justify-between mb-2"}
-      >
-        <div>
-          <Text
-            size={"md"}
-            fw={700}
-            className={"font-semibold uppercase text-xs md:text-sm"}
-          >
-            {streetName ? "Area of Interest" : "Pinned Location"} Report
-          </Text>
-        </div>
-        <Anchor
-          underline={"never"}
-          component={"button"}
-          onClick={() => setShowIncidentDetails(!showIncidentDetails)}
-        >
-          {showIncidentDetails ? "Show Summary" : "List Crashes"}
-        </Anchor>
-      </Flex>
-      <Flex align={"center"} gap={"sm"}>
-        <LocateFixedIcon
-          size={18}
-          cursor={"pointer"}
-          onClick={() => {
-            if (droppedPin) {
-              if (incidentGeoJson?.features.length) {
-                zoomToLayer(incidentGeoJson);
-              } else {
-                setViewport({
-                  zoom: 17,
-                  longitude: droppedPin.lng,
-                  latitude: droppedPin.lat,
-                });
-              }
-            }
-          }}
-        />
-
-        <div style={{ overflow: "hidden" }}>
-          <Text size={"sm"}>
-            {streetName && (
-              <>
-                {
-                  STREET_NAMES_OPTIONS.find(
-                    (option) => option.id === streetName,
-                  )?.label
-                }
-              </>
-            )}
-            {droppedPin?.lng && droppedPin?.lat && (
-              <>
-                {droppedPin.lng.toFixed(4)}, {droppedPin.lat.toFixed(4)}
-              </>
-            )}
-          </Text>
-        </div>
-      </Flex>
-
-      {showIncidentDetails ? (
+      <SegmentedControl
+        value={selectedView}
+        onChange={(value) => setSelectedView(value as "Summary" | "Crashes")}
+        data={["Summary", "Crashes"]}
+        fullWidth
+        size={"sm"}
+        radius={"md"}
+        mb={"sm"}
+      />
+      {selectedView === "Summary" && (
         <>
           {locationSummary ? (
-            <CrashList
-              incidentsFeatures={
-                (areaOfInterestIncidentGeoJson?.features ||
-                  incidentGeoJson?.features ||
-                  []) as Feature<Geometry, Incident>[]
-              }
-            />
-          ) : (
-            <Text size={"sm"}>Loading crashes...</Text>
-          )}
-        </>
-      ) : (
-        <>
-          <Separator className={"my-3 md:my-4"} />
+            <SimpleGrid cols={2} spacing={"md"}>
+              <Paper
+                p="md"
+                radius="md"
+                style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
+              >
+                <Text size="1.5rem" fw={700}>
+                  {locationSummary?.totalIncidents}
+                </Text>
+                <Text size="xs" c="dimmed" fw={600}>
+                  Crashes
+                </Text>
+              </Paper>
 
-          {locationSummary ? (
-            <div className="grid grid-cols-2 gap-x-4">
-              <div className="mb-2 col-span-1">
-                <span
-                  className={
-                    "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                  }
-                >
-                  Total Crashes
-                </span>
-                <h4 className={"font-bold text-lg md:text-xl"}>
-                  {locationSummary.totalIncidents}
-                </h4>
-              </div>
-
-              <div className="mb-2 col-span-1">
-                <div className="flex items-center gap-1">
-                  <span
-                    className={
-                      "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                    }
-                  >
-                    Comprehensive Cost
-                  </span>
-                  <a
-                    href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-blue-500 transition-colors"
-                    title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+              <Paper
+                p="md"
+                radius="md"
+                style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
+              >
+                <Text size="1.5rem" fw={700}>
+                  {usdFormatter.format(
+                    locationSummary?.comprehensiveCosts || 0,
+                  )}
+                </Text>
+                <Flex justify={"center"} gap={"2px"}>
+                  <Text size="xs" c="dimmed" fw={600}>
+                    Cost
+                  </Text>
+                  <div>
+                    <Anchor
+                      href="https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf"
+                      target="_blank"
+                      title="Comprehensive crash cost estimates based on KABCO Crash Costs in 2024 dollars"
                     >
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 16v-4" />
-                      <path d="M12 8h.01" />
-                    </svg>
-                  </a>
-                </div>
-                <h4 className={"font-bold text-lg md:text-xl"}>
-                  {usdFormatter.format(locationSummary.comprehensiveCosts)}
-                </h4>
-              </div>
+                      <IconInfoCircle
+                        size={17}
+                        color={"#868e96"}
+                        cursor={"pointer"}
+                      />
+                    </Anchor>
+                  </div>
+                </Flex>
+              </Paper>
 
-              <Separator className="col-span-2 hidden md:block my-2" />
-
-              {Object.entries(locationSummary.severityCounts).map(
+              {Object.entries(locationSummary?.severityCounts || {}).map(
                 ([severity, count]) => {
                   if (count === 0) return null;
                   return (
-                    <div key={severity} className="mb-2">
-                      <span
-                        className={
-                          "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                        }
-                      >
-                        {severity}
-                      </span>
-                      <h4 className={"font-bold text-lg md:text-xl"}>
+                    <Paper
+                      key={severity}
+                      p="md"
+                      radius="md"
+                      style={{
+                        backgroundColor: "#eff6ff",
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text size="1.5rem" fw={700}>
                         {count}
-                      </h4>
-                    </div>
+                      </Text>
+                      <Text size="xs" c="dimmed" fw={600}>
+                        {severity}
+                      </Text>
+                    </Paper>
                   );
                 },
               )}
 
-              {!!(
-                locationSummary.bicyclesInvolved ||
-                locationSummary.pedestriansInvolved
-              ) && <Separator className="col-span-2 hidden md:block my-2" />}
-
-              {locationSummary.bicyclesInvolved ? (
-                <div>
-                  <span
-                    className={
-                      "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                    }
-                  >
-                    Bicyclists Involved
-                  </span>
-                  <h4 className={"font-bold text-lg md:text-xl"}>
-                    {locationSummary.bicyclesInvolved}
-                  </h4>
-                </div>
-              ) : null}
-
-              {locationSummary.pedestriansInvolved ? (
-                <div>
-                  <span
-                    className={
-                      "text-[10px] md:text-sm uppercase tracking-tight text-muted-foreground"
-                    }
-                  >
+              {locationSummary?.pedestriansInvolved ? (
+                <Paper
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
+                >
+                  <Text size="1.5rem" fw={700}>
+                    {locationSummary.pedestriansInvolved}{" "}
+                  </Text>
+                  <Text size="xs" c="dimmed" fw={600}>
                     Pedestrians Involved
-                  </span>
-                  <h4 className={"font-bold text-lg md:text-xl"}>
-                    {locationSummary.pedestriansInvolved}
-                  </h4>
-                </div>
+                  </Text>
+                </Paper>
               ) : null}
-            </div>
+
+              {locationSummary?.bicyclesInvolved ? (
+                <Paper
+                  p="md"
+                  radius="md"
+                  style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
+                >
+                  <Text size="1.5rem" fw={700}>
+                    {locationSummary.bicyclesInvolved}{" "}
+                  </Text>
+                  <Text size="xs" c="dimmed" fw={600}>
+                    Bicyclists Involved
+                  </Text>
+                </Paper>
+              ) : null}
+            </SimpleGrid>
           ) : (
-            <div className="text-sm italic">Loading report...</div>
+            <Text size={"sm"}>Loading report...</Text>
+          )}
+        </>
+      )}
+
+      {selectedView === "Crashes" && (
+        <>
+          {locationSummary ? (
+            <Container mah={"40vh"} style={{ overflowY: "auto" }}>
+              <CrashList
+                incidentsFeatures={
+                  (areaOfInterestIncidentGeoJson?.features ||
+                    incidentGeoJson?.features ||
+                    []) as Feature<Geometry, Incident>[]
+                }
+              />
+            </Container>
+          ) : (
+            <Text size={"sm"}>Loading crashes...</Text>
           )}
         </>
       )}
@@ -243,6 +182,7 @@ const usdFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
+  notation: "compact",
 });
 
 export default LocationReport;

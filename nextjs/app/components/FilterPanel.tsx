@@ -5,7 +5,6 @@ import { FeatureCollection } from "geojson";
 import { LocationSummary } from "@/app/components/Map";
 import { DatePickerInput } from "@mantine/dates";
 import { Flex, NumberInput, Select } from "@mantine/core";
-import { Separator } from "@/components/ui/separator";
 
 export const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -58,7 +57,7 @@ const FilterPanel: React.FC<Props> = ({
   setDroppedPin,
 }) => {
   return (
-    <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"}>
+    <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"} wrap={"wrap"}>
       <DatePickerInput
         type={"range"}
         label={"Date range"}
@@ -70,12 +69,23 @@ const FilterPanel: React.FC<Props> = ({
             to: values[1] || undefined,
           });
         }}
-        valueFormat={'MMM D, YYYY'}
+        valueFormat={"MMM D, YYYY"}
+      />
+
+      <NumberInput
+        label={`${streetName ? "Buffer" : "Radius"} (ft)`}
+        placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
+        value={radiusFeet}
+        onChange={(value) => setRadiusFeet(value as number)}
+        min={5}
+        max={500}
+        step={10}
+        style={{ width: 100 }}
       />
 
       <Select
         label={"Area of interest"}
-        placeholder={"Select an area of interest"}
+        placeholder={"Select an area"}
         searchable
         data={STREET_NAMES_OPTIONS.map((option) => ({
           value: option.id,
@@ -90,18 +100,7 @@ const FilterPanel: React.FC<Props> = ({
           setDroppedPin(null);
           setStreetName(value);
         }}
-        style={{ width: 230 }}
-      />
-
-      <NumberInput
-        label={`${streetName ? "Buffer" : "Radius"} (ft)`}
-        placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
-        value={radiusFeet}
-        onChange={(value) => setRadiusFeet(value as number)}
-        min={5}
-        max={500}
-        step={10}
-        style={{ width: 100 }}
+        style={{ width: 200 }}
       />
     </Flex>
   );
