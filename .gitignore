@@ -43,3 +43,5 @@ nextjs/.pnpm-debug.log*
 next-env.d.ts
 
 .idea
+
+data/.env

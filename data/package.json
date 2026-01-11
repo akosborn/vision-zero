@@ -1,0 +1,23 @@
+{
+  "name": "zero-vision",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "exec": "tsx index.ts"
+  },
+  "dependencies": {
+    "@types/node": "^22.15.3",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^16.5.0",
+    "luxon": "^3.7.2",
+    "p-limit": "^7.2.0",
+    "pg": "^8.15.6",
+    "typescript": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.1",
+    "@types/pg": "^8.11.14",
+    "tsx": "^4.19.3"
+  }
+}
