@@ -1,4 +1,4 @@
-CREATE TABLE cdot_crashes
+CREATE TABLE vision_zero.cdot_crashes
 (
     cuid                             text PRIMARY KEY,
 
@@ -147,6 +147,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_cdot_crashes_updated_at
-    BEFORE UPDATE ON cdot_crashes
+    BEFORE UPDATE ON vision_zero.cdot_crashes
     FOR EACH ROW
 EXECUTE FUNCTION set_vz_updated_at();

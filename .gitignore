@@ -47,3 +47,4 @@ next-env.d.ts
 data/.env
 data/node_modules
 data/raw-data
+data/cdot/raw
