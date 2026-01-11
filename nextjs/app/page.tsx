@@ -51,7 +51,7 @@ export default function Home() {
 
   const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
 
-  const [opened, { open, close }] = useDisclosure(false);
+  const [opened, { open, close }] = useDisclosure(true);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
