@@ -74,8 +74,8 @@ const summarizeIncidents = (
       let maxSeverity: keyof typeof COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY =
         "O";
 
-      const fatalities = f.properties.fatalities;
-      const seriousInjuries = f.properties.serious_injuries;
+      const fatalities = f.properties.doti_fatalities;
+      const seriousInjuries = f.properties.doti_serious_injuries;
 
       if (seriousInjuries > 0) {
         maxSeverity = "A";
@@ -88,15 +88,15 @@ const summarizeIncidents = (
       acc.severityCounts["Fatalities"] += fatalities;
       acc.severityCounts["Serious Injuries"] += seriousInjuries;
 
-      if (f.properties.fatalities + f.properties.serious_injuries === 0) {
+      if (f.properties.doti_fatalities + f.properties.doti_serious_injuries === 0) {
         acc.severityCounts["Property Damage or Non-Serious Injuries"] += 1;
       }
 
       acc.comprehensiveCosts +=
         COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY[maxSeverity];
 
-      acc.bicyclesInvolved += f.properties.bicycle_count;
-      acc.pedestriansInvolved += f.properties.pedestrian_count;
+      acc.bicyclesInvolved += f.properties.doti_bicycle_count;
+      acc.pedestriansInvolved += f.properties.doti_pedestrian_count;
 
       return acc;
     },
@@ -469,39 +469,22 @@ export default forwardRef<MapRef | null, Props>(function Map(
 });
 
 export type Incident = {
-  incident_id: string | number;
-  first_occurrence_date: string;
-  address: string | null;
-  google_maps_url: string | null;
-  neighborhood_id: string | null;
-  top_traffic_accident_offense: string | null;
-  serious_injuries: number;
-  fatalities: number;
-  bicycle_involved: boolean;
-  bicycle_count: number;
-  pedestrian_involved: boolean;
-  pedestrian_count: number;
-  tu1_vehicle_movement: string | null;
-  tu1_driver_action: string | null;
-  tu1_driver_humancontribfactor: string | null;
-  tu1_pedestrian_action: string | null;
-  tu1_vehicle_type: string | null;
-  tu1_travel_direction: string | null;
-  harmful_event_seq_1: string | null;
-  harmful_event_seq_2: string | null;
-  harmful_event_seq_3: string | null;
-  object_id: number;
-  offense_id: string | number;
-  offense_code: string | number;
-  offense_code_extension: string | number;
-  reported_date: string | Date;
-  geo: JSON;
-  geo_x: number | null;
-  geo_y: number | null;
-  geo_lon: number | null;
-  geo_lat: number | null;
-  district_id: string | null;
-  precinct_id: string | null;
+  doti_incident_id: string | number;
+  doti_first_occurrence_date: string;
+  doti_address: string | null;
+  doti_google_maps_url: string | null;
+  doti_neighborhood_id: string | null;
+  doti_top_traffic_accident_offense: string | null;
+  doti_serious_injuries: number;
+  doti_fatalities: number;
+  doti_bicycle_involved: boolean;
+  doti_bicycle_count: number;
+  doti_pedestrian_involved: boolean;
+  doti_pedestrian_count: number;
+
+  doti_object_id: number;
+  doti_geo: JSON;
+
   road_location: string | null;
   road_description: string | null;
   road_contour: string | null;
@@ -517,7 +500,7 @@ export type Incident = {
   fatality_mode_2: string | null;
   seriously_injured_mode_1: string | null;
   seriously_injured_mode_2: string | null;
-  data_notes: string | null;
+  doti_data_notes: string | null;
 };
 
 export type LocationSummary = {

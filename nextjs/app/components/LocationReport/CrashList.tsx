@@ -18,8 +18,8 @@ const CrashList: React.FC<Props> = ({ incidentsFeatures }) => {
   );
   const sortedIncidents = mappedIncidents.toSorted((a, b) => {
     return (
-      DateTime.fromISO(b.first_occurrence_date).toMillis() -
-      DateTime.fromISO(a.first_occurrence_date).toMillis()
+      DateTime.fromISO(b.doti_first_occurrence_date).toMillis() -
+      DateTime.fromISO(a.doti_first_occurrence_date).toMillis()
     );
   });
 
@@ -27,12 +27,12 @@ const CrashList: React.FC<Props> = ({ incidentsFeatures }) => {
     <>
       {sortedIncidents.map((incident) => {
         const type = getType(
-          incident.bicycle_involved,
-          incident.pedestrian_involved,
+          incident.doti_bicycle_involved,
+          incident.doti_pedestrian_involved,
         );
         const severity = getMaxSeverity(
-          incident.fatalities,
-          incident.serious_injuries,
+          incident.doti_fatalities,
+          incident.doti_serious_injuries,
         );
 
         return (
@@ -41,8 +41,8 @@ const CrashList: React.FC<Props> = ({ incidentsFeatures }) => {
               id={incident.incident_id}
               type={type}
               severity={severity}
-              area={incident.address || ""}
-              date={DateTime.fromISO(incident.first_occurrence_date, {
+              area={incident.doti_address || ""}
+              date={DateTime.fromISO(incident.doti_first_occurrence_date, {
                 zone: "America/Denver",
               }).toJSDate()}
               coordinates={{ lng: incident.geo_lon, lat: incident.geo_lat }}
