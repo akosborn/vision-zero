@@ -1,14 +1,15 @@
 import * as dotenv from 'dotenv';
-import {Client} from 'pg';
+import {Client, Pool} from 'pg';
 import {parse} from 'csv-parse';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {DateTime} from 'luxon';
+import pLimit from 'p-limit';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const run = async () => {
-  const csvPath = path.join(__dirname, 'raw/denver/2025.csv');
+  const csvPath = path.join(__dirname, 'raw/denver/2023.csv');
   const srcRecords = await readCsv(csvPath);
 
   if (srcRecords.length === 0) {
@@ -16,14 +17,16 @@ const run = async () => {
     return;
   }
 
-  const client = new Client({
+  const pool = new Pool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT as string),
     database: process.env.DB_NAME,
+    max: 50, // maximum number of connections in the pool
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 30000,
   });
-  await client.connect();
 
   const tableName = 'vision_zero.cdot_crashes';
   
@@ -35,17 +38,27 @@ const run = async () => {
   // Create placeholders ($1, $2, etc.)
   const placeholders = columns.slice(0, -computedColumns.length).map((_, i) => `$${i + 1}`).join(', ');
 
-  await Promise.all(srcRecords.map(async (record) => {
-    const computedValues = [`ST_SetSRID(ST_MakePoint(${record.latitude}, ${record.longitude}), 4326)::geography`];
+  let progress = 0;
+  const concurrencyLimit = pLimit(50); // Limit to 50 concurrent operations
+
+  await Promise.all(srcRecords.map(async (record) => concurrencyLimit(async () => {
+    const computedValues = [`ST_SetSRID(ST_MakePoint(${record.longitude}, ${record.latitude}), 4326)::geography`];
     const values = columns.slice(0, -computedColumns.length).map(col => record[col]);
 
     const query = `INSERT INTO ${tableName} (${columnNames}) VALUES (${placeholders}, ${computedValues.join(', ')}) ON CONFLICT DO NOTHING RETURNING cuid, ${computedColumns.join(', ')};`;
 
-    return client.query(query, values)
-      .catch((err) => console.error(err, record));
-  }));
+    const client = await pool.connect();
 
-  await client.end();
+    return client.query(query, values)
+      .then(() => {
+        progress++;
+        console.log(`Upserted ${progress} of ${srcRecords.length} (${Math.round((progress / srcRecords.length * 100))}%)`);
+      })
+      .catch((err) => console.error(err, record))
+      .finally(() => client.release());
+  })));
+
+  await pool.end();
 };
 
 const readCsv = async (path: string) => {
