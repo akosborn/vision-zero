@@ -12,6 +12,7 @@ import React, { forwardRef, useEffect } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
 import { GeoJSONFeature, MapEvent, MapMouseEvent } from "mapbox-gl";
 import {
+  Crash,
   getBufferedStreetCenterlines,
   getIncidents,
   getIncidentsWithinBufferedStreet,
@@ -58,83 +59,21 @@ const createGeoJSONCircle = (
   };
 };
 
-const COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY = {
-  K: 15988000,
-  A: 1705100,
-  B: 384000,
-  C: 204600,
-  O: 18100,
-};
-
-const summarizeIncidents = (
-  features: Feature<Point, Incident>[],
-): LocationSummary => {
-  const aggregate = features.reduce(
-    (acc, f) => {
-      let maxSeverity: keyof typeof COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY =
-        "O";
-
-      const fatalities = f.properties.doti_fatalities;
-      const seriousInjuries = f.properties.doti_serious_injuries;
-
-      if (seriousInjuries > 0) {
-        maxSeverity = "A";
-      }
-
-      if (fatalities > 0) {
-        maxSeverity = "K";
-      }
-
-      acc.severityCounts["Fatalities"] += fatalities;
-      acc.severityCounts["Serious Injuries"] += seriousInjuries;
-
-      if (f.properties.doti_fatalities + f.properties.doti_serious_injuries === 0) {
-        acc.severityCounts["Property Damage or Non-Serious Injuries"] += 1;
-      }
-
-      acc.comprehensiveCosts +=
-        COMPREHENSIVE_UNIT_COSTS_BY_KABCO_SEVERITY[maxSeverity];
-
-      acc.bicyclesInvolved += f.properties.doti_bicycle_count;
-      acc.pedestriansInvolved += f.properties.doti_pedestrian_count;
-
-      return acc;
-    },
-    {
-      comprehensiveCosts: 0,
-      bicyclesInvolved: 0,
-      pedestriansInvolved: 0,
-      severityCounts: {
-        Fatalities: 0,
-        "Serious Injuries": 0,
-        "Property Damage or Non-Serious Injuries": 0,
-      },
-    },
-  );
-
-  return {
-    totalIncidents: features.length,
-    ...aggregate,
-  };
-};
-
 export const defaultViewport = {
   latitude: 39.74,
   longitude: -104.9874,
   zoom: 13,
 };
 
-const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
-
 type Props = {
   incidentGeoJson?: FeatureCollection | null;
   setIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
+    React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
   setStreetName: React.Dispatch<React.SetStateAction<string | null>>;
   areaOfInterestIncidentGeoJson?: FeatureCollection | null;
   setAreaOfInterestIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
+    React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
   viewport: { latitude: number; longitude: number; zoom: number };
   setViewport: React.Dispatch<
@@ -147,9 +86,7 @@ type Props = {
   setDroppedPin: React.Dispatch<
     React.SetStateAction<{ lng: number; lat: number } | null>
   >;
-  setLocationSummary: React.Dispatch<
-    React.SetStateAction<LocationSummary | null>
-  >;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   streetName: string | null;
 };
 
@@ -158,9 +95,9 @@ export default forwardRef<MapRef | null, Props>(function Map(
     areaOfInterestIncidentGeoJson,
     incidentGeoJson,
     setIncidentGeoJson,
+    setIsLoading,
     setAreaOfInterestIncidentGeoJson,
     droppedPin,
-    setLocationSummary,
     setDroppedPin,
     startDate,
     endDate,
@@ -202,18 +139,23 @@ export default forwardRef<MapRef | null, Props>(function Map(
       ].join(",");
 
       if (loadAllIncidents) {
+        setIsLoading(true);
         getIncidents({ startDate, endDate, bbox }).then((json) => {
           setIncidentGeoJson(json);
+          setIsLoading(false);
         });
       }
 
       if (displayStreetCenterlines && streetName) {
+        setIsLoading(true);
         getStreetCenterlines(streetName).then((json) => {
           setStreetCenterlines(json);
+          setIsLoading(false);
         });
       }
 
       if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
+        setIsLoading(true);
         getBufferedStreetCenterlines({
           streetName,
           bufferInFeet: radiusFeet,
@@ -228,7 +170,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
           endDate,
         }).then((data) => {
           setAreaOfInterestIncidentGeoJson(data);
-          setLocationSummary(summarizeIncidents(data.features));
+          setIsLoading(false);
         });
       }
     },
@@ -248,7 +190,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
           radiusInFeet: radiusFeet,
         }).then((data) => {
           setIncidentGeoJson(data);
-          setLocationSummary(summarizeIncidents(data.features));
         });
       }
     }
@@ -273,7 +214,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
     } else {
       setStreetName("");
       setAreaOfInterestIncidentGeoJson(null);
-      setLocationSummary(null);
       setIncidentGeoJson(null);
       setStreetCenterlines(null);
       setBufferedStreet(null);
@@ -289,7 +229,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
         radiusInFeet: radiusFeet,
       }).then((data) => {
         setIncidentGeoJson(data);
-        setLocationSummary(summarizeIncidents(data.features));
       });
     }
   };
@@ -308,7 +247,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
         radiusInFeet: radiusFeet,
       }).then((data) => {
         setIncidentGeoJson(data);
-        setLocationSummary(summarizeIncidents(data.features));
       });
       return;
     }
@@ -339,9 +277,13 @@ export default forwardRef<MapRef | null, Props>(function Map(
               paint={{
                 "circle-color": [
                   "case",
-                  [">", ["get", "fatalities"], 0],
+                  [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
                   "#ef4444", // Red (Tailwind red-500)
-                  [">", ["get", "serious_injuries"], 0],
+                  [">", ["get", "doti_fatalities"], 0],
+                  "#ef4444", // Red (Tailwind red-500)
+                  [">", ["get", "doti_serious_injuries"], 0],
+                  "#facc15", // Yellow (Tailwind yellow-400)
+                  [">", ["coalesce", ["get", "cdot_number_injured"], 0], 0],
                   "#facc15", // Yellow (Tailwind yellow-400)
                   "#22c55e", // Green
                 ],
@@ -365,9 +307,13 @@ export default forwardRef<MapRef | null, Props>(function Map(
               paint={{
                 "circle-color": [
                   "case",
-                  [">", ["get", "fatalities"], 0],
+                  [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
                   "#ef4444", // Red (Tailwind red-500)
-                  [">", ["get", "serious_injuries"], 0],
+                  [">", ["get", "doti_fatalities"], 0],
+                  "#ef4444", // Red (Tailwind red-500)
+                  [">", ["get", "doti_serious_injuries"], 0],
+                  "#facc15", // Yellow (Tailwind yellow-400)
+                  [">", ["coalesce", ["get", "cdot_number_injured"], 0], 0],
                   "#facc15", // Yellow (Tailwind yellow-400)
                   "#22c55e", // Green
                 ],
@@ -467,50 +413,3 @@ export default forwardRef<MapRef | null, Props>(function Map(
     </div>
   );
 });
-
-export type Incident = {
-  doti_incident_id: string | number;
-  doti_first_occurrence_date: string;
-  doti_address: string | null;
-  doti_google_maps_url: string | null;
-  doti_neighborhood_id: string | null;
-  doti_top_traffic_accident_offense: string | null;
-  doti_serious_injuries: number;
-  doti_fatalities: number;
-  doti_bicycle_involved: boolean;
-  doti_bicycle_count: number;
-  doti_pedestrian_involved: boolean;
-  doti_pedestrian_count: number;
-
-  doti_object_id: number;
-  doti_geo: JSON;
-
-  road_location: string | null;
-  road_description: string | null;
-  road_contour: string | null;
-  road_condition: string | null;
-  light_condition: string | null;
-  tu2_vehicle_type: string | null;
-  tu2_travel_direction: string | null;
-  tu2_vehicle_movement: string | null;
-  tu2_driver_action: string | null;
-  tu2_driver_humancontribfactor: string | null;
-  tu2_pedestrian_action: string | null;
-  fatality_mode_1: string | null;
-  fatality_mode_2: string | null;
-  seriously_injured_mode_1: string | null;
-  seriously_injured_mode_2: string | null;
-  doti_data_notes: string | null;
-};
-
-export type LocationSummary = {
-  totalIncidents: number;
-  comprehensiveCosts: number;
-  bicyclesInvolved: number;
-  pedestriansInvolved: number;
-  severityCounts: {
-    Fatalities: number;
-    "Serious Injuries": number;
-    "Property Damage or Non-Serious Injuries": number;
-  };
-};

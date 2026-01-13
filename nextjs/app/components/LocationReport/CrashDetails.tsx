@@ -1,11 +1,13 @@
 import { Paper, Text, Group, Badge, Stack, ThemeIcon } from "@mantine/core";
-import { IconMapPin, IconCalendar } from "@tabler/icons-react";
+import { IconMapPin, IconCalendar, IconDatabase } from "@tabler/icons-react";
 import { DateTime } from "luxon";
+import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/location-report";
 
 interface IncidentItemProps {
   id: string | number;
+  dataSource: 'DOTI' | 'CDOT';
   type: string;
-  severity: "Fatal" | "SBI" | "Other";
+  kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
   date: Date;
   coordinates: {
@@ -15,28 +17,36 @@ interface IncidentItemProps {
   onClick?: () => void;
 }
 
-const SEVERITY_LABELS: Record<IncidentItemProps["severity"], string> = {
-  Fatal: "Fatal",
-  SBI: "Serious Bodily Injury",
-  Other: "Prop. Damage or Minor Injury",
+// It it possible that DOTI data is joining more than one CDOT crash?
+// @TODO: "Encountered two children with the same key, `DP2025576100`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version."
+
+export const SEVERITY_LABELS: Record<IncidentItemProps["kabcoSeverityLevel"], string> = {
+  K: 'Fatal (K)',
+  A: 'Incapacitating Injury (A)',
+  B: 'Non-Incapacitating Injury (B)',
+  C: 'Complaint of Injury (C)',
+  O: 'No Injury, Property Damage (O)',
 };
 
 export function CrashDetails({
   id,
+  dataSource,
   type,
-  severity,
+  kabcoSeverityLevel,
   area,
   date,
   coordinates,
   onClick,
 }: IncidentItemProps) {
   const severityConfig = {
-    Fatal: { color: "red", dotColor: "#ef4444" },
-    SBI: { color: "yellow", dotColor: "#eab308" },
-    Other: { color: "green", dotColor: "#22c55e" },
+    K: { color: "red", dotColor: "#ef4444" },
+    A: { color: "yellow", dotColor: "#eab308" },
+    B: { color: "green", dotColor: "#22c55e" },
+    C: { color: "green", dotColor: "#22c55e" },
+    O: { color: "green", dotColor: "#22c55e" },
   };
 
-  const { color, dotColor } = severityConfig[severity];
+  const { color, dotColor } = severityConfig[kabcoSeverityLevel];
 
   return (
     <Paper
@@ -65,7 +75,7 @@ export function CrashDetails({
         </Group>
 
         <Badge color={color} variant="light" size="sm">
-          {SEVERITY_LABELS[severity]}
+          {SEVERITY_LABELS[kabcoSeverityLevel]}
         </Badge>
       </Group>
 
@@ -99,6 +109,26 @@ export function CrashDetails({
           </ThemeIcon>
           <Text size="sm" c="dimmed">
             {DateTime.fromJSDate(date).toLocaleString(DateTime.DATETIME_MED)}
+          </Text>
+        </Group>
+
+        <Group gap="xs">
+          <ThemeIcon
+            size="sm"
+            variant="subtle"
+            color="gray"
+            styles={{
+              root: { justifyContent: "flex-start" },
+            }}
+          >
+            <IconDatabase size={14} />
+          </ThemeIcon>
+          <Text size="sm" c="dimmed">
+            {dataSource === "CDOT" ? (
+              <>Colorado Department of Transportation CUID <b>{id}</b></>
+            ) : (
+              <>Denver DOTI Incident ID <b>{id}</b></>
+            )}
           </Text>
         </Group>
 

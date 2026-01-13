@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Map, { defaultViewport, LocationSummary } from "./components/Map";
+import Map, { defaultViewport } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { FeatureCollection, Position } from "geojson";
+import { FeatureCollection, Point, Position } from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import _ from "lodash";
@@ -13,6 +13,7 @@ import { Alert, Button, Drawer, em, Paper, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { Crash } from "@/app/lib/api-client";
 
 export default function Home() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -20,6 +21,8 @@ export default function Home() {
   const mapRef = React.useRef<MapRef | null>(null);
 
   const [viewport, setViewport] = React.useState(defaultViewport);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const [dateRange, setDateRange] = useState<
     { from?: string; to?: string } | undefined
@@ -34,7 +37,7 @@ export default function Home() {
 
   const [streetName, setStreetName] = useState<string | null>(null);
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] =
-    React.useState<FeatureCollection | null>(null);
+    React.useState<FeatureCollection<Point, Crash> | null>(null);
 
   const [droppedPin, setDroppedPin] = React.useState<{
     lng: number;
@@ -44,10 +47,7 @@ export default function Home() {
     lat: defaultViewport.latitude,
   });
   const [incidentGeoJson, setIncidentGeoJson] =
-    React.useState<FeatureCollection | null>(null);
-
-  const [locationSummary, setLocationSummary] =
-    React.useState<LocationSummary | null>(null);
+    React.useState<FeatureCollection<Point, Crash> | null>(null);
 
   const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
 
@@ -113,7 +113,6 @@ export default function Home() {
       >
         <Map
           droppedPin={droppedPin}
-          setLocationSummary={setLocationSummary}
           setDroppedPin={setDroppedPin}
           startDate={dateRange?.from}
           endDate={dateRange?.to}
@@ -127,6 +126,7 @@ export default function Home() {
           setStreetName={setStreetName}
           incidentGeoJson={incidentGeoJson}
           setIncidentGeoJson={setIncidentGeoJson}
+          setIsLoading={setIsLoading}
         />
       </div>
 
@@ -175,7 +175,6 @@ export default function Home() {
             setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
             incidentGeoJson={incidentGeoJson}
             setIncidentGeoJson={setIncidentGeoJson}
-            setLocationSummary={setLocationSummary}
             droppedPin={droppedPin}
             setDroppedPin={setDroppedPin}
             radiusFeet={radiusInFeet}
@@ -211,7 +210,7 @@ export default function Home() {
                 </Drawer.Header>
                 <Drawer.Body>
                   <LocationReport
-                    locationSummary={locationSummary}
+                    isLoading={isLoading}
                     setViewport={setViewport}
                     zoomToLayer={zoomToLayer}
                     streetName={streetName}
@@ -241,7 +240,7 @@ export default function Home() {
               Location Report
             </Text>
             <LocationReport
-              locationSummary={locationSummary}
+              isLoading={isLoading}
               setViewport={setViewport}
               zoomToLayer={zoomToLayer}
               streetName={streetName}

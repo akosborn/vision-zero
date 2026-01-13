@@ -1,10 +1,10 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import React from "react";
-import { FeatureCollection } from "geojson";
-import { LocationSummary } from "@/app/components/Map";
+import { FeatureCollection, Point } from "geojson";
 import { DatePickerInput } from "@mantine/dates";
 import { Flex, NumberInput, Select } from "@mantine/core";
+import { Crash } from "@/app/lib/api-client";
 
 export const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -29,14 +29,11 @@ type Props = {
   streetName: string | null;
   setStreetName: React.Dispatch<React.SetStateAction<string | null>>;
   setAreaOfInterestIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
+    React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
-  incidentGeoJson: FeatureCollection | null;
+  incidentGeoJson: FeatureCollection<Point, Crash> | null;
   setIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
-  >;
-  setLocationSummary: React.Dispatch<
-    React.SetStateAction<LocationSummary | null>
+    React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
   droppedPin: { lng: number; lat: number } | null;
   setDroppedPin: React.Dispatch<
@@ -53,7 +50,6 @@ const FilterPanel: React.FC<Props> = ({
   setStreetName,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
-  setLocationSummary,
   setDroppedPin,
 }) => {
   return (
@@ -96,7 +92,6 @@ const FilterPanel: React.FC<Props> = ({
           // @TODO: This is probably not necessary
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(null);
-          setLocationSummary(null);
           setDroppedPin(null);
           setStreetName(value);
         }}

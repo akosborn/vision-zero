@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
                        -- CDOT Data
                        cdot.cuid as cdot_cuid,
                        cdot.geo as cdot_geo,
+                       cdot.mhe as cdot_mhe,
                        cdot.number_killed as cdot_number_killed,
                        cdot.number_injured as cdot_number_injured,
                        cdot.injury_00 as cdot_injury_00,

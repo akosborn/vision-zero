@@ -1,4 +1,3 @@
-import { Incident } from "@/app/components/Map";
 import { FeatureCollection, Point } from "geojson";
 import axios from "axios";
 
@@ -35,7 +34,7 @@ export const getIncidents = async (params: {
   lng?: number;
   radiusInFeet?: number;
 }) => {
-  const response = await axios.get<FeatureCollection<Point, Incident>>(
+  const response = await axios.get<FeatureCollection<Point, Crash>>(
     `${API_PATH_BASE}/incidents`,
     { params },
   );
@@ -48,9 +47,84 @@ export const getIncidentsWithinBufferedStreet = async (params: {
   startDate?: string;
   endDate?: string;
 }) => {
-  const response = await axios.get<FeatureCollection<Point, Incident>>(
+  const response = await axios.get<FeatureCollection<Point, Crash>>(
     `${API_PATH_BASE}/incidents/buffered-street`,
     { params },
   );
   return response.data;
+};
+
+export interface Crash {
+  // DOTI (Denver) Data
+  doti_incident_id: string;
+  doti_first_occurrence_date: string;
+  doti_address: string;
+  doti_google_maps_url: string | null;
+  doti_neighborhood_id: string;
+  doti_top_traffic_accident_offense: string;
+  doti_serious_injuries: number;
+  doti_fatalities: number;
+  doti_bicycle_involved: boolean;
+  doti_pedestrian_involved: boolean;
+  doti_bicycle_count: number;
+  doti_pedestrian_count: number;
+  doti_tu1_vehicle_movement: string;
+  doti_tu1_driver_action: string;
+  doti_tu1_driver_humancontribfactor: string;
+  doti_tu1_pedestrian_action: string;
+  doti_tu1_vehicle_type: string;
+  doti_tu1_travel_direction: string;
+  doti_harmful_event_seq_1: string;
+  doti_harmful_event_seq_2: string;
+  doti_harmful_event_seq_3: string;
+  doti_road_location: string;
+  doti_road_description: string;
+  doti_road_contour: string;
+  doti_road_condition: string;
+  doti_light_condition: string;
+  doti_tu2_vehicle_type: string;
+  doti_tu2_travel_direction: string;
+  doti_tu2_vehicle_movement: string;
+  doti_tu2_driver_action: string;
+  doti_tu2_driver_humancontribfactor: string;
+  doti_tu2_pedestrian_action: string;
+  doti_fatality_mode_1: string;
+  doti_fatality_mode_2: string;
+  doti_seriously_injured_mode_1: string;
+  doti_seriously_injured_mode_2: string;
+  data_notes: string | null;
+
+  // CDOT (State) Data
+  cdot_cuid: string | null;
+  cdot_mhe: string | null;
+  cdot_number_killed: number | null;
+  cdot_number_injured: number | null;
+  cdot_injury_00: number | null;
+  cdot_injury_01: number | null;
+  cdot_injury_02: number | null;
+  cdot_injury_03: number | null;
+  cdot_injury_04: number | null;
+  cdot_total_vehicles: number | null;
+  cdot_construction_zone: string | null;
+  cdot_school_zone: string | null;
+  cdot_tu_1_speed_limit: number | null;
+  cdot_tu_1_estimated_speed: number | null;
+  cdot_tu_1_speed: number | null;
+  cdot_tu_age: number | null;
+  cdot_tu_sex: string | null;
+  cdot_tu_2_speed_limit: number | null;
+  cdot_tu_2_estimated_speed: number | null;
+  cdot_tu_2_speed: number | null;
+  cdot_tu_1_nm_facility_available: string | null;
+  cdot_tu_1_nm_safety_helmet: string | null;
+  cdot_tu_1_nm_location: string | null;
+  cdot_tu_1_nm_type: string | null;
+  cdot_tu_1_age: number | null;
+  cdot_tu_1_sex: string | null;
+  cdot_tu_2_nm_facility_available: string | null;
+  cdot_tu_2_nm_safety_helmet: string | null;
+  cdot_tu_2_nm_location: string | null;
+  cdot_tu_2_nm_type: string | null;
+  cdot_tu_2_age: number | null;
+  cdot_tu_2_sex: string | null;
 };

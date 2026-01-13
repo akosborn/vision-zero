@@ -1,51 +1,48 @@
-import { Incident } from "@/app/components/Map";
 import React from "react";
 import { Feature, Geometry } from "geojson";
 import { DateTime } from "luxon";
 import { Container, em } from "@mantine/core";
 import { CrashDetails } from "@/app/components/LocationReport/CrashDetails";
 import { useMediaQuery } from "@mantine/hooks";
+import { Crash } from "@/app/lib/api-client";
+import { getMaxSeverity } from "@/app/components/LocationReport/utils/location-report";
 
 type Props = {
-  incidentsFeatures: Feature<Geometry, Incident>[];
+  crashFeatures: Feature<Geometry, Crash>[];
 };
 
-const CrashList: React.FC<Props> = ({ incidentsFeatures }) => {
+const CrashList: React.FC<Props> = ({ crashFeatures }) => {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
 
-  const mappedIncidents = incidentsFeatures.map(
-    (feature) => feature.properties,
-  );
-  const sortedIncidents = mappedIncidents.toSorted((a, b) => {
+  const sortedFeatures = crashFeatures.toSorted((a, b) => {
     return (
-      DateTime.fromISO(b.doti_first_occurrence_date).toMillis() -
-      DateTime.fromISO(a.doti_first_occurrence_date).toMillis()
+      DateTime.fromISO(b.properties.doti_first_occurrence_date).toMillis() -
+      DateTime.fromISO(a.properties.doti_first_occurrence_date).toMillis()
     );
   });
 
   return (
     <>
-      {sortedIncidents.map((incident) => {
+      {sortedFeatures.map(({ properties }) => {
         const type = getType(
-          incident.doti_bicycle_involved,
-          incident.doti_pedestrian_involved,
+          properties.doti_bicycle_involved,
+          properties.doti_pedestrian_involved,
         );
-        const severity = getMaxSeverity(
-          incident.doti_fatalities,
-          incident.doti_serious_injuries,
-        );
+        const severity = getMaxSeverity(properties);
 
         return (
-          <Container key={incident.incident_id} px={0} mb={"sm"}>
+          <Container key={properties.doti_incident_id} px={0} mb={"sm"}>
             <CrashDetails
-              id={incident.incident_id}
+              id={properties.cdot_cuid || properties.doti_incident_id}
+              dataSource={properties.cdot_cuid ? 'CDOT' : 'DOTI'}
               type={type}
-              severity={severity}
-              area={incident.doti_address || ""}
-              date={DateTime.fromISO(incident.doti_first_occurrence_date, {
+              kabcoSeverityLevel={severity}
+              area={properties.doti_address || ""}
+              date={DateTime.fromISO(properties.doti_first_occurrence_date, {
                 zone: "America/Denver",
               }).toJSDate()}
-              coordinates={{ lng: incident.geo_lon, lat: incident.geo_lat }}
+              // coordinates={{ lng: (crash.cdot_geo || crash.doti_geo)!['lon'], lat: crash.geo_lat }}
+              coordinates={{ lng: 0, lat: 0 }}
             />
           </Container>
         );
@@ -64,18 +61,6 @@ const getType = (bikeInvolved: boolean, pedestrianInvolved: boolean) => {
   }
 
   return "Vehicle";
-};
-
-const getMaxSeverity = (fatalities: number, seriousInjuries: number) => {
-  if (fatalities > 0) {
-    return "Fatal";
-  }
-
-  if (seriousInjuries > 0) {
-    return "SBI";
-  }
-
-  return "Other";
 };
 
 export default CrashList;

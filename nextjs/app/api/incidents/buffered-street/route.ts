@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
                              'type', 'Feature',
                              'id', doti_object_id,
                              'geometry', ST_AsGeoJSON(COALESCE(cdot_geo, doti_geo))::jsonb,
-                             'properties', to_jsonb(inputs) - 'doti_object_id' - 'doti_geo'
+                             'properties', to_jsonb(inputs) - 'doti_object_id' - 'doti_geo' - 'cdot_geo'
                      ) AS feature
               FROM (
                  with buffered_line as (
@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
                         -- CDOT Data
                         cdot.cuid as cdot_cuid,
                         cdot.geo as cdot_geo,
+                        cdot.mhe as cdot_mhe,
                         cdot.number_killed as cdot_number_killed,
                         cdot.number_injured as cdot_number_injured,
                         cdot.injury_00 as cdot_injury_00,

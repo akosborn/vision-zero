@@ -1,24 +1,29 @@
-import { Incident, LocationSummary } from "@/app/components/Map";
-import { Feature, FeatureCollection, Geometry } from "geojson";
+import { Feature, FeatureCollection, Geometry, Point } from "geojson";
 import React from "react";
 import CrashList from "@/app/components/LocationReport/CrashList";
 import {
   Anchor,
   Container,
-  Flex,
+  Flex, Loader,
   Paper,
   SegmentedControl,
   SimpleGrid,
   Text,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
+import {
+  generateLocationReport,
+  KABCO_SEVERITY_LEVEL,
+} from "@/app/components/LocationReport/utils/location-report";
+import { Crash } from "@/app/lib/api-client";
+import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
 
 type Props = {
   streetName: string | null;
+  isLoading: boolean;
   droppedPin: { lng: number; lat: number } | null;
-  incidentGeoJson: FeatureCollection | null;
-  areaOfInterestIncidentGeoJson: FeatureCollection | null;
-  locationSummary: LocationSummary | null;
+  incidentGeoJson: FeatureCollection<Point, Crash> | null;
+  areaOfInterestIncidentGeoJson: FeatureCollection<Point, Crash> | null;
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
@@ -29,14 +34,19 @@ const LocationReport: React.FC<Props> = ({
   streetName,
   droppedPin,
   incidentGeoJson,
+  isLoading,
   areaOfInterestIncidentGeoJson,
-  locationSummary,
   setViewport,
   zoomToLayer,
 }) => {
   const [selectedView, setSelectedView] = React.useState<"Summary" | "Crashes">(
     "Summary",
   );
+
+  const locationReport = React.useMemo(() => {
+    const features = areaOfInterestIncidentGeoJson?.features || incidentGeoJson?.features || [];
+    return generateLocationReport(features);
+  }, [incidentGeoJson, areaOfInterestIncidentGeoJson]);
 
   return (
     <div>
@@ -51,7 +61,7 @@ const LocationReport: React.FC<Props> = ({
       />
       {selectedView === "Summary" && (
         <>
-          {locationSummary ? (
+          {!isLoading ? (
             <SimpleGrid cols={2} spacing={"md"}>
               <Paper
                 p="md"
@@ -59,7 +69,7 @@ const LocationReport: React.FC<Props> = ({
                 style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
               >
                 <Text size="1.5rem" fw={700}>
-                  {locationSummary?.totalIncidents}
+                  {locationReport?.crashes}
                 </Text>
                 <Text size="xs" c="dimmed" fw={600}>
                   Crashes
@@ -72,9 +82,7 @@ const LocationReport: React.FC<Props> = ({
                 style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
               >
                 <Text size="1.5rem" fw={700}>
-                  {usdFormatter.format(
-                    locationSummary?.comprehensiveCosts || 0,
-                  )}
+                  {usdFormatter.format(locationReport?.comprehensiveCosts || 0)}
                 </Text>
                 <Flex justify={"center"} gap={"2px"}>
                   <Text size="xs" c="dimmed" fw={600}>
@@ -96,9 +104,12 @@ const LocationReport: React.FC<Props> = ({
                 </Flex>
               </Paper>
 
-              {Object.entries(locationSummary?.severityCounts || {}).map(
+              {Object.entries(locationReport?.kabcoSeverityCounts || {}).map(
                 ([severity, count]) => {
-                  if (count === 0) return null;
+                  if (count === 0) {
+                    return null;
+                  }
+
                   return (
                     <Paper
                       key={severity}
@@ -113,21 +124,21 @@ const LocationReport: React.FC<Props> = ({
                         {count}
                       </Text>
                       <Text size="xs" c="dimmed" fw={600}>
-                        {severity}
+                        {SEVERITY_LABELS[severity as KABCO_SEVERITY_LEVEL]}
                       </Text>
                     </Paper>
                   );
                 },
               )}
 
-              {locationSummary?.pedestriansInvolved ? (
+              {locationReport?.pedestriansInvolved ? (
                 <Paper
                   p="md"
                   radius="md"
                   style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
                 >
                   <Text size="1.5rem" fw={700}>
-                    {locationSummary.pedestriansInvolved}{" "}
+                    {locationReport.pedestriansInvolved}{" "}
                   </Text>
                   <Text size="xs" c="dimmed" fw={600}>
                     Pedestrians Involved
@@ -135,14 +146,14 @@ const LocationReport: React.FC<Props> = ({
                 </Paper>
               ) : null}
 
-              {locationSummary?.bicyclesInvolved ? (
+              {locationReport?.bicyclesInvolved ? (
                 <Paper
                   p="md"
                   radius="md"
                   style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
                 >
                   <Text size="1.5rem" fw={700}>
-                    {locationSummary.bicyclesInvolved}{" "}
+                    {locationReport.bicyclesInvolved}{" "}
                   </Text>
                   <Text size="xs" c="dimmed" fw={600}>
                     Bicyclists Involved
@@ -151,25 +162,25 @@ const LocationReport: React.FC<Props> = ({
               ) : null}
             </SimpleGrid>
           ) : (
-            <Text size={"sm"}>Loading report...</Text>
+            <Loader />
           )}
         </>
       )}
 
       {selectedView === "Crashes" && (
         <>
-          {locationSummary ? (
+          {!isLoading ? (
             <Container mah={"40vh"} style={{ overflowY: "auto" }}>
               <CrashList
-                incidentsFeatures={
+                crashFeatures={
                   (areaOfInterestIncidentGeoJson?.features ||
                     incidentGeoJson?.features ||
-                    []) as Feature<Geometry, Incident>[]
+                    []) as Feature<Geometry, Crash>[]
                 }
               />
             </Container>
           ) : (
-            <Text size={"sm"}>Loading crashes...</Text>
+            <Loader />
           )}
         </>
       )}
