@@ -7,8 +7,8 @@ import {
   Flex, Loader,
   Paper,
   SegmentedControl,
-  SimpleGrid,
-  Text,
+  SimpleGrid, Table,
+  Text, useMantineTheme,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import {
@@ -43,6 +43,8 @@ const LocationReport: React.FC<Props> = ({
     "Summary",
   );
 
+  const theme = useMantineTheme();
+
   const locationReport = React.useMemo(() => {
     const features = areaOfInterestIncidentGeoJson?.features || incidentGeoJson?.features || [];
     return generateLocationReport(features);
@@ -62,7 +64,8 @@ const LocationReport: React.FC<Props> = ({
       {selectedView === "Summary" && (
         <>
           {!isLoading ? (
-            <SimpleGrid cols={2} spacing={"md"}>
+              <>
+            <SimpleGrid cols={2} spacing={"md"} mb={'xs'}>
               <Paper
                 p="md"
                 radius="md"
@@ -103,64 +106,40 @@ const LocationReport: React.FC<Props> = ({
                   </div>
                 </Flex>
               </Paper>
-
-              {Object.entries(locationReport?.kabcoSeverityCounts || {}).map(
-                ([severity, count]) => {
-                  if (count === 0) {
-                    return null;
-                  }
-
-                  return (
-                    <Paper
-                      key={severity}
-                      p="md"
-                      radius="md"
-                      style={{
-                        backgroundColor: "#eff6ff",
-                        textAlign: "center",
-                      }}
-                    >
-                      <Text size="1.5rem" fw={700}>
-                        {count}
-                      </Text>
-                      <Text size="xs" c="dimmed" fw={600}>
-                        {SEVERITY_LABELS[severity as KABCO_SEVERITY_LEVEL]}
-                      </Text>
-                    </Paper>
-                  );
-                },
-              )}
-
-              {locationReport?.pedestriansInvolved ? (
-                <Paper
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
-                >
-                  <Text size="1.5rem" fw={700}>
-                    {locationReport.pedestriansInvolved}{" "}
-                  </Text>
-                  <Text size="xs" c="dimmed" fw={600}>
-                    Pedestrians Involved
-                  </Text>
-                </Paper>
-              ) : null}
-
-              {locationReport?.bicyclesInvolved ? (
-                <Paper
-                  p="md"
-                  radius="md"
-                  style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
-                >
-                  <Text size="1.5rem" fw={700}>
-                    {locationReport.bicyclesInvolved}{" "}
-                  </Text>
-                  <Text size="xs" c="dimmed" fw={600}>
-                    Bicyclists Involved
-                  </Text>
-                </Paper>
-              ) : null}
             </SimpleGrid>
+
+                <Table variant="vertical" layout="auto" withTableBorder mb={'xs'}>
+                  <Table.Tbody>
+                    {Object.entries(locationReport?.kabcoSeverityCounts || {}).map(
+                        ([severity, count]) => {
+                          return (
+                              <Table.Tr key={severity}>
+                                <Table.Th>{SEVERITY_LABELS[severity as KABCO_SEVERITY_LEVEL]}</Table.Th>
+                                <Table.Td>{count}</Table.Td>
+                              </Table.Tr>
+                          );
+                        },
+                    )}
+
+                    <Table.Tr style={{ borderTop: `solid ${theme.colors.gray[3]} 4px` }}>
+                      <Table.Th>Pedestrians</Table.Th>
+                      <Table.Td>{locationReport.pedestriansInvolved}</Table.Td>
+                    </Table.Tr>
+
+                    <Table.Tr>
+                      <Table.Th>Bicyclists</Table.Th>
+                      <Table.Td>{locationReport.bicyclesInvolved}</Table.Td>
+                    </Table.Tr>
+                  </Table.Tbody>
+                </Table>
+
+                {/*<Table variant="vertical" layout="auto" withTableBorder>*/}
+                {/*  <Table.Tbody>*/}
+                {/*   */}
+                {/*  </Table.Tbody>*/}
+                {/*</Table>*/}
+
+                </>
           ) : (
             <Loader />
           )}

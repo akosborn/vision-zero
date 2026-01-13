@@ -1,16 +1,9 @@
 "use client";
 
-import { Map } from "mapbox-gl";
-import {
-  Layer,
-  Map as ReactMap,
-  MapRef,
-  Popup,
-  Source,
-} from "react-map-gl/mapbox-legacy";
-import React, { forwardRef, useEffect } from "react";
-import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
-import { GeoJSONFeature, MapEvent, MapMouseEvent } from "mapbox-gl";
+import {GeoJSONFeature, Map, MapEvent, MapMouseEvent} from "mapbox-gl";
+import {Layer, Map as ReactMap, MapRef, Popup, Source,} from "react-map-gl/mapbox-legacy";
+import React, {forwardRef, useEffect} from "react";
+import {FeatureCollection, GeoJSON, Point} from "geojson";
 import {
   Crash,
   getBufferedStreetCenterlines,
