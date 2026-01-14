@@ -8,14 +8,14 @@ with duplicates as (
     with potential_duplicates as (
         SELECT array_agg(distinct cuid) as cdot_crashes
         FROM vision_zero.cdot_crashes
-        group by crash_date, crash_time, system_code, location_1, location_2
+        group by crash_date, crash_time, system_code, city, tu_1_age, tu_1_sex
         having count(*) > 1
         order by min(crash_date)
     )
     select cuid,
            rank() over (
-               partition by crash_date, crash_time, system_code, location_1, location_2
-               order by last_updated desc
+               partition by crash_date, crash_time, system_code, city, tu_1_age, tu_1_sex
+               order by last_updated desc, cuid desc
                ) as rank
     from vision_zero.cdot_crashes cdot
          join potential_duplicates pd on cdot.cuid = any(pd.cdot_crashes)
