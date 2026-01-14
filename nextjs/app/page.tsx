@@ -9,7 +9,7 @@ import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
-import { Alert, Button, Drawer, em, Paper, Text } from "@mantine/core";
+import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -51,7 +51,8 @@ export default function Home() {
 
   const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
 
-  const [opened, { open, close }] = useDisclosure(true);
+  const [mobileFiltersAreOpen, { open: openMobileFilters, close: closeMobileFilters }] = useDisclosure(false);
+  const [locationReportIsOpen, { open: openLocationReport, close: closeLocationReport }] = useDisclosure(true);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
@@ -101,7 +102,7 @@ export default function Home() {
       style={{
         position: "relative",
         display: "flex",
-        height: "100vh",
+        height: "100dvh",
         width: "100vw",
         overflow: "hidden",
       }}
@@ -137,22 +138,18 @@ export default function Home() {
         }
         style={{
           position: "absolute",
-          top: "1rem",
-          left: "1rem",
-          right: "1rem",
+          top: isMobile ? 0 : "1rem",
+          left: isMobile ? 0 : "1rem",
+          right: isMobile ? 0 : "1rem",
           zIndex: 10,
           display: "flex",
           alignItems: "start",
           flexDirection: "column",
           gap: "0.5rem",
+          width: isMobile ? "100%" : undefined,
         }}
       >
-        <Paper
-          shadow={"xs"}
-          radius={"md"}
-          p={"sm"}
-          className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
-        >
+        <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={isMobile ? '100%' : undefined}>
           {getStartedInfoIsOpen && (
             <Alert
               variant={"light"}
@@ -163,29 +160,64 @@ export default function Home() {
               p={"sm"}
               mb={"xs"}
             >
-              To get started, select an area of interest or click anywhere on
-              the map.
+              To get started, select an area of interest filter or click
+              anywhere on the map to inspect a circular area.
             </Alert>
           )}
-          <FilterPanel
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            streetName={streetName}
-            setStreetName={setStreetName}
-            setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
-            incidentGeoJson={incidentGeoJson}
-            setIncidentGeoJson={setIncidentGeoJson}
-            droppedPin={droppedPin}
-            setDroppedPin={setDroppedPin}
-            radiusFeet={radiusInFeet}
-            setRadiusFeet={setRadiusInFeet}
-          />
+
+          {isMobile && !mobileFiltersAreOpen && (
+            <Flex w={"100%"}>
+              <Button variant="default" onClick={openMobileFilters}>
+                Filters
+              </Button>
+            </Flex>
+          )}
+
+          {isMobile && mobileFiltersAreOpen && (
+            <>
+              <FilterPanel
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                streetName={streetName}
+                setStreetName={setStreetName}
+                setAreaOfInterestIncidentGeoJson={
+                  setAreaOfInterestIncidentGeoJson
+                }
+                incidentGeoJson={incidentGeoJson}
+                setIncidentGeoJson={setIncidentGeoJson}
+                droppedPin={droppedPin}
+                setDroppedPin={setDroppedPin}
+                radiusFeet={radiusInFeet}
+                setRadiusFeet={setRadiusInFeet}
+              />
+              <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
+                Close
+              </Button>
+            </>
+          )}
+
+          {!isMobile && (
+            <FilterPanel
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              streetName={streetName}
+              setStreetName={setStreetName}
+              setAreaOfInterestIncidentGeoJson={
+                setAreaOfInterestIncidentGeoJson
+              }
+              incidentGeoJson={incidentGeoJson}
+              setIncidentGeoJson={setIncidentGeoJson}
+              droppedPin={droppedPin}
+              setDroppedPin={setDroppedPin}
+              radiusFeet={radiusInFeet}
+              setRadiusFeet={setRadiusInFeet}
+            />
+          )}
         </Paper>
       </div>
 
-      {/* Location Summary Overlay */}
+      {/* Location Report Overlay */}
       <div
-        className="absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto max-h-[40vh] md:max-h-[70vh] overflow-y-auto z-10 flex flex-col p-4 rounded-t-xl md:rounded-lg shadow-2xl bg-background text-foreground border-t md:border-none"
         style={{
           position: "absolute",
           bottom: "0rem",
@@ -196,84 +228,63 @@ export default function Home() {
           alignItems: "start",
           flexDirection: "column",
           gap: "0.5rem",
-          minWidth: isMobile ? "100%" : "30vw",
+          minWidth: isMobile ? "100%" : undefined,
           maxWidth: isMobile ? "100%" : "70%",
         }}
       >
-        {isMobile ? (
-          <>
-            <Drawer.Root opened={opened} onClose={close} position={"bottom"}>
-              <Drawer.Content style={{ height: "auto" }}>
-                <Drawer.Header>
-                  <Drawer.Title fw={700}>Location Report</Drawer.Title>
-                  <Drawer.CloseButton />
-                </Drawer.Header>
-                <Drawer.Body>
-                  <LocationReport
-                    isLoading={isLoading}
-                    setViewport={setViewport}
-                    zoomToLayer={zoomToLayer}
-                    streetName={streetName}
-                    droppedPin={droppedPin}
-                    incidentGeoJson={incidentGeoJson}
-                    areaOfInterestIncidentGeoJson={
-                      areaOfInterestIncidentGeoJson
-                    }
-                  />
-                </Drawer.Body>
-              </Drawer.Content>
-            </Drawer.Root>
+        <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>
+          {isMobile ? (
+            <>
+              <Drawer.Root
+                opened={locationReportIsOpen}
+                onClose={closeLocationReport}
+                position={"bottom"}
+              >
+                <Drawer.Content style={{ height: "auto" }}>
+                  <Drawer.Header>
+                    <Drawer.Title fw={700}>Location Report</Drawer.Title>
+                    <Drawer.CloseButton />
+                  </Drawer.Header>
+                  <Drawer.Body>
+                    <LocationReport
+                      isLoading={isLoading}
+                      setViewport={setViewport}
+                      zoomToLayer={zoomToLayer}
+                      streetName={streetName}
+                      droppedPin={droppedPin}
+                      incidentGeoJson={incidentGeoJson}
+                      areaOfInterestIncidentGeoJson={
+                        areaOfInterestIncidentGeoJson
+                      }
+                    />
+                  </Drawer.Body>
+                </Drawer.Content>
+              </Drawer.Root>
 
-            <Button variant="default" onClick={open}>
-              Open Location Report
-            </Button>
-          </>
-        ) : (
-          <Paper
-            shadow={"xs"}
-            radius={"md"}
-            p={"sm"}
-            w={"100%"}
-            className="flex flex-row items-stretch md:items-center gap-3 md:gap-6 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground w-full md:w-auto"
-          >
-            <Text size={"md"} fw={700} mb={'sm'}>
-              Location Report
-            </Text>
-            <LocationReport
-              isLoading={isLoading}
-              setViewport={setViewport}
-              zoomToLayer={zoomToLayer}
-              streetName={streetName}
-              droppedPin={droppedPin}
-              incidentGeoJson={incidentGeoJson}
-              areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-            />
-          </Paper>
-        )}
+              <Flex w={"100%"}>
+                <Button variant="default" onClick={openLocationReport}>
+                  Location Report
+                </Button>
+              </Flex>
+            </>
+          ) : (
+            <>
+              <Text size={"md"} fw={700} mb={"sm"}>
+                Location Report
+              </Text>
+              <LocationReport
+                isLoading={isLoading}
+                setViewport={setViewport}
+                zoomToLayer={zoomToLayer}
+                streetName={streetName}
+                droppedPin={droppedPin}
+                incidentGeoJson={incidentGeoJson}
+                areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+              />
+            </>
+          )}
+        </Paper>
       </div>
-
-      {/*/!* Legend Overlay - Hidden on very small screens or moved *!/*/}
-      {/*<div className="hidden sm:block absolute bottom-6 right-6 z-10 p-3 md:p-4 rounded-lg shadow-xl bg-background text-foreground border md:border-none">*/}
-      {/*  <h3 className="text-[10px] md:text-xs font-semibold mb-2 md:mb-3 tracking-wider uppercase">*/}
-      {/*    Crash Severity*/}
-      {/*  </h3>*/}
-      {/*  <div className="space-y-1 md:space-y-2">*/}
-      {/*    <div className="flex items-center gap-3">*/}
-      {/*      <span className="w-3 h-3 rounded-full bg-[#ef4444] border border-white/20"></span>*/}
-      {/*      <span className="text-sm">Fatality</span>*/}
-      {/*    </div>*/}
-      {/*    <div className="flex items-center gap-3">*/}
-      {/*      <span className="w-3 h-3 rounded-full bg-[#facc15] border border-white/20"></span>*/}
-      {/*      <span className="text-sm">Serious Injury</span>*/}
-      {/*    </div>*/}
-      {/*    <div className="flex items-center gap-3">*/}
-      {/*      <span className="w-3 h-3 rounded-full bg-[#22c55e] border border-white/20"></span>*/}
-      {/*      <span className="text-sm">*/}
-      {/*        Minor Injury or Only Property Damage*/}
-      {/*      </span>*/}
-      {/*    </div>*/}
-      {/*  </div>*/}
-      {/*</div>*/}
     </main>
   );
 }
