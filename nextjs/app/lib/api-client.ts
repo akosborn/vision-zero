@@ -6,7 +6,7 @@ const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
 export const getStreetCenterlines = async (streetName: string) => {
   const response = await axios.get<FeatureCollection>(
     `${API_PATH_BASE}/street-centerlines`,
-    { params: { streetName } },
+    { params: { streetName: 'ONEIDAST', crossStreet1: 'E 23RD AVE', crossStreet2: 'E 36TH AVE' } },
   );
   return response.data;
 };

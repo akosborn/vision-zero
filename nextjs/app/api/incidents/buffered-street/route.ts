@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet);
 
-  const query = `
+  const entireStreetQuery = `
         SELECT jsonb_build_object(
                        'type', 'FeatureCollection',
                        'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
@@ -180,6 +180,6 @@ export async function GET(request: NextRequest) {
                     ${whereClause}) inputs) features;
     `;
 
-  const results = await dbClient.query(query, queryParams);
+  const results = await dbClient.query(entireStreetQuery, queryParams);
   return Response.json(results.rows[0].geojson);
 }
