@@ -6,17 +6,15 @@ export async function GET() {
 }
 
 const query = `
-  select distinct 
-    concat(name, ' ', type) as street,
-    array_remove(array_agg(distinct prefix order by prefix), null) as prefixes,
+  select distinct
+    fullname as "fullName",
     (select array_agg(distinct x order by x) from unnest(array_agg(fromname) || array_agg(toname)) t(x)) as "crossingStreets"
   from public.denver_street_centerlines cl
-  group by 1
-  order by 1;
+  group by 1, 2
+  order by 1
 `;
 
 export type Street = {
-  street: string;
-  prefixes: string[];
+  fullName: string;
   crossingStreets: string[];
 };

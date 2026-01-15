@@ -6,6 +6,7 @@ import { DatePickerInput } from "@mantine/dates";
 import { Flex, NumberInput, Select } from "@mantine/core";
 import { Crash, getStreets } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
+import _ from "lodash";
 
 export const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -55,6 +56,7 @@ const FilterPanel: React.FC<Props> = ({
 }) => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
+  const [selectedSegment, setSelectedSegment] = React.useState<{ fullName?: string; crossingStreets?: { from?: string; to?: string; } } | null>()
 
   React.useEffect(() => {
     setIsLoading(true);
@@ -65,6 +67,18 @@ const FilterPanel: React.FC<Props> = ({
       setIsLoading(false);
     })();
   }, []);
+
+  const crossStreetsToDisplay = React.useMemo(() => {
+      if (!selectedSegment?.fullName) {
+        return [];
+      }
+
+      const street = streets.find(({ fullName }) => fullName === selectedSegment.fullName);
+      return street?.crossingStreets || [];
+    },
+    [streets, selectedSegment?.fullName],
+  );
+
 
   return (
     <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"} wrap={"wrap"}>
@@ -94,25 +108,60 @@ const FilterPanel: React.FC<Props> = ({
       />
 
       <Select
-        label={"Area of interest"}
-        placeholder={"Select an area"}
+        label={"Street"}
+        placeholder={"Search for a street"}
         disabled={isLoading}
         searchable
-        data={streets.map((street) => ({
-          value: street.street,
-          label: street.street,
-        }))}
-        // data={STREET_NAMES_OPTIONS.map((option) => ({
-        //   value: option.id,
-        //   label: option.label,
-        // }))}
-        value={streetName || ""}
+        data={streets.map(({ fullName }) => fullName)}
+        limit={20}
+        value={selectedSegment?.fullName || null}
         onChange={(value) => {
           // @TODO: This is probably not necessary
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(null);
           setDroppedPin(null);
           setStreetName(value);
+          setSelectedSegment({ fullName: value || undefined });
+        }}
+        style={{ width: 200 }}
+      />
+
+      <Select
+        label={"From Cross street"}
+        disabled={isLoading}
+        searchable
+        data={crossStreetsToDisplay}
+        limit={20}
+        value={selectedSegment?.crossingStreets?.from || null}
+        onChange={(value) => {
+          // @TODO: This is probably not necessary
+          setIncidentGeoJson(null);
+          setAreaOfInterestIncidentGeoJson(null);
+          setDroppedPin(null);
+          setStreetName(value);
+          setSelectedSegment({ fullName: value || undefined });
+        }}
+        style={{ width: 200 }}
+      />
+
+      <Select
+        label={"To Cross street"}
+        placeholder={"Search for a street"}
+        disabled={isLoading}
+        searchable
+        data={streets.map((street) => ({
+          value: street.street,
+          label: street.street,
+        }))}
+        limit={20}
+        value={selectedSegment?.crossingStreets?.from || null}
+        onChange={(value) => {
+          // @TODO: This is probably not necessary
+          setIncidentGeoJson(null);
+          setAreaOfInterestIncidentGeoJson(null);
+          setDroppedPin(null);
+          setStreetName(value);
+          setSelectedSegment({ fullName: value || undefined });
         }}
         style={{ width: 200 }}
       />
