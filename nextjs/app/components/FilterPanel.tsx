@@ -4,7 +4,8 @@ import React from "react";
 import { FeatureCollection, Point } from "geojson";
 import { DatePickerInput } from "@mantine/dates";
 import { Flex, NumberInput, Select } from "@mantine/core";
-import { Crash } from "@/app/lib/api-client";
+import { Crash, getStreets } from "@/app/lib/api-client";
+import { Street } from "@/app/api/streets/route";
 
 export const STREET_NAMES_OPTIONS = [
   { id: "7THAVE", label: "7th Ave" },
@@ -52,6 +53,19 @@ const FilterPanel: React.FC<Props> = ({
   setAreaOfInterestIncidentGeoJson,
   setDroppedPin,
 }) => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [streets, setStreets] = React.useState<Street[]>([]);
+
+  React.useEffect(() => {
+    setIsLoading(true);
+
+    (async () => {
+      const streets = await getStreets();
+      setStreets(streets);
+      setIsLoading(false);
+    })();
+  }, []);
+
   return (
     <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"} wrap={"wrap"}>
       <DatePickerInput
@@ -82,11 +96,16 @@ const FilterPanel: React.FC<Props> = ({
       <Select
         label={"Area of interest"}
         placeholder={"Select an area"}
+        disabled={isLoading}
         searchable
-        data={STREET_NAMES_OPTIONS.map((option) => ({
-          value: option.id,
-          label: option.label,
+        data={streets.map((street) => ({
+          value: street.street,
+          label: street.street,
         }))}
+        // data={STREET_NAMES_OPTIONS.map((option) => ({
+        //   value: option.id,
+        //   label: option.label,
+        // }))}
         value={streetName || ""}
         onChange={(value) => {
           // @TODO: This is probably not necessary

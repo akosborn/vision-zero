@@ -1,5 +1,6 @@
 import { FeatureCollection, Point } from "geojson";
 import axios from "axios";
+import { Street } from "@/app/api/streets/route";
 
 const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
 
@@ -18,6 +19,13 @@ export const getBufferedStreetCenterlines = async (params: {
   const response = await axios.get<FeatureCollection>(
     `${API_PATH_BASE}/buffered-street-centerlines`,
     { params },
+  );
+  return response.data;
+};
+
+export const getStreets = async () => {
+  const response = await axios.get<Street[]>(
+    `${API_PATH_BASE}/streets`
   );
   return response.data;
 };

@@ -9,5 +9,6 @@ from vision_zero.incidents_denver doti
             200 -- Meters. This is somewhat arbitrary but should fine since the dates and times have to match.
         )
     and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
+    and cdot.suspected_duplicate = false
 order by doti.first_occurrence_date desc
 ;
