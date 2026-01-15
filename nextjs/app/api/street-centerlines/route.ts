@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const bbox = searchParams.get("bbox");
-  const streetName = searchParams.get("streetName");
+  const fullStreetName = searchParams.get("fullStreetName");
 
   const crossStreet1 = searchParams.get("crossStreet1");
   const crossStreet2 = searchParams.get("crossStreet2");
@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     queryParams.push(minX, minY, maxX, maxY);
   }
 
-  if (streetName) {
-    whereClause += ` AND CONCAT(name, type) = '${streetName}'`;
+  if (fullStreetName) {
+    whereClause += ` AND fullname = '${fullStreetName}'`;
   }
 
   if (crossStreet1 && crossStreet2) {
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
                           1 as level,
                           ARRAY[id] as path_ids
                    FROM public.denver_street_centerlines
-                   WHERE CONCAT(name, type) = '${streetName}'
+                   WHERE fullname = '${fullStreetName}'
                      AND (fromname = '${crossStreet1}' OR toname = '${crossStreet1}')
 
                    UNION ALL
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
                           JOIN path p ON
                      (s.fromname = p.toname OR s.fromname = p.fromname OR
                       s.toname = p.toname OR s.toname = p.fromname)
-                   WHERE CONCAT(s.name, s.type) = '${streetName}'
+                   WHERE s.fullname = '${fullStreetName}'
                      AND s.id <> ALL(p.path_ids)  -- Avoid cycles
                      AND p.level < 10  -- Limit recursion depth
                  ),

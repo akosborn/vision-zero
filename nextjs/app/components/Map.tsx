@@ -81,6 +81,16 @@ type Props = {
   >;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   streetName: string | null;
+  selectedStreetSegment: {
+    fullName?: string;
+    crossStreets?: { from?: string; to?: string };
+  } | null;
+  setSelectedStreetSegment: React.Dispatch<
+    React.SetStateAction<{
+      fullName?: string;
+      crossStreets?: { from?: string; to?: string };
+    } | null>
+  >;
 };
 
 export default forwardRef<MapRef | null, Props>(function Map(
@@ -99,6 +109,8 @@ export default forwardRef<MapRef | null, Props>(function Map(
     setStreetName,
     viewport,
     setViewport,
+    selectedStreetSegment,
+    setSelectedStreetSegment,
   },
   mapRef,
 ) {
@@ -106,7 +118,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
     React.useState<GeoJSONFeature | null>(null);
 
   const loadAllIncidents = false;
-  const displayStreetCenterlines = true;
 
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
@@ -114,60 +125,37 @@ export default forwardRef<MapRef | null, Props>(function Map(
     React.useState<FeatureCollection | null>(null);
 
   const fetchIncidents = React.useCallback(
-    (mapTarget: Map) => {
+    async (mapTarget: Map) => {
       if (!mapTarget) {
         return;
       }
 
-      const bounds = mapTarget.getBounds();
-      if (!bounds) {
-        throw new Error("Bounds undefined");
-      }
-
-      const bbox = [
-        bounds.getWest(),
-        bounds.getSouth(),
-        bounds.getEast(),
-        bounds.getNorth(),
-      ].join(",");
-
-      if (loadAllIncidents) {
+      if (radiusFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
         setIsLoading(true);
-        getIncidents({ startDate, endDate, bbox }).then((json) => {
-          setIncidentGeoJson(json);
-          setIsLoading(false);
-        });
-      }
+        const centerlines = await getStreetCenterlines(selectedStreetSegment);
+        setStreetCenterlines(centerlines);
 
-      if (displayStreetCenterlines && streetName) {
-        setIsLoading(true);
-        getStreetCenterlines(streetName).then((json) => {
-          setStreetCenterlines(json);
-          setIsLoading(false);
-        });
-      }
+        const fullName = selectedStreetSegment.fullName
 
-      if (displayStreetCenterlines && streetName && radiusFeet >= 0) {
-        setIsLoading(true);
-        getBufferedStreetCenterlines({
-          streetName,
+        const buffer = await getBufferedStreetCenterlines({
+          ...selectedStreetSegment,
+          fullName,
           bufferInFeet: radiusFeet,
-        }).then((json) => {
-          setBufferedStreet(json);
         });
+        setBufferedStreet(buffer);
 
-        getIncidentsWithinBufferedStreet({
-          streetName,
+        const incidentsInBuffer = await getIncidentsWithinBufferedStreet({
+          ...selectedStreetSegment,
+          fullStreetName: fullName,
           bufferInFeet: radiusFeet,
           startDate,
           endDate,
-        }).then((data) => {
-          setAreaOfInterestIncidentGeoJson(data);
-          setIsLoading(false);
         });
+        setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+        setIsLoading(false);
       }
     },
-    [startDate, endDate, streetName, radiusFeet],
+    [startDate, endDate, selectedStreetSegment, radiusFeet],
   );
 
   useEffect(() => {

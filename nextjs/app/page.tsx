@@ -24,6 +24,11 @@ export default function Home() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const [selectedStreetSegment, setSelectedStreetSegment] = React.useState<{
+    fullName?: string;
+    crossStreets?: { from?: string; to?: string };
+  } | null>(null);
+
   const [dateRange, setDateRange] = useState<
     { from?: string; to?: string } | undefined
   >({
@@ -128,6 +133,8 @@ export default function Home() {
           incidentGeoJson={incidentGeoJson}
           setIncidentGeoJson={setIncidentGeoJson}
           setIsLoading={setIsLoading}
+          setSelectedStreetSegment={setSelectedStreetSegment}
+          selectedStreetSegment={selectedStreetSegment}
         />
       </div>
 
@@ -189,6 +196,8 @@ export default function Home() {
                 setDroppedPin={setDroppedPin}
                 radiusFeet={radiusInFeet}
                 setRadiusFeet={setRadiusInFeet}
+                setSelectedStreetSegment={setSelectedStreetSegment}
+                selectedStreetSegment={selectedStreetSegment}
               />
               <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
                 Close
@@ -211,6 +220,8 @@ export default function Home() {
               setDroppedPin={setDroppedPin}
               radiusFeet={radiusInFeet}
               setRadiusFeet={setRadiusInFeet}
+              setSelectedStreetSegment={setSelectedStreetSegment}
+              selectedStreetSegment={selectedStreetSegment}
             />
           )}
         </Paper>

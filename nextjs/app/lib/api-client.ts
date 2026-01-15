@@ -4,21 +4,32 @@ import { Street } from "@/app/api/streets/route";
 
 const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
 
-export const getStreetCenterlines = async (streetName: string) => {
+export const getStreetCenterlines = async (params: {
+  fullName?: string;
+  crossStreets?: { from?: string; to?: string };
+}) => {
   const response = await axios.get<FeatureCollection>(
     `${API_PATH_BASE}/street-centerlines`,
-    { params: { streetName: 'ONEIDAST', crossStreet1: 'E 23RD AVE', crossStreet2: 'E 36TH AVE' } },
+    { params: { fullStreetName: params.fullName, crossStreet1: params.crossStreets?.from, crossStreet2: params.crossStreets?.to } },
   );
   return response.data;
 };
 
 export const getBufferedStreetCenterlines = async (params: {
-  streetName: string;
+  fullName: string;
+  crossStreets?: { from?: string; to?: string };
   bufferInFeet: number;
 }) => {
   const response = await axios.get<FeatureCollection>(
     `${API_PATH_BASE}/buffered-street-centerlines`,
-    { params },
+    {
+      params: {
+        fullStreetName: params.fullName,
+        crossStreet1: params.crossStreets?.from,
+        crossStreet2: params.crossStreets?.to,
+        bufferInFeet: params.bufferInFeet
+      },
+    },
   );
   return response.data;
 };
@@ -50,14 +61,24 @@ export const getIncidents = async (params: {
 };
 
 export const getIncidentsWithinBufferedStreet = async (params: {
-  streetName: string;
+  fullStreetName: string;
+  crossStreets?: { from?: string; to?: string };
   bufferInFeet: number;
   startDate?: string;
   endDate?: string;
 }) => {
   const response = await axios.get<FeatureCollection<Point, Crash>>(
     `${API_PATH_BASE}/incidents/buffered-street`,
-    { params },
+    {
+      params: {
+        fullStreetName: params.fullStreetName,
+        crossStreet1: params.crossStreets?.from,
+        crossStreet2: params.crossStreets?.to,
+        bufferInFeet: params.bufferInFeet,
+        startDate: params.startDate,
+        endDate: params.endDate,
+      },
+    },
   );
   return response.data;
 };

@@ -10,7 +10,7 @@ const query = `
     fullname as "fullName",
     (select array_agg(distinct x order by x) from unnest(array_agg(fromname) || array_agg(toname)) t(x)) as "crossingStreets"
   from public.denver_street_centerlines cl
-  group by 1, 2
+  group by 1
   order by 1
 `;
 
