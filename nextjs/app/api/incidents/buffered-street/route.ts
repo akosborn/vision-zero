@@ -59,49 +59,7 @@ export async function GET(request: NextRequest) {
                                  ST_Union(geom)::geography, 
                                  ${bufferInMeters}
                              )::geometry AS line
-                     FROM (
-                            WITH RECURSIVE path AS (
-                              -- Start with segments that connect to either intersection
-                              SELECT *,
-                                     1 as level,
-                                     ARRAY[id] as path_ids
-                              FROM public.denver_street_centerlines
-                              WHERE fullname = '${fullStreetName}'
-                                AND (fromname = '${crossStreet1}' OR toname = '${crossStreet1}')
-
-                              UNION ALL
-
-                              -- Recursively find connecting segments
-                              SELECT s.*,
-                                     p.level + 1,
-                                     p.path_ids || s.id
-                              FROM public.denver_street_centerlines s
-                                     JOIN path p ON
-                                (s.fromname = p.toname OR s.fromname = p.fromname OR
-                                 s.toname = p.toname OR s.toname = p.fromname)
-                              WHERE s.fullname = '${fullStreetName}'
-                                AND s.id <> ALL(p.path_ids)  -- Avoid cycles
-                                AND p.level < 10  -- Limit recursion depth
-                            ),
-                                           valid_paths AS (
-                                             SELECT DISTINCT path_ids
-                                             FROM path p
-                                             WHERE EXISTS (
-                                               SELECT 1
-                                               FROM public.denver_street_centerlines x
-                                               WHERE x.id = ANY(p.path_ids)
-                                                 AND (x.fromname = '${crossStreet2}' OR x.toname = '${crossStreet2}')
-                                             )
-                                           )
-                            SELECT
-                              dc.*,
-                              row_number() OVER (PARTITION BY v.path_ids ORDER BY ord) as segment_number
-                            FROM valid_paths v,
-                                 unnest(v.path_ids) WITH ORDINALITY AS u(id, ord)
-                                   JOIN public.denver_street_centerlines dc ON dc.id = u.id
-                            where dc.fullname = '${fullStreetName}'
-                            ORDER BY v.path_ids, ord
-                          ) inputs
+                     FROM ( select * from get_street_segments_between('${fullStreetName}', '${crossStreet1}', '${crossStreet2}') ) inputs
                 )
                       SELECT
                         doti.incident_id as doti_incident_id,
@@ -220,7 +178,7 @@ export async function GET(request: NextRequest) {
                               200 -- Meters. This is somewhat arbitrary but should fine since the dates and times have to match.
                             )
                         and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
-                              and cdot.suspected_duplicate = false
+                        and cdot.suspected_duplicate = false
                     join buffered_line bl on st_dwithin(COALESCE(cdot.geo, doti.geo)::geography, bl.line::geography, 0)
                     ${whereClause}) inputs) features;
     `;
