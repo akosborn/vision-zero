@@ -3,25 +3,13 @@ import "@mantine/dates/styles.css";
 import React from "react";
 import {FeatureCollection, Point} from "geojson";
 import {DatePickerInput} from "@mantine/dates";
-import { em, Flex, Grid, NumberInput, Select } from "@mantine/core";
+import { Button, em, Flex, Grid, NumberInput, SegmentedControl, Select } from "@mantine/core";
 import {Crash, getStreets} from "@/app/lib/api-client";
 import {Street} from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
 
-export const STREET_NAMES_OPTIONS = [
-  { id: "7THAVE", label: "7th Ave" },
-  { id: "29THAVE", label: "29th Ave" },
-  { id: "ALAMEDAAVE", label: "Alameda Ave" },
-  { id: "COLFAXAVE", label: "Colfax Ave" },
-  { id: "COLORADOBLVD", label: "Colorado Blvd" },
-  { id: "FEDERALBLVD", label: "Federal Blvd" },
-  { id: "LARIMERST", label: "Larimer St" },
-  { id: "SPEERBLVD", label: "Speer Blvd" },
-  { id: "TEJONST", label: "Tejon St" },
-  { id: "YORKST", label: "York St" },
-];
-
 type Props = {
+  closeMobileFilters: () => void;
   dateRange: { from?: string; to?: string } | undefined;
   radiusFeet: number;
   setRadiusFeet: React.Dispatch<React.SetStateAction<number>>;
@@ -54,9 +42,14 @@ type Props = {
       | null
     >
   >;
+  onApply: () => Promise<void>;
+  isLoading: boolean;
 };
 
 const FilterPanel: React.FC<Props> = ({
+  closeMobileFilters,
+  isLoading,
+  onApply,
   dateRange,
   radiusFeet,
   setDateRange,
@@ -71,16 +64,20 @@ const FilterPanel: React.FC<Props> = ({
 }) => {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
 
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [searchTool, setSearchTool] = React.useState<"Radius Search" | "Street Search">(
+    "Street Search",
+  );
+
+  const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
 
   React.useEffect(() => {
-    setIsLoading(true);
+    setIsLoadingStreets(true);
 
     (async () => {
       const streets = await getStreets();
       setStreets(streets);
-      setIsLoading(false);
+      setIsLoadingStreets(false);
     })();
   }, []);
 
@@ -105,40 +102,202 @@ const FilterPanel: React.FC<Props> = ({
 
   if (isMobile) {
     return (
-      <Grid>
-        <Grid.Col span={{ base: 8 }}>
-          <DatePickerInput
-            type={"range"}
-            label={"Date range"}
-            className={"bg-background"}
-            value={[dateRange?.from || null, dateRange?.to || null]}
-            onChange={(values) => {
-              setDateRange({
-                from: values[0] || undefined,
-                to: values[1] || undefined,
-              });
-            }}
-            valueFormat={"MMM D, YYYY"}
-          />
-        </Grid.Col>
+      <>
+        <Grid gutter={"xs"}>
+          <Grid.Col span={{ base: 12 }}>
+            <SegmentedControl
+              value={searchTool}
+              onChange={(value) =>
+                setSearchTool(value as "Radius Search" | "Street Search")
+              }
+              data={["Street Search", "Radius Search"]}
+              fullWidth
+              size={"sm"}
+              radius={"md"}
+              mb={"sm"}
+            />
+          </Grid.Col>
 
-        <Grid.Col span={{ base: 4 }}>
-          <NumberInput
-            label={`${streetName ? "Buffer" : "Radius"} (ft)`}
-            placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
-            value={radiusFeet}
-            onChange={(value) => setRadiusFeet(value as number)}
-            min={5}
-            max={500}
-            step={10}
-          />
-        </Grid.Col>
+          <Grid.Col span={{ base: 8 }}>
+            <DatePickerInput
+              disabled={isLoading || isLoadingStreets}
+              type={"range"}
+              label={"Date range"}
+              className={"bg-background"}
+              value={[dateRange?.from || null, dateRange?.to || null]}
+              onChange={(values) => {
+                setDateRange({
+                  from: values[0] || undefined,
+                  to: values[1] || undefined,
+                });
+              }}
+              valueFormat={"MMM D, YYYY"}
+            />
+          </Grid.Col>
 
-        <Grid.Col span={{ base: 12 }}>
+          <Grid.Col span={{ base: 4 }}>
+            <NumberInput
+              disabled={isLoading || isLoadingStreets}
+              label={`${streetName ? "Buffer" : "Radius"} (ft)`}
+              placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
+              value={radiusFeet}
+              onChange={(value) => setRadiusFeet(value as number)}
+              min={5}
+              max={500}
+              step={50}
+            />
+          </Grid.Col>
+
+          {searchTool === "Street Search" && (
+            <>
+              <Grid.Col span={{ base: 12 }}>
+                <Select
+                  disabled={isLoading || isLoadingStreets}
+                  label={"Street"}
+                  placeholder={"Search for a street"}
+                  searchable
+                  data={streets.map(({ fullName }) => fullName)}
+                  limit={20}
+                  value={selectedStreetSegment?.fullName || null}
+                  onChange={(value) => {
+                    // @TODO: This is probably not necessary
+                    setIncidentGeoJson(null);
+                    setAreaOfInterestIncidentGeoJson(null);
+                    setDroppedPin(null);
+                    setStreetName(value);
+                    setSelectedStreetSegment({ fullName: value || undefined });
+                  }}
+                />
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 6 }}>
+                <Select
+                  label={"From Cross street"}
+                  disabled={
+                    isLoading ||
+                    isLoadingStreets ||
+                    !selectedStreetSegment?.fullName
+                  }
+                  searchable
+                  data={fromCrossStreetsToDisplay}
+                  limit={20}
+                  value={selectedStreetSegment?.crossStreets?.from || null}
+                  required={
+                    selectedStreetSegment?.crossStreets?.to !== undefined
+                  }
+                  onChange={(value) => {
+                    // @TODO: This is probably not necessary
+                    setIncidentGeoJson(null);
+                    setAreaOfInterestIncidentGeoJson(null);
+                    setDroppedPin(null);
+                    setStreetName(value);
+                    setSelectedStreetSegment((prev) => ({
+                      ...prev,
+                      crossStreets: { from: value || undefined },
+                    }));
+                  }}
+                />
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 6 }}>
+                <Select
+                  label={"To Cross street"}
+                  disabled={
+                    isLoading ||
+                    isLoadingStreets ||
+                    !selectedStreetSegment?.fullName
+                  }
+                  searchable
+                  data={toCrossStreetsToDisplay}
+                  limit={20}
+                  value={selectedStreetSegment?.crossStreets?.to || null}
+                  required={
+                    selectedStreetSegment?.crossStreets?.from !== undefined
+                  }
+                  onChange={(value) => {
+                    // @TODO: This is probably not necessary
+                    setIncidentGeoJson(null);
+                    setAreaOfInterestIncidentGeoJson(null);
+                    setDroppedPin(null);
+                    setStreetName(value);
+                    setSelectedStreetSegment((prev) => ({
+                      ...prev,
+                      crossStreets: {
+                        ...prev?.crossStreets,
+                        to: value || undefined,
+                      },
+                    }));
+                  }}
+                />
+              </Grid.Col>
+            </>
+          )}
+        </Grid>
+
+        <Flex justify={"space-between"}>
+          <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
+            Close
+          </Button>
+          <Button
+            disabled={isLoading || isLoadingStreets}
+            variant="filled"
+            onClick={onApply}
+            mt={"sm"}
+          >
+            Apply
+          </Button>
+        </Flex>
+      </>
+    );
+  }
+
+  return (
+    <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"} wrap={"wrap"}>
+      <SegmentedControl
+        value={searchTool}
+        onChange={(value) =>
+          setSearchTool(value as "Radius Search" | "Street Search")
+        }
+        data={["Street Search", "Radius Search"]}
+        fullWidth
+        size={"sm"}
+        radius={"md"}
+        style={{ alignItems: "flex-end" }}
+      />
+
+      <DatePickerInput
+        disabled={isLoading || isLoadingStreets}
+        type={"range"}
+        label={"Date range"}
+        className={"bg-background"}
+        value={[dateRange?.from || null, dateRange?.to || null]}
+        onChange={(values) => {
+          setDateRange({
+            from: values[0] || undefined,
+            to: values[1] || undefined,
+          });
+        }}
+        valueFormat={"MMM D, YYYY"}
+      />
+
+      <NumberInput
+        disabled={isLoading || isLoadingStreets}
+        label={`${streetName ? "Buffer" : "Radius"} (ft)`}
+        placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
+        value={radiusFeet}
+        onChange={(value) => setRadiusFeet(value as number)}
+        min={5}
+        max={500}
+        step={10}
+        style={{ width: 100 }}
+      />
+
+      {searchTool === "Street Search" && (
+        <>
           <Select
             label={"Street"}
             placeholder={"Search for a street"}
-            disabled={isLoading}
+            disabled={isLoading || isLoadingStreets}
             searchable
             data={streets.map(({ fullName }) => fullName)}
             limit={20}
@@ -151,17 +310,19 @@ const FilterPanel: React.FC<Props> = ({
               setStreetName(value);
               setSelectedStreetSegment({ fullName: value || undefined });
             }}
+            style={{ width: 200 }}
           />
-        </Grid.Col>
 
-        <Grid.Col span={{ base: 6 }}>
           <Select
-            label={"From cross street"}
-            disabled={isLoading || !selectedStreetSegment?.fullName}
+            label={"From Cross street"}
+            disabled={
+              isLoading || isLoadingStreets || !selectedStreetSegment?.fullName
+            }
             searchable
             data={fromCrossStreetsToDisplay}
             limit={20}
             value={selectedStreetSegment?.crossStreets?.from || null}
+            required={selectedStreetSegment?.crossStreets?.to !== undefined}
             onChange={(value) => {
               // @TODO: This is probably not necessary
               setIncidentGeoJson(null);
@@ -173,17 +334,19 @@ const FilterPanel: React.FC<Props> = ({
                 crossStreets: { from: value || undefined },
               }));
             }}
+            style={{ width: 200 }}
           />
-        </Grid.Col>
 
-        <Grid.Col span={{ base: 6 }}>
           <Select
-            label={"To cross street"}
-            disabled={isLoading || !selectedStreetSegment?.fullName}
+            label={"To Cross street"}
+            disabled={
+              isLoading || isLoadingStreets || !selectedStreetSegment?.fullName
+            }
             searchable
             data={toCrossStreetsToDisplay}
             limit={20}
             value={selectedStreetSegment?.crossStreets?.to || null}
+            required={selectedStreetSegment?.crossStreets?.from !== undefined}
             onChange={(value) => {
               // @TODO: This is probably not necessary
               setIncidentGeoJson(null);
@@ -200,101 +363,20 @@ const FilterPanel: React.FC<Props> = ({
             }}
             style={{ width: 200 }}
           />
-        </Grid.Col>
-      </Grid>
-    );
-  }
+        </>
+      )}
 
-  return (
-    <Flex gap={"sm"} justify={"flex-start"} align={"flex-start"} wrap={"wrap"}>
-      <DatePickerInput
-        type={"range"}
-        label={"Date range"}
-        className={"bg-background"}
-        value={[dateRange?.from || null, dateRange?.to || null]}
-        onChange={(values) => {
-          setDateRange({
-            from: values[0] || undefined,
-            to: values[1] || undefined,
-          });
-        }}
-        valueFormat={"MMM D, YYYY"}
-      />
-
-      <NumberInput
-        label={`${streetName ? "Buffer" : "Radius"} (ft)`}
-        placeholder={`${streetName ? "Buffer" : "Radius"} in feet`}
-        value={radiusFeet}
-        onChange={(value) => setRadiusFeet(value as number)}
-        min={5}
-        max={500}
-        step={10}
-        style={{ width: 100 }}
-      />
-
-      <Select
-        label={"Street"}
-        placeholder={"Search for a street"}
-        disabled={isLoading}
-        searchable
-        data={streets.map(({ fullName }) => fullName)}
-        limit={20}
-        value={selectedStreetSegment?.fullName || null}
-        onChange={(value) => {
-          // @TODO: This is probably not necessary
-          setIncidentGeoJson(null);
-          setAreaOfInterestIncidentGeoJson(null);
-          setDroppedPin(null);
-          setStreetName(value);
-          setSelectedStreetSegment({ fullName: value || undefined });
-        }}
-        style={{ width: 200 }}
-      />
-
-      <Select
-        label={"From Cross street"}
-        disabled={isLoading || !selectedStreetSegment?.fullName}
-        searchable
-        data={fromCrossStreetsToDisplay}
-        limit={20}
-        value={selectedStreetSegment?.crossStreets?.from || null}
-        onChange={(value) => {
-          // @TODO: This is probably not necessary
-          setIncidentGeoJson(null);
-          setAreaOfInterestIncidentGeoJson(null);
-          setDroppedPin(null);
-          setStreetName(value);
-          setSelectedStreetSegment((prev) => ({
-            ...prev,
-            crossStreets: { from: value || undefined },
-          }));
-        }}
-        style={{ width: 200 }}
-      />
-
-      <Select
-        label={"To Cross street"}
-        disabled={isLoading || !selectedStreetSegment?.fullName}
-        searchable
-        data={toCrossStreetsToDisplay}
-        limit={20}
-        value={selectedStreetSegment?.crossStreets?.to || null}
-        onChange={(value) => {
-          // @TODO: This is probably not necessary
-          setIncidentGeoJson(null);
-          setAreaOfInterestIncidentGeoJson(null);
-          setDroppedPin(null);
-          setStreetName(value);
-          setSelectedStreetSegment((prev) => ({
-            ...prev,
-            crossStreets: {
-              ...prev?.crossStreets,
-              to: value || undefined,
-            },
-          }));
-        }}
-        style={{ width: 200 }}
-      />
+      <Button
+        variant="filled"
+        onClick={onApply}
+        mt={"sm"}
+        style={{ alignItems: "flex-end" }}
+        disabled={
+          isLoading || isLoadingStreets || !selectedStreetSegment?.fullName
+        }
+      >
+        Apply
+      </Button>
     </Flex>
   );
 };

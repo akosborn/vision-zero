@@ -91,6 +91,10 @@ type Props = {
       crossStreets?: { from?: string; to?: string };
     } | null>
   >;
+  setStreetCenterlines: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  setBufferedStreet: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  streetCenterlines?: FeatureCollection | null;
+  bufferedStreet?: FeatureCollection | null;
 };
 
 export default forwardRef<MapRef | null, Props>(function Map(
@@ -105,87 +109,19 @@ export default forwardRef<MapRef | null, Props>(function Map(
     startDate,
     endDate,
     radiusFeet,
-    streetName,
     setStreetName,
     viewport,
     setViewport,
     selectedStreetSegment,
-    setSelectedStreetSegment,
+    setStreetCenterlines,
+    setBufferedStreet,
+    streetCenterlines,
+    bufferedStreet,
   },
   mapRef,
 ) {
   const [selectedPoint, setSelectedPoint] =
     React.useState<GeoJSONFeature | null>(null);
-
-  const loadAllIncidents = false;
-
-  const [streetCenterlines, setStreetCenterlines] =
-    React.useState<FeatureCollection | null>(null);
-  const [bufferedStreet, setBufferedStreet] =
-    React.useState<FeatureCollection | null>(null);
-
-  const fetchIncidents = React.useCallback(
-    async (mapTarget: Map) => {
-      if (!mapTarget) {
-        return;
-      }
-
-      if (radiusFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
-        setIsLoading(true);
-        const centerlines = await getStreetCenterlines(selectedStreetSegment);
-        setStreetCenterlines(centerlines);
-
-        const fullName = selectedStreetSegment.fullName
-
-        const buffer = await getBufferedStreetCenterlines({
-          ...selectedStreetSegment,
-          fullName,
-          bufferInFeet: radiusFeet,
-        });
-        setBufferedStreet(buffer);
-
-        const incidentsInBuffer = await getIncidentsWithinBufferedStreet({
-          ...selectedStreetSegment,
-          fullStreetName: fullName,
-          bufferInFeet: radiusFeet,
-          startDate,
-          endDate,
-        });
-        setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
-        setIsLoading(false);
-      }
-    },
-    [startDate, endDate, selectedStreetSegment, radiusFeet],
-  );
-
-  useEffect(() => {
-    if (mapRef && "current" in mapRef && mapRef.current) {
-      fetchIncidents(mapRef.current.getMap());
-
-      if (droppedPin) {
-        getIncidents({
-          startDate,
-          endDate,
-          lat: droppedPin.lat,
-          lng: droppedPin.lng,
-          radiusInFeet: radiusFeet,
-        }).then((data) => {
-          setIncidentGeoJson(data);
-        });
-      }
-    }
-  }, [startDate, endDate, fetchIncidents]);
-
-  const onMoveEnd = React.useCallback(
-    (event: MapMouseEvent) => {
-      if (!loadAllIncidents) {
-        return;
-      }
-
-      fetchIncidents(event.target);
-    },
-    [fetchIncidents],
-  );
 
   const onClick = (event: MapMouseEvent) => {
     const feature = event.features && event.features[0];
@@ -218,32 +154,12 @@ export default forwardRef<MapRef | null, Props>(function Map(
     ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000)
     : null;
 
-  const onLoad = (event: MapEvent) => {
-    if (!loadAllIncidents && droppedPin && radiusFeet > 0) {
-      getIncidents({
-        startDate,
-        endDate,
-        lat: droppedPin.lat,
-        lng: droppedPin.lng,
-        radiusInFeet: radiusFeet,
-      }).then((data) => {
-        setIncidentGeoJson(data);
-      });
-      return;
-    }
-
-    const map = event.target;
-    fetchIncidents(map);
-  };
-
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
         {...viewport}
         ref={mapRef}
         onMove={(evt) => setViewport(evt.viewState)}
-        onMoveEnd={onMoveEnd}
-        onLoad={onLoad}
         onClick={onClick}
         interactiveLayerIds={["incident-layer"]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}

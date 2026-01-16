@@ -13,7 +13,7 @@ import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { Crash } from "@/app/lib/api-client";
+import { Crash, getBufferedStreetCenterlines, getIncidentsWithinBufferedStreet, getStreetCenterlines } from "@/app/lib/api-client";
 
 export default function Home() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -55,6 +55,11 @@ export default function Home() {
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
   const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
+
+  const [streetCenterlines, setStreetCenterlines] =
+    React.useState<FeatureCollection | null>(null);
+  const [bufferedStreet, setBufferedStreet] =
+    React.useState<FeatureCollection | null>(null);
 
   const [mobileFiltersAreOpen, { open: openMobileFilters, close: closeMobileFilters }] = useDisclosure(false);
   const [locationReportIsOpen, { open: openLocationReport, close: closeLocationReport }] = useDisclosure(true);
@@ -101,6 +106,37 @@ export default function Home() {
     zoomToLayer(areaOfInterestIncidentGeoJson);
   }, [streetName, areaOfInterestIncidentGeoJson]);
 
+  const fetchIncidents = React.useCallback(
+    async () => {
+      setIsLoading(true);
+      if (
+        radiusInFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
+        const centerlines = await getStreetCenterlines(selectedStreetSegment);
+        setStreetCenterlines(centerlines);
+
+        const fullName = selectedStreetSegment.fullName;
+
+        const buffer = await getBufferedStreetCenterlines({
+          ...selectedStreetSegment,
+          fullName,
+          bufferInFeet: radiusInFeet,
+        });
+        setBufferedStreet(buffer);
+
+        const incidentsInBuffer = await getIncidentsWithinBufferedStreet({
+          ...selectedStreetSegment,
+          fullStreetName: fullName,
+          bufferInFeet: radiusInFeet,
+          startDate: dateRange?.from,
+          endDate: dateRange?.to,
+        });
+        setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+      }
+      setIsLoading(false);
+    },
+    [dateRange, selectedStreetSegment, radiusInFeet],
+  );
+
   return (
     <main
       className="relative flex h-screen w-screen overflow-hidden"
@@ -135,14 +171,15 @@ export default function Home() {
           setIsLoading={setIsLoading}
           setSelectedStreetSegment={setSelectedStreetSegment}
           selectedStreetSegment={selectedStreetSegment}
+          setStreetCenterlines={setStreetCenterlines}
+          streetCenterlines={streetCenterlines}
+          bufferedStreet={bufferedStreet}
+          setBufferedStreet={setBufferedStreet}
         />
       </div>
 
       {/* Top Filter Panel Overlay */}
       <div
-        className={
-          "absolute top-4 left-4 right-4 md:top-6 md:left-6 md:right-auto z-10 flex items-start flex-col gap-2"
-        }
         style={{
           position: "absolute",
           top: isMobile ? 0 : "1rem",
@@ -156,7 +193,12 @@ export default function Home() {
           width: isMobile ? "100%" : undefined,
         }}
       >
-        <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={isMobile ? '100%' : undefined}>
+        <Paper
+          shadow={"xs"}
+          radius={isMobile ? 0 : "md"}
+          p={"sm"}
+          w={isMobile ? "100%" : undefined}
+        >
           {getStartedInfoIsOpen && (
             <Alert
               variant={"light"}
@@ -183,6 +225,7 @@ export default function Home() {
           {isMobile && mobileFiltersAreOpen && (
             <>
               <FilterPanel
+                closeMobileFilters={closeMobileFilters}
                 dateRange={dateRange}
                 setDateRange={setDateRange}
                 streetName={streetName}
@@ -198,15 +241,15 @@ export default function Home() {
                 setRadiusFeet={setRadiusInFeet}
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
+                onApply={fetchIncidents}
+                isLoading={isLoading}
               />
-              <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
-                Close
-              </Button>
             </>
           )}
 
           {!isMobile && (
             <FilterPanel
+              closeMobileFilters={closeMobileFilters}
               dateRange={dateRange}
               setDateRange={setDateRange}
               streetName={streetName}
@@ -222,6 +265,8 @@ export default function Home() {
               setRadiusFeet={setRadiusInFeet}
               setSelectedStreetSegment={setSelectedStreetSegment}
               selectedStreetSegment={selectedStreetSegment}
+              onApply={fetchIncidents}
+              isLoading={isLoading}
             />
           )}
         </Paper>
