@@ -13,7 +13,14 @@ import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { Crash, getBufferedStreetCenterlines, getIncidentsWithinBufferedStreet, getStreetCenterlines } from "@/app/lib/api-client";
+import {
+  Crash,
+  getBufferedStreetCenterlines,
+  getIncidentsWithinBufferedStreet,
+  getStreetCenterlines,
+  getStreets,
+} from "@/app/lib/api-client";
+import { Street } from "@/app/api/streets/route";
 
 export default function Home() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -63,6 +70,19 @@ export default function Home() {
 
   const [mobileFiltersAreOpen, { open: openMobileFilters, close: closeMobileFilters }] = useDisclosure(false);
   const [locationReportIsOpen, { open: openLocationReport, close: closeLocationReport }] = useDisclosure(true);
+
+  const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
+  const [streets, setStreets] = React.useState<Street[]>([]);
+
+  React.useEffect(() => {
+    setIsLoadingStreets(true);
+
+    (async () => {
+      const streets = await getStreets();
+      setStreets(streets);
+      setIsLoadingStreets(false);
+    })();
+  }, []);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
@@ -199,24 +219,13 @@ export default function Home() {
           p={"sm"}
           w={isMobile ? "100%" : undefined}
         >
-          {getStartedInfoIsOpen && (
-            <Alert
-              variant={"light"}
-              icon={<IconInfoCircle />}
-              withCloseButton={true}
-              onClose={() => setGetStartedInfoIsOpen(false)}
-              color={"cyan"}
-              p={"sm"}
-              mb={"xs"}
-            >
-              To get started, select an area of interest filter or click
-              anywhere on the map to inspect a circular area.
-            </Alert>
-          )}
 
           {isMobile && !mobileFiltersAreOpen && (
             <Flex w={"100%"}>
-              <Button variant="default" onClick={openMobileFilters}>
+              <Button variant="default" onClick={() => {
+                closeLocationReport();
+                openMobileFilters();
+              }}>
                 Filters
               </Button>
             </Flex>
@@ -228,8 +237,6 @@ export default function Home() {
                 closeMobileFilters={closeMobileFilters}
                 dateRange={dateRange}
                 setDateRange={setDateRange}
-                streetName={streetName}
-                setStreetName={setStreetName}
                 setAreaOfInterestIncidentGeoJson={
                   setAreaOfInterestIncidentGeoJson
                 }
@@ -242,7 +249,8 @@ export default function Home() {
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
                 onApply={fetchIncidents}
-                isLoading={isLoading}
+                isLoading={isLoading || isLoadingStreets}
+                streets={streets}
               />
             </>
           )}
@@ -252,8 +260,6 @@ export default function Home() {
               closeMobileFilters={closeMobileFilters}
               dateRange={dateRange}
               setDateRange={setDateRange}
-              streetName={streetName}
-              setStreetName={setStreetName}
               setAreaOfInterestIncidentGeoJson={
                 setAreaOfInterestIncidentGeoJson
               }
@@ -266,7 +272,8 @@ export default function Home() {
               setSelectedStreetSegment={setSelectedStreetSegment}
               selectedStreetSegment={selectedStreetSegment}
               onApply={fetchIncidents}
-              isLoading={isLoading}
+              isLoading={isLoading || isLoadingStreets}
+              streets={streets}
             />
           )}
         </Paper>
@@ -318,7 +325,10 @@ export default function Home() {
               </Drawer.Root>
 
               <Flex w={"100%"}>
-                <Button variant="default" onClick={openLocationReport}>
+                <Button variant="default" onClick={() => {
+                  closeMobileFilters();
+                  openLocationReport();
+                }}>
                   Location Report
                 </Button>
               </Flex>

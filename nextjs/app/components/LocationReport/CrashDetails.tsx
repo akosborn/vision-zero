@@ -17,9 +17,6 @@ interface IncidentItemProps {
   onClick?: () => void;
 }
 
-// It it possible that DOTI data is joining more than one CDOT crash?
-// @TODO: "Encountered two children with the same key, `DP2025576100`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version."
-
 export const SEVERITY_LABELS: Record<IncidentItemProps["kabcoSeverityLevel"], string> = {
   K: 'Fatal (K)',
   A: 'Incapacitating Injury (A)',
@@ -125,7 +122,7 @@ export function CrashDetails({
           </ThemeIcon>
           <Text size="sm" c="dimmed">
             {dataSource === "CDOT" ? (
-              <>Colorado Department of Transportation CUID <b>{id}</b></>
+              <>CO Dept. of Transportation CUID <b>{id}</b></>
             ) : (
               <>Denver DOTI Incident ID <b>{id}</b></>
             )}

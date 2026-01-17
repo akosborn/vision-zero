@@ -1,5 +1,5 @@
 import React from "react";
-import { Feature, Geometry } from "geojson";
+import { Feature, Geometry, Point } from "geojson";
 import { DateTime } from "luxon";
 import { Container, em } from "@mantine/core";
 import { CrashDetails } from "@/app/components/LocationReport/CrashDetails";
@@ -23,12 +23,14 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
 
   return (
     <>
-      {sortedFeatures.map(({ properties }) => {
+      {sortedFeatures.map(({ geometry, properties }) => {
         const type = getType(
           properties.doti_bicycle_involved,
           properties.doti_pedestrian_involved,
         );
         const severity = getMaxSeverity(properties);
+
+        const [lng, lat] = (geometry as Point).coordinates;
 
         return (
           <Container key={properties.doti_incident_id} px={0} mb={"sm"}>
@@ -41,8 +43,7 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
               date={DateTime.fromISO(properties.doti_first_occurrence_date, {
                 zone: "America/Denver",
               }).toJSDate()}
-              // coordinates={{ lng: (crash.cdot_geo || crash.doti_geo)!['lon'], lat: crash.geo_lat }}
-              coordinates={{ lng: 0, lat: 0 }}
+              coordinates={{ lat, lng }}
             />
           </Container>
         );

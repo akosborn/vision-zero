@@ -65,9 +65,9 @@ const LocationReport: React.FC<Props> = ({
         <>
           {!isLoading ? (
               <>
-            <SimpleGrid cols={2} spacing={"md"} mb={'xs'}>
+            <SimpleGrid cols={2} spacing={"xs"} mb={'xs'}>
               <Paper
-                p="md"
+                p="xs"
                 radius="md"
                 style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
               >
@@ -80,7 +80,7 @@ const LocationReport: React.FC<Props> = ({
               </Paper>
 
               <Paper
-                p="md"
+                p="xs"
                 radius="md"
                 style={{ backgroundColor: "#eff6ff", textAlign: "center" }}
               >
@@ -149,7 +149,7 @@ const LocationReport: React.FC<Props> = ({
       {selectedView === "Crashes" && (
         <>
           {!isLoading ? (
-            <Container mah={"40vh"} style={{ overflowY: "auto" }}>
+            <Container mah={"40vh"} style={{ overflowY: "auto" }} px={0}>
               <CrashList
                 crashFeatures={
                   (areaOfInterestIncidentGeoJson?.features ||
