@@ -119,6 +119,8 @@ export default function Home() {
   const fetchIncidents = React.useCallback(
     async () => {
       setIsLoading(true);
+      closeMobileFilters();
+      openLocationReport();
       if (
         radiusInFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
         const centerlines = await getStreetCenterlines(selectedStreetSegment);
