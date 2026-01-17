@@ -43,7 +43,6 @@ services:
   nextjs:
     build:
       context: ./nextjs
-      network: host # Uses host network to bypass Docker's virtual network DNS issues with `yarn install`
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN=${NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
