@@ -61,8 +61,6 @@ export default function Home() {
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
-  const [getStartedInfoIsOpen, setGetStartedInfoIsOpen] = React.useState(true);
-
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
   const [bufferedStreet, setBufferedStreet] =

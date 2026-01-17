@@ -108,38 +108,31 @@ const LocationReport: React.FC<Props> = ({
               </Paper>
             </SimpleGrid>
 
-                <Table variant="vertical" layout="auto" withTableBorder mb={'xs'}>
-                  <Table.Tbody>
-                    {Object.entries(locationReport?.kabcoSeverityCounts || {}).map(
-                        ([severity, count]) => {
-                          return (
-                              <Table.Tr key={severity}>
-                                <Table.Th>{SEVERITY_LABELS[severity as KABCO_SEVERITY_LEVEL]}</Table.Th>
-                                <Table.Td>{count}</Table.Td>
-                              </Table.Tr>
-                          );
-                        },
-                    )}
+            <Table variant="vertical" layout="auto" withTableBorder mb={'xs'}>
+              <Table.Tbody>
+                {Object.entries(locationReport?.kabcoSeverityCounts || {}).map(
+                    ([severity, count]) => {
+                      return (
+                          <Table.Tr key={severity}>
+                            <Table.Th>{SEVERITY_LABELS[severity as KABCO_SEVERITY_LEVEL]}</Table.Th>
+                            <Table.Td>{count}</Table.Td>
+                          </Table.Tr>
+                      );
+                    },
+                )}
 
-                    <Table.Tr style={{ borderTop: `solid ${theme.colors.gray[3]} 4px` }}>
-                      <Table.Th>Pedestrians</Table.Th>
-                      <Table.Td>{locationReport.pedestriansInvolved}</Table.Td>
-                    </Table.Tr>
+                <Table.Tr style={{ borderTop: `solid ${theme.colors.gray[3]} 4px` }}>
+                  <Table.Th>Pedestrians</Table.Th>
+                  <Table.Td>{locationReport.pedestriansInvolved}</Table.Td>
+                </Table.Tr>
 
-                    <Table.Tr>
-                      <Table.Th>Bicyclists</Table.Th>
-                      <Table.Td>{locationReport.bicyclesInvolved}</Table.Td>
-                    </Table.Tr>
-                  </Table.Tbody>
-                </Table>
-
-                {/*<Table variant="vertical" layout="auto" withTableBorder>*/}
-                {/*  <Table.Tbody>*/}
-                {/*   */}
-                {/*  </Table.Tbody>*/}
-                {/*</Table>*/}
-
-                </>
+                <Table.Tr>
+                  <Table.Th>Bicyclists</Table.Th>
+                  <Table.Td>{locationReport.bicyclesInvolved}</Table.Td>
+                </Table.Tr>
+              </Table.Tbody>
+            </Table>
+            </>
           ) : (
             <Loader />
           )}
