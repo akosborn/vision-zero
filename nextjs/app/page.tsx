@@ -118,14 +118,6 @@ export default function Home() {
     });
   };
 
-  useEffect(() => {
-    if (!streetName || !areaOfInterestIncidentGeoJson?.features.length) {
-      return;
-    }
-
-    zoomToLayer(areaOfInterestIncidentGeoJson);
-  }, [streetName, areaOfInterestIncidentGeoJson]);
-
   const fetchIncidents = React.useCallback(
     async () => {
       setIsLoading(true);
@@ -151,6 +143,8 @@ export default function Home() {
           endDate: dateRange?.to,
         });
         setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+
+        zoomToLayer(incidentsInBuffer);
       }
       setIsLoading(false);
     },
