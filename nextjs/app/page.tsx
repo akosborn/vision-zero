@@ -21,9 +21,12 @@ import {
   getStreets,
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
+import { useRouter } from "next/dist/client/components/navigation";
 
 export default function Home() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
+  // @TODO: Use this
+  const router = useRouter();
 
   const mapRef = React.useRef<MapRef | null>(null);
 
