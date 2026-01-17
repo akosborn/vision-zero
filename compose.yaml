@@ -12,7 +12,9 @@ services:
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
     ports:
       - 5432:5432
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf && apt-get && apt-get install -y postgis postgresql-17-postgis-3
+    command: >
+      sh -c "apt-get update && apt-get install -y postgis postgresql-17-postgis-3 
+      && exec postgres -c config_file=/etc/postgresql/postgresql.conf"
     restart: always
 
   metabase:
