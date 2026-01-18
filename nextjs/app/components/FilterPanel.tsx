@@ -371,7 +371,7 @@ const FilterPanel: React.FC<Props> = ({
           variant="filled"
           onClick={onApply}
           mt={"sm"}
-          disabled={isLoading || !selectedStreetSegment?.fullName}
+          disabled={isLoading || !isFormValid}
         >
           Apply
         </Button>

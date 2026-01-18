@@ -135,14 +135,14 @@ export async function GET(request: NextRequest) {
                        cdot.tu_1_speed_limit as cdot_tu_1_speed_limit,
                        cdot.tu_1_estimated_speed as cdot_tu_1_estimated_speed,
                        cdot.tu_1_speed as cdot_tu_1_speed,
-                       cdot.tu_1_age as cdot_tu_age,
-                       cdot.tu_1_sex as cdot_tu_sex,
+                       cdot.tu_1_age as cdot_tu_1_age,
+                       cdot.tu_1_sex as cdot_tu_1_sex,
 
                        cdot.tu_2_speed_limit as cdot_tu_2_speed_limit,
                        cdot.tu_2_estimated_speed as cdot_tu_2_estimated_speed,
                        cdot.tu_2_speed as cdot_tu_2_speed,
-                       cdot.tu_2_age as cdot_tu_age,
-                       cdot.tu_2_sex as cdot_tu_sex,
+                       cdot.tu_2_age as cdot_tu_2_age,
+                       cdot.tu_2_sex as cdot_tu_2_sex,
 
                        cdot.tu_1_nm_facility_available as cdot_tu_1_nm_facility_available,
                        cdot.tu_1_nm_safety_helmet as cdot_tu_1_nm_safety_helmet,

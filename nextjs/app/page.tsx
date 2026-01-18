@@ -14,7 +14,8 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
-  Crash,
+  AnnualCrashSummary,
+  Crash, getAnnualCrashHistory,
   getBufferedStreetCenterlines,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
@@ -63,6 +64,8 @@ export default function Home() {
   });
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
+
+  const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<AnnualCrashSummary[] | null>(null);
 
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
@@ -113,39 +116,51 @@ export default function Home() {
       }
     });
 
+    const padding = isMobile
+      ? { top: 40, bottom: 300, left: 20, right: 20 }
+      : 40;
+
     mapRef.current.getMap().fitBounds(bounds, {
-      padding: 40,
+      padding,
       duration: 1000,
     });
   };
 
-  const fetchIncidents = React.useCallback(
+  const fetchCrashData = React.useCallback(
     async () => {
       setIsLoading(true);
       closeMobileFilters();
       openLocationReport();
+      // @TODO: Is fetching working when clicking a point?
       if (
         radiusInFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
-        const centerlines = await getStreetCenterlines(selectedStreetSegment);
-        setStreetCenterlines(centerlines);
-
         const fullName = selectedStreetSegment.fullName;
 
-        const buffer = await getBufferedStreetCenterlines({
-          ...selectedStreetSegment,
-          fullName,
-          bufferInFeet: radiusInFeet,
-        });
+        const [centerlines, buffer, incidentsInBuffer, history] =
+          await Promise.all([
+            getStreetCenterlines(selectedStreetSegment),
+            getBufferedStreetCenterlines({
+              ...selectedStreetSegment,
+              fullName,
+              bufferInFeet: radiusInFeet,
+            }),
+            getIncidentsWithinBufferedStreet({
+              ...selectedStreetSegment,
+              fullStreetName: fullName,
+              bufferInFeet: radiusInFeet,
+              startDate: dateRange?.from,
+              endDate: dateRange?.to,
+            }),
+            getAnnualCrashHistory({
+              ...selectedStreetSegment,
+              fullStreetName: fullName,
+              bufferInFeet: radiusInFeet,
+            }),
+          ]);
+        setStreetCenterlines(centerlines);
         setBufferedStreet(buffer);
-
-        const incidentsInBuffer = await getIncidentsWithinBufferedStreet({
-          ...selectedStreetSegment,
-          fullStreetName: fullName,
-          bufferInFeet: radiusInFeet,
-          startDate: dateRange?.from,
-          endDate: dateRange?.to,
-        });
         setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+        setCrashSummaryHistory(history);
 
         zoomToLayer(incidentsInBuffer);
       }
@@ -156,7 +171,6 @@ export default function Home() {
 
   return (
     <main
-      className="relative flex h-screen w-screen overflow-hidden"
       style={{
         position: "relative",
         display: "flex",
@@ -216,13 +230,15 @@ export default function Home() {
           p={"sm"}
           w={isMobile ? "100%" : undefined}
         >
-
           {isMobile && !mobileFiltersAreOpen && (
             <Flex w={"100%"}>
-              <Button variant="default" onClick={() => {
-                closeLocationReport();
-                openMobileFilters();
-              }}>
+              <Button
+                variant="default"
+                onClick={() => {
+                  closeLocationReport();
+                  openMobileFilters();
+                }}
+              >
                 Filters
               </Button>
             </Flex>
@@ -245,7 +261,7 @@ export default function Home() {
                 setRadiusFeet={setRadiusInFeet}
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
-                onApply={fetchIncidents}
+                onApply={fetchCrashData}
                 isLoading={isLoading || isLoadingStreets}
                 streets={streets}
               />
@@ -268,7 +284,7 @@ export default function Home() {
               setRadiusFeet={setRadiusInFeet}
               setSelectedStreetSegment={setSelectedStreetSegment}
               selectedStreetSegment={selectedStreetSegment}
-              onApply={fetchIncidents}
+              onApply={fetchCrashData}
               isLoading={isLoading || isLoadingStreets}
               streets={streets}
             />
@@ -307,6 +323,7 @@ export default function Home() {
                   </Drawer.Header>
                   <Drawer.Body>
                     <LocationReport
+                      crashSummaryHistory={crashSummaryHistory}
                       isLoading={isLoading}
                       setViewport={setViewport}
                       zoomToLayer={zoomToLayer}
@@ -322,10 +339,13 @@ export default function Home() {
               </Drawer.Root>
 
               <Flex w={"100%"}>
-                <Button variant="default" onClick={() => {
-                  closeMobileFilters();
-                  openLocationReport();
-                }}>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    closeMobileFilters();
+                    openLocationReport();
+                  }}
+                >
                   Location Report
                 </Button>
               </Flex>
@@ -336,6 +356,7 @@ export default function Home() {
                 Location Report
               </Text>
               <LocationReport
+                crashSummaryHistory={crashSummaryHistory}
                 isLoading={isLoading}
                 setViewport={setViewport}
                 zoomToLayer={zoomToLayer}

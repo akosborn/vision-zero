@@ -83,6 +83,29 @@ export const getIncidentsWithinBufferedStreet = async (params: {
   return response.data;
 };
 
+/**
+ * Annual Summary
+ */
+
+export const getAnnualCrashHistory = async (params: {
+  fullStreetName: string;
+  crossStreets?: { from?: string; to?: string };
+  bufferInFeet: number;
+}) => {
+  const response = await axios.get<AnnualCrashSummary[]>(
+    `${API_PATH_BASE}/incidents/buffered-street/history`,
+    {
+      params: {
+        fullStreetName: params.fullStreetName,
+        crossStreet1: params.crossStreets?.from,
+        crossStreet2: params.crossStreets?.to,
+        bufferInFeet: params.bufferInFeet,
+      },
+    },
+  );
+  return response.data;
+};
+
 export interface Crash {
   // DOTI (Denver) Data
   doti_incident_id: string;
@@ -139,8 +162,6 @@ export interface Crash {
   cdot_tu_1_speed_limit: number | null;
   cdot_tu_1_estimated_speed: number | null;
   cdot_tu_1_speed: number | null;
-  cdot_tu_age: number | null;
-  cdot_tu_sex: string | null;
   cdot_tu_2_speed_limit: number | null;
   cdot_tu_2_estimated_speed: number | null;
   cdot_tu_2_speed: number | null;
@@ -156,4 +177,16 @@ export interface Crash {
   cdot_tu_2_nm_type: string | null;
   cdot_tu_2_age: number | null;
   cdot_tu_2_sex: string | null;
-};
+}
+
+export interface AnnualCrashSummary {
+  year: number;
+  crashes: number;
+  fatalities: number;
+  seriousInjuries: number;
+  bicycleInvolvedCrashes: number;
+  pedestrianInvolvedCrashes: number;
+  maxSpeedMph: number | null;
+  crashesOverSpeedLimit: number;
+  crashesWithSpeedData: number;
+}

@@ -36,7 +36,7 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
           <Container key={properties.doti_incident_id} px={0} mb={"sm"}>
             <CrashDetails
               id={properties.cdot_cuid || properties.doti_incident_id}
-              dataSource={properties.cdot_cuid ? 'CDOT' : 'DOTI'}
+              dataSource={properties.cdot_cuid ? "CDOT" : "DOTI"}
               type={type}
               kabcoSeverityLevel={severity}
               area={properties.doti_address || ""}
@@ -44,6 +44,21 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
                 zone: "America/Denver",
               }).toJSDate()}
               coordinates={{ lat, lng }}
+              // @ts-ignore
+              demographics={[
+                properties.cdot_tu_1_age && properties.cdot_tu_1_sex
+                  ? {
+                      age: properties.cdot_tu_1_age,
+                      sex: properties.cdot_tu_1_sex,
+                    }
+                  : null,
+                properties.cdot_tu_2_age && properties.cdot_tu_2_sex
+                  ? {
+                      age: properties.cdot_tu_2_age,
+                      sex: properties.cdot_tu_2_sex,
+                    }
+                  : null,
+              ].filter((d) => d)}
             />
           </Container>
         );

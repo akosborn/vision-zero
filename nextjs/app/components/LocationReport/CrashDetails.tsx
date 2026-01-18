@@ -1,5 +1,10 @@
 import { Paper, Text, Group, Badge, Stack, ThemeIcon } from "@mantine/core";
-import { IconMapPin, IconCalendar, IconDatabase } from "@tabler/icons-react";
+import {
+  IconMapPin,
+  IconCalendar,
+  IconDatabase,
+  IconUser,
+} from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/location-report";
 
@@ -10,6 +15,7 @@ interface IncidentItemProps {
   kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
   date: Date;
+  demographics: { age: number; sex: string }[];
   coordinates: {
     lat?: number | null;
     lng?: number | null;
@@ -25,7 +31,16 @@ export const SEVERITY_LABELS: Record<IncidentItemProps["kabcoSeverityLevel"], st
   O: 'No Injury, Property Damage (O)',
 };
 
+export const severityConfig = {
+  K: { color: "red", dotColor: "#ef4444" },
+  A: { color: "yellow", dotColor: "#eab308" },
+  B: { color: "blue", dotColor: "#145480" },
+  C: { color: "blue", dotColor: "#145480" },
+  O: { color: "blue", dotColor: "#145480" },
+};
+
 export function CrashDetails({
+  demographics,
   id,
   dataSource,
   type,
@@ -35,14 +50,6 @@ export function CrashDetails({
   coordinates,
   onClick,
 }: IncidentItemProps) {
-  const severityConfig = {
-    K: { color: "red", dotColor: "#ef4444" },
-    A: { color: "yellow", dotColor: "#eab308" },
-    B: { color: "green", dotColor: "#22c55e" },
-    C: { color: "green", dotColor: "#22c55e" },
-    O: { color: "green", dotColor: "#22c55e" },
-  };
-
   const { color, dotColor } = severityConfig[kabcoSeverityLevel];
 
   return (
@@ -109,6 +116,24 @@ export function CrashDetails({
           </Text>
         </Group>
 
+        {demographics.length > 0 && (
+          <Group gap="xs">
+            <ThemeIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              styles={{
+                root: { justifyContent: "flex-start" },
+              }}
+            >
+              <IconUser size={14} />
+            </ThemeIcon>
+            <Text size="sm" c="dimmed">
+              {demographics.map(({ age, sex }) => `${age}${sex}`)}
+            </Text>
+          </Group>
+        )}
+
         <Group gap="xs">
           <ThemeIcon
             size="sm"
@@ -122,9 +147,13 @@ export function CrashDetails({
           </ThemeIcon>
           <Text size="sm" c="dimmed">
             {dataSource === "CDOT" ? (
-              <>CO Dept. of Transportation CUID <b>{id}</b></>
+              <>
+                CO Dept. of Transportation CUID <b>{id}</b>
+              </>
             ) : (
-              <>Denver DOTI Incident ID <b>{id}</b></>
+              <>
+                Denver DOTI Incident ID <b>{id}</b>
+              </>
             )}
           </Text>
         </Group>

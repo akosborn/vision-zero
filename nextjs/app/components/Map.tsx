@@ -11,6 +11,7 @@ import {
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
 } from "@/app/lib/api-client";
+import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 
 const FEET_TO_METERS = 0.3048;
 
@@ -175,14 +176,14 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 "circle-color": [
                   "case",
                   [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
-                  "#ef4444", // Red (Tailwind red-500)
+                  severityConfig.K.dotColor, // Red (Tailwind red-500)
                   [">", ["get", "doti_fatalities"], 0],
-                  "#ef4444", // Red (Tailwind red-500)
+                  severityConfig.K.dotColor, // Red (Tailwind red-500)
                   [">", ["get", "doti_serious_injuries"], 0],
-                  "#facc15", // Yellow (Tailwind yellow-400)
-                  [">", ["coalesce", ["get", "cdot_number_injured"], 0], 0],
-                  "#facc15", // Yellow (Tailwind yellow-400)
-                  "#22c55e", // Green
+                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+                  [">", ["coalesce", ["get", "cdot_injury_03"], 0], 0],
+                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+                  severityConfig.O.dotColor, // Green
                 ],
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
@@ -205,14 +206,14 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 "circle-color": [
                   "case",
                   [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
-                  "#ef4444", // Red (Tailwind red-500)
+                  severityConfig.K.dotColor, // Red (Tailwind red-500)
                   [">", ["get", "doti_fatalities"], 0],
-                  "#ef4444", // Red (Tailwind red-500)
+                  severityConfig.K.dotColor, // Red (Tailwind red-500)
                   [">", ["get", "doti_serious_injuries"], 0],
-                  "#facc15", // Yellow (Tailwind yellow-400)
-                  [">", ["coalesce", ["get", "cdot_number_injured"], 0], 0],
-                  "#facc15", // Yellow (Tailwind yellow-400)
-                  "#22c55e", // Green
+                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+                  [">", ["coalesce", ["get", "cdot_injury_03"], 0], 0],
+                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+                  severityConfig.O.dotColor, // Green
                 ],
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
