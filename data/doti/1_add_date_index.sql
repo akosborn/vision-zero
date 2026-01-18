@@ -1,0 +1,1 @@
+CREATE INDEX idx_first_occurrence_date_denver ON vision_zero.incidents_denver (first_occurrence_date);
