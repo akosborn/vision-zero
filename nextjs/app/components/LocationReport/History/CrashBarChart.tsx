@@ -30,7 +30,7 @@ const StackedBarChart = ({ summaries }: { summaries: AnnualCrashSummary[] }) => 
 
   return (
     <>
-      <Text size={'md'} mt={'md'} mb="0">Crash severity by year</Text>
+      <Text size={'md'} mt={'md'} mb="0" fw={600}>Crash Severity by Year</Text>
       <BarChart
         title={'Crash severity by year'}
         style={{
