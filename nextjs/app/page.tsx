@@ -306,6 +306,7 @@ export default function Home() {
           gap: "0.5rem",
           minWidth: isMobile ? "100%" : undefined,
           maxWidth: isMobile ? "100%" : "70%",
+          width: isMobile ? "100%" : 500,
         }}
       >
         <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>

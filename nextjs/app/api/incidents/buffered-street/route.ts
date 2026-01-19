@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
                             )
                         and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
                         and cdot.suspected_duplicate = false
-                    join buffered_line bl on st_dwithin(COALESCE(cdot.geo, doti.geo)::geography, bl.line::geography, 0)
+                    join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
                     ${whereClause}) inputs) features;
     `;
 
@@ -325,7 +325,7 @@ export async function GET(request: NextRequest) {
                             )
                         and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
                         and cdot.suspected_duplicate = false
-                    join buffered_line bl on st_dwithin(COALESCE(cdot.geo, doti.geo)::geography, bl.line::geography, 0)
+                    join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
                     ${whereClause}) inputs) features;
     `;
 

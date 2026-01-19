@@ -171,7 +171,9 @@ const LocationReport: React.FC<Props> = ({
           {!isLoading ? (
             <>
               {crashSummaryHistory && crashSummaryHistory.length > 0 && (
-                <BarChart summaries={crashSummaryHistory} />
+                <Container w={'100%'} h={'100%'} px={0}>
+                  <BarChart summaries={crashSummaryHistory} />
+                </Container>
               )}
             </>
           ) : (

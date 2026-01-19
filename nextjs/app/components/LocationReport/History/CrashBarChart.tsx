@@ -35,8 +35,8 @@ const StackedBarChart = ({ summaries }: { summaries: AnnualCrashSummary[] }) => 
         title={'Crash severity by year'}
         style={{
           width: "100%",
-          maxWidth: "700px",
-          maxHeight: "70vh",
+          maxWidth: "100%",
+          height: 300,
           aspectRatio: 1.618,
         }}
         responsive
