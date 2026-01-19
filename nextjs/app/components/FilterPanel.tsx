@@ -8,6 +8,10 @@ import {Crash, getStreets} from "@/app/lib/api-client";
 import {Street} from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconInfoCircle } from "@tabler/icons-react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/dist/client/components/navigation";
 
 type Props = {
   closeMobileFilters: () => void;
@@ -61,6 +65,9 @@ const FilterPanel: React.FC<Props> = ({
   setSelectedStreetSegment,
   streets,
 }) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
 
   const [searchTool, setSearchTool] = React.useState<"Radius Search" | "Street Search">(
@@ -171,6 +178,12 @@ const FilterPanel: React.FC<Props> = ({
                     setAreaOfInterestIncidentGeoJson(null);
                     setDroppedPin(null);
                     setSelectedStreetSegment({ fullName: value || undefined });
+
+                      const params = new URLSearchParams(
+                        searchParams.toString(),
+                      );
+                      params.set('street', value || '');
+                      router.replace(params.toString());
                   }}
                 />
               </Grid.Col>
@@ -316,6 +329,10 @@ const FilterPanel: React.FC<Props> = ({
                 setAreaOfInterestIncidentGeoJson(null);
                 setDroppedPin(null);
                 setSelectedStreetSegment({ fullName: value || undefined });
+
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("street", value || "");
+                router.replace(`?${params.toString()}`, { scroll: false });
               }}
               style={{ width: 200 }}
             />
@@ -337,6 +354,10 @@ const FilterPanel: React.FC<Props> = ({
                   ...prev,
                   crossStreets: { from: value || undefined },
                 }));
+
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("crossStreet1", value || "");
+                router.replace(`?${params.toString()}`, { scroll: false });
               }}
               style={{ width: 200 }}
             />
@@ -361,6 +382,10 @@ const FilterPanel: React.FC<Props> = ({
                     to: value || undefined,
                   },
                 }));
+
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("crossStreet2", value || "");
+                router.replace(`?${params.toString()}`, { scroll: false });
               }}
               style={{ width: 200 }}
             />

@@ -131,7 +131,7 @@ export default function Home() {
       setIsLoading(true);
       closeMobileFilters();
       openLocationReport();
-      // @TODO: Is fetching working when clicking a point?
+
       if (
         radiusInFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
         const fullName = selectedStreetSegment.fullName;
