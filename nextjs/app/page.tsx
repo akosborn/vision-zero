@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Map, { defaultViewport } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
@@ -15,7 +15,8 @@ import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
-  Crash, getAnnualCrashHistory,
+  Crash,
+  getAnnualCrashHistory,
   getBufferedStreetCenterlines,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
@@ -68,15 +69,23 @@ export default function Home() {
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
-  const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<AnnualCrashSummary[] | null>(null);
+  const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<
+    AnnualCrashSummary[] | null
+  >(null);
 
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
   const [bufferedStreet, setBufferedStreet] =
     React.useState<FeatureCollection | null>(null);
 
-  const [mobileFiltersAreOpen, { open: openMobileFilters, close: closeMobileFilters }] = useDisclosure(false);
-  const [locationReportIsOpen, { open: openLocationReport, close: closeLocationReport }] = useDisclosure(true);
+  const [
+    mobileFiltersAreOpen,
+    { open: openMobileFilters, close: closeMobileFilters },
+  ] = useDisclosure(false);
+  const [
+    locationReportIsOpen,
+    { open: openLocationReport, close: closeLocationReport },
+  ] = useDisclosure(true);
 
   const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
@@ -93,12 +102,12 @@ export default function Home() {
       setStreets(streets);
       setIsLoadingStreets(false);
 
-      const searchTool = searchParams.get('tool');
-      const fromDate = searchParams.get('fromDate') || dateRange?.from;
-      const toDate = searchParams.get('toDate') || dateRange?.to;
-      const street = searchParams.get('street');
-      const crossStreet1 = searchParams.get('crossStreet1');
-      const crossStreet2 = searchParams.get('crossStreet2');
+      const searchTool = searchParams.get("tool");
+      const fromDate = searchParams.get("fromDate") || dateRange?.from;
+      const toDate = searchParams.get("toDate") || dateRange?.to;
+      const street = searchParams.get("street");
+      const crossStreet1 = searchParams.get("crossStreet1");
+      const crossStreet2 = searchParams.get("crossStreet2");
 
       if (searchTool) {
         setSearchTool(
@@ -123,7 +132,17 @@ export default function Home() {
 
       console.log(fromDate, toDate, street);
       if (fromDate && toDate && street) {
-        await fetchCrashDataWithArgs(radiusInFeet, { fullName: street, crossStreets: { from: crossStreet1 || undefined, to: crossStreet2 || undefined } }, { from: fromDate, to: toDate });
+        await fetchCrashDataWithArgs(
+          radiusInFeet,
+          {
+            fullName: street,
+            crossStreets: {
+              from: crossStreet1 || undefined,
+              to: crossStreet2 || undefined,
+            },
+          },
+          { from: fromDate, to: toDate },
+        );
       }
     })();
   }, []);
@@ -166,145 +185,171 @@ export default function Home() {
     });
   };
 
-      const fetchCrashDataWithArgs = async (
-        radius: number,
-        streetSegment: { fullName?: string; crossStreets?: { from?: string; to?: string } } | null,
-        range: { from?: string; to?: string } | undefined
-      ) => {
-        setIsLoading(true);
-        closeMobileFilters();
-        openLocationReport();
+  const fetchCrashDataWithArgs = async (
+    radius: number,
+    streetSegment: {
+      fullName?: string;
+      crossStreets?: { from?: string; to?: string };
+    } | null,
+    range: { from?: string; to?: string } | undefined,
+  ) => {
+    setIsLoading(true);
+    closeMobileFilters();
+    openLocationReport();
 
-        console.log(
-          radius,
-          streetSegment,
-          range?.from,
-          range?.to,
-          streetName,
-        );
+    console.log(radius, streetSegment, range?.from, range?.to, streetName);
 
-        if (
-          radius >= 0 &&
-          streetSegment &&
-          streetSegment.fullName
-        ) {
-          const fullName = streetSegment.fullName;
+    if (radius >= 0 && streetSegment && streetSegment.fullName) {
+      const fullName = streetSegment.fullName;
 
-          const [centerlines, buffer, incidentsInBuffer, history] =
-            await Promise.all([
-              getStreetCenterlines(streetSegment),
-              getBufferedStreetCenterlines({
-                ...streetSegment,
-                fullName,
-                bufferInFeet: radius,
-              }),
-              getIncidentsWithinBufferedStreet({
-                ...streetSegment,
-                fullStreetName: fullName,
-                bufferInFeet: radius,
-                startDate: range?.from,
-                endDate: range?.to,
-              }),
-              getAnnualCrashHistory({
-                ...streetSegment,
-                fullStreetName: fullName,
-                bufferInFeet: radius,
-              }),
-            ]);
-          setStreetCenterlines(centerlines);
-          setBufferedStreet(buffer);
-          setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
-          setCrashSummaryHistory(history);
+      const [centerlines, buffer, incidentsInBuffer, history] =
+        await Promise.all([
+          getStreetCenterlines(streetSegment),
+          getBufferedStreetCenterlines({
+            ...streetSegment,
+            fullName,
+            bufferInFeet: radius,
+          }),
+          getIncidentsWithinBufferedStreet({
+            ...streetSegment,
+            fullStreetName: fullName,
+            bufferInFeet: radius,
+            startDate: range?.from,
+            endDate: range?.to,
+          }),
+          getAnnualCrashHistory({
+            ...streetSegment,
+            fullStreetName: fullName,
+            bufferInFeet: radius,
+          }),
+        ]);
+      setStreetCenterlines(centerlines);
+      setBufferedStreet(buffer);
+      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+      setCrashSummaryHistory(history);
 
-          zoomToLayer(incidentsInBuffer);
-        }
-        setIsLoading(false);
-      };
+      zoomToLayer(incidentsInBuffer);
+    }
+    setIsLoading(false);
+  };
 
-      const fetchCrashData = React.useCallback(
-        async () => {
-          await fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange);
-        },
-        [dateRange, selectedStreetSegment, radiusInFeet],
-      );
+  const fetchCrashData = React.useCallback(async () => {
+    await fetchCrashDataWithArgs(
+      radiusInFeet,
+      selectedStreetSegment,
+      dateRange,
+    );
+  }, [dateRange, selectedStreetSegment, radiusInFeet]);
 
-      return (
-    <main
-      style={{
-        position: "relative",
-        display: "flex",
-        height: "100dvh",
-        width: "100vw",
-        overflow: "hidden",
-      }}
-    >
-      {/* Map Area */}
-      <div
-        className="absolute inset-0"
-        style={{ position: "absolute", inset: 0 }}
-      >
-        <Map
-          droppedPin={droppedPin}
-          setDroppedPin={setDroppedPin}
-          startDate={dateRange?.from}
-          endDate={dateRange?.to}
-          radiusFeet={radiusInFeet}
-          streetName={streetName}
-          viewport={viewport}
-          setViewport={setViewport}
-          ref={mapRef}
-          areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-          setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
-          setStreetName={setStreetName}
-          incidentGeoJson={incidentGeoJson}
-          setIncidentGeoJson={setIncidentGeoJson}
-          setIsLoading={setIsLoading}
-          setSelectedStreetSegment={setSelectedStreetSegment}
-          selectedStreetSegment={selectedStreetSegment}
-          setStreetCenterlines={setStreetCenterlines}
-          streetCenterlines={streetCenterlines}
-          bufferedStreet={bufferedStreet}
-          setBufferedStreet={setBufferedStreet}
-        />
-      </div>
-
-      {/* Top Filter Panel Overlay */}
-      <div
+  return (
+    <Suspense>
+      <main
         style={{
-          position: "absolute",
-          top: isMobile ? 0 : "1rem",
-          left: isMobile ? 0 : "1rem",
-          right: isMobile ? 0 : "1rem",
-          zIndex: 10,
+          position: "relative",
           display: "flex",
-          alignItems: "start",
-          flexDirection: "column",
-          gap: "0.5rem",
-          width: isMobile ? "100%" : undefined,
+          height: "100dvh",
+          width: "100vw",
+          overflow: "hidden",
         }}
       >
-        <Paper
-          shadow={"xs"}
-          radius={isMobile ? 0 : "md"}
-          p={"sm"}
-          w={isMobile ? "100%" : undefined}
+        {/* Map Area */}
+        <div
+          className="absolute inset-0"
+          style={{ position: "absolute", inset: 0 }}
         >
-          {isMobile && !mobileFiltersAreOpen && (
-            <Flex w={"100%"}>
-              <Button
-                variant="default"
-                onClick={() => {
-                  closeLocationReport();
-                  openMobileFilters();
-                }}
-              >
-                Filters
-              </Button>
-            </Flex>
-          )}
+          <Map
+            droppedPin={droppedPin}
+            setDroppedPin={setDroppedPin}
+            startDate={dateRange?.from}
+            endDate={dateRange?.to}
+            radiusFeet={radiusInFeet}
+            streetName={streetName}
+            viewport={viewport}
+            setViewport={setViewport}
+            ref={mapRef}
+            areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+            setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
+            setStreetName={setStreetName}
+            incidentGeoJson={incidentGeoJson}
+            setIncidentGeoJson={setIncidentGeoJson}
+            setIsLoading={setIsLoading}
+            setSelectedStreetSegment={setSelectedStreetSegment}
+            selectedStreetSegment={selectedStreetSegment}
+            setStreetCenterlines={setStreetCenterlines}
+            streetCenterlines={streetCenterlines}
+            bufferedStreet={bufferedStreet}
+            setBufferedStreet={setBufferedStreet}
+          />
+        </div>
 
-          {isMobile && mobileFiltersAreOpen && (
-            <>
+        {/* Top Filter Panel Overlay */}
+        <div
+          style={{
+            position: "absolute",
+            top: isMobile ? 0 : "1rem",
+            left: isMobile ? 0 : "1rem",
+            right: isMobile ? 0 : "1rem",
+            zIndex: 10,
+            display: "flex",
+            alignItems: "start",
+            flexDirection: "column",
+            gap: "0.5rem",
+            width: isMobile ? "100%" : undefined,
+          }}
+        >
+          <Paper
+            shadow={"xs"}
+            radius={isMobile ? 0 : "md"}
+            p={"sm"}
+            w={isMobile ? "100%" : undefined}
+          >
+            {isMobile && !mobileFiltersAreOpen && (
+              <Flex w={"100%"}>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    closeLocationReport();
+                    openMobileFilters();
+                  }}
+                >
+                  Filters
+                </Button>
+              </Flex>
+            )}
+
+            {isMobile && mobileFiltersAreOpen && (
+              <>
+                <FilterPanel
+                  closeMobileFilters={closeMobileFilters}
+                  dateRange={dateRange}
+                  setDateRange={setDateRange}
+                  setAreaOfInterestIncidentGeoJson={
+                    setAreaOfInterestIncidentGeoJson
+                  }
+                  incidentGeoJson={incidentGeoJson}
+                  setIncidentGeoJson={setIncidentGeoJson}
+                  droppedPin={droppedPin}
+                  setDroppedPin={setDroppedPin}
+                  radiusFeet={radiusInFeet}
+                  setRadiusFeet={setRadiusInFeet}
+                  setSelectedStreetSegment={setSelectedStreetSegment}
+                  selectedStreetSegment={selectedStreetSegment}
+                  onApply={() =>
+                    fetchCrashDataWithArgs(
+                      radiusInFeet,
+                      selectedStreetSegment,
+                      dateRange,
+                    )
+                  }
+                  isLoading={isLoading || isLoadingStreets}
+                  streets={streets}
+                  searchTool={searchTool}
+                  setSearchTool={setSearchTool}
+                />
+              </>
+            )}
+
+            {!isMobile && (
               <FilterPanel
                 closeMobileFilters={closeMobileFilters}
                 dateRange={dateRange}
@@ -320,119 +365,101 @@ export default function Home() {
                 setRadiusFeet={setRadiusInFeet}
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
-                onApply={() => fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange)}
+                onApply={() =>
+                  fetchCrashDataWithArgs(
+                    radiusInFeet,
+                    selectedStreetSegment,
+                    dateRange,
+                  )
+                }
                 isLoading={isLoading || isLoadingStreets}
                 streets={streets}
                 searchTool={searchTool}
                 setSearchTool={setSearchTool}
               />
-            </>
-          )}
+            )}
+          </Paper>
+        </div>
 
-          {!isMobile && (
-            <FilterPanel
-              closeMobileFilters={closeMobileFilters}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
-              setAreaOfInterestIncidentGeoJson={
-                setAreaOfInterestIncidentGeoJson
-              }
-              incidentGeoJson={incidentGeoJson}
-              setIncidentGeoJson={setIncidentGeoJson}
-              droppedPin={droppedPin}
-              setDroppedPin={setDroppedPin}
-              radiusFeet={radiusInFeet}
-              setRadiusFeet={setRadiusInFeet}
-              setSelectedStreetSegment={setSelectedStreetSegment}
-              selectedStreetSegment={selectedStreetSegment}
-              onApply={() => fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange)}
-              isLoading={isLoading || isLoadingStreets}
-              streets={streets}
-              searchTool={searchTool}
-              setSearchTool={setSearchTool}
-            />
-          )}
-        </Paper>
-      </div>
-
-      {/* Location Report Overlay */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "0rem",
-          left: "0rem",
-          padding: isMobile ? 0 : "1rem",
-          zIndex: 10,
-          display: "flex",
-          alignItems: "start",
-          flexDirection: "column",
-          gap: "0.5rem",
-          minWidth: isMobile ? "100%" : undefined,
-          maxWidth: isMobile ? "100%" : "70%",
-          width: isMobile ? "100%" : 500,
-        }}
-      >
-        <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>
-          {isMobile ? (
-            <>
-              <Drawer.Root
-                opened={locationReportIsOpen}
-                onClose={closeLocationReport}
-                position={"bottom"}
-              >
-                <Drawer.Content style={{ height: "auto" }}>
-                  <Drawer.Header>
-                    <Drawer.Title fw={700}>Location Report</Drawer.Title>
-                    <Drawer.CloseButton />
-                  </Drawer.Header>
-                  <Drawer.Body>
-                    <LocationReport
-                      crashSummaryHistory={crashSummaryHistory}
-                      isLoading={isLoading}
-                      setViewport={setViewport}
-                      zoomToLayer={zoomToLayer}
-                      streetName={streetName}
-                      droppedPin={droppedPin}
-                      incidentGeoJson={incidentGeoJson}
-                      areaOfInterestIncidentGeoJson={
-                        areaOfInterestIncidentGeoJson
-                      }
-                    />
-                  </Drawer.Body>
-                </Drawer.Content>
-              </Drawer.Root>
-
-              <Flex w={"100%"}>
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    closeMobileFilters();
-                    openLocationReport();
-                  }}
+        {/* Location Report Overlay */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "0rem",
+            left: "0rem",
+            padding: isMobile ? 0 : "1rem",
+            zIndex: 10,
+            display: "flex",
+            alignItems: "start",
+            flexDirection: "column",
+            gap: "0.5rem",
+            minWidth: isMobile ? "100%" : undefined,
+            maxWidth: isMobile ? "100%" : "70%",
+            width: isMobile ? "100%" : 500,
+          }}
+        >
+          <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>
+            {isMobile ? (
+              <>
+                <Drawer.Root
+                  opened={locationReportIsOpen}
+                  onClose={closeLocationReport}
+                  position={"bottom"}
                 >
+                  <Drawer.Content style={{ height: "auto" }}>
+                    <Drawer.Header>
+                      <Drawer.Title fw={700}>Location Report</Drawer.Title>
+                      <Drawer.CloseButton />
+                    </Drawer.Header>
+                    <Drawer.Body>
+                      <LocationReport
+                        crashSummaryHistory={crashSummaryHistory}
+                        isLoading={isLoading}
+                        setViewport={setViewport}
+                        zoomToLayer={zoomToLayer}
+                        streetName={streetName}
+                        droppedPin={droppedPin}
+                        incidentGeoJson={incidentGeoJson}
+                        areaOfInterestIncidentGeoJson={
+                          areaOfInterestIncidentGeoJson
+                        }
+                      />
+                    </Drawer.Body>
+                  </Drawer.Content>
+                </Drawer.Root>
+
+                <Flex w={"100%"}>
+                  <Button
+                    variant="default"
+                    onClick={() => {
+                      closeMobileFilters();
+                      openLocationReport();
+                    }}
+                  >
+                    Location Report
+                  </Button>
+                </Flex>
+              </>
+            ) : (
+              <>
+                <Text size={"md"} fw={700} mb={"sm"}>
                   Location Report
-                </Button>
-              </Flex>
-            </>
-          ) : (
-            <>
-              <Text size={"md"} fw={700} mb={"sm"}>
-                Location Report
-              </Text>
-              <LocationReport
-                crashSummaryHistory={crashSummaryHistory}
-                isLoading={isLoading}
-                setViewport={setViewport}
-                zoomToLayer={zoomToLayer}
-                streetName={streetName}
-                droppedPin={droppedPin}
-                incidentGeoJson={incidentGeoJson}
-                areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-              />
-            </>
-          )}
-        </Paper>
-      </div>
-    </main>
+                </Text>
+                <LocationReport
+                  crashSummaryHistory={crashSummaryHistory}
+                  isLoading={isLoading}
+                  setViewport={setViewport}
+                  zoomToLayer={zoomToLayer}
+                  streetName={streetName}
+                  droppedPin={droppedPin}
+                  incidentGeoJson={incidentGeoJson}
+                  areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
+                />
+              </>
+            )}
+          </Paper>
+        </div>
+      </main>
+    </Suspense>
   );
 }
