@@ -154,7 +154,13 @@ const FilterPanel: React.FC<Props> = ({
               label={`${searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
               placeholder={`${searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
               value={radiusFeet}
-              onChange={(value) => setRadiusFeet(value as number)}
+              onChange={(value) => {
+                setRadiusFeet(value as number);
+
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("r", value?.toString() || "");
+                router.replace(`?${params.toString()}`, { scroll: false });
+              }}
               min={5}
               max={500}
               step={50}
@@ -208,6 +214,10 @@ const FilterPanel: React.FC<Props> = ({
                       ...prev,
                       crossStreets: { from: value || undefined },
                     }));
+
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("crossStreet1", value || "");
+                    router.replace(`?${params.toString()}`, { scroll: false });
                   }}
                 />
               </Grid.Col>
@@ -235,6 +245,10 @@ const FilterPanel: React.FC<Props> = ({
                         to: value || undefined,
                       },
                     }));
+
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("crossStreet2", value || "");
+                    router.replace(`?${params.toString()}`, { scroll: false });
                   }}
                 />
               </Grid.Col>
@@ -306,7 +320,13 @@ const FilterPanel: React.FC<Props> = ({
           label={`${searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
           placeholder={`${searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
           value={radiusFeet}
-          onChange={(value) => setRadiusFeet(value as number)}
+          onChange={(value) => {
+            setRadiusFeet(value as number);
+
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("r", value?.toString() || "");
+            router.replace(`?${params.toString()}`, { scroll: false });
+          }}
           min={5}
           max={500}
           step={10}
