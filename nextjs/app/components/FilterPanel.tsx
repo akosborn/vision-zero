@@ -1,6 +1,6 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
-import React from "react";
+import React, { Suspense } from "react";
 import {FeatureCollection, Point} from "geojson";
 import {DatePickerInput} from "@mantine/dates";
 import { Alert, Button, em, Flex, Grid, NumberInput, SegmentedControl, Select } from "@mantine/core";
@@ -98,7 +98,7 @@ const FilterPanel: React.FC<Props> = ({
 
   if (isMobile) {
     return (
-      <>
+      <Suspense>
         <Grid gutter={"xs"}>
           <Grid.Col span={{ base: 12 }}>
             <SegmentedControl
@@ -275,7 +275,7 @@ const FilterPanel: React.FC<Props> = ({
             Apply
           </Button>
         </Flex>
-      </>
+      </Suspense>
     );
   }
 
@@ -438,7 +438,7 @@ const FilterPanel: React.FC<Props> = ({
           Apply
         </Button>
       </Flex>
-    </>
+    </Suspense>
   );
 };
 
