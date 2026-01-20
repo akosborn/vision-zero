@@ -48,6 +48,8 @@ type Props = {
   onApply: () => Promise<void>;
   isLoading: boolean;
   streets: Street[];
+  setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search'>>;
+  searchTool: 'Radius Search' | 'Street Search';
 };
 
 const FilterPanel: React.FC<Props> = ({
@@ -64,16 +66,13 @@ const FilterPanel: React.FC<Props> = ({
   selectedStreetSegment,
   setSelectedStreetSegment,
   streets,
+  setSearchTool,
+  searchTool,
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
-
-  const [searchTool, setSearchTool] = React.useState<"Radius Search" | "Street Search">(
-    "Street Search",
-  );
-
   const crossStreetsToDisplay = React.useMemo(() => {
     if (!selectedStreetSegment?.fullName) {
       return [];
@@ -143,6 +142,11 @@ const FilterPanel: React.FC<Props> = ({
                   from: values[0] || undefined,
                   to: values[1] || undefined,
                 });
+
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("fromDate", values[0]?.toString() || "");
+                params.set("toDate", values[1]?.toString() || "");
+                router.replace(`?${params.toString()}`, { scroll: false });
               }}
               valueFormat={"MMM D, YYYY"}
             />
@@ -185,11 +189,13 @@ const FilterPanel: React.FC<Props> = ({
                     setDroppedPin(null);
                     setSelectedStreetSegment({ fullName: value || undefined });
 
-                      const params = new URLSearchParams(
-                        searchParams.toString(),
-                      );
-                      params.set('street', value || '');
-                      router.replace(params.toString());
+                    const params = new URLSearchParams(
+                      searchParams.toString(),
+                    );
+                    params.set('street', value || '');
+                    params.delete('crossStreet1');
+                    params.delete('crossStreet2');
+                    router.replace(`?${params.toString()}`);
                   }}
                 />
               </Grid.Col>
@@ -291,9 +297,13 @@ const FilterPanel: React.FC<Props> = ({
         <SegmentedControl
           disabled={isLoading}
           value={searchTool}
-          onChange={(value) =>
-            setSearchTool(value as "Radius Search" | "Street Search")
-          }
+          onChange={(value) => {
+            setSearchTool(value as "Radius Search" | "Street Search");
+
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("tool", value?.toString() || "");
+            router.replace(`?${params.toString()}`, { scroll: false });
+          }}
           data={["Street Search", "Radius Search"]}
           fullWidth
           size={"sm"}
@@ -311,6 +321,11 @@ const FilterPanel: React.FC<Props> = ({
               from: values[0] || undefined,
               to: values[1] || undefined,
             });
+
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("fromDate", values[0]?.toString() || "");
+            params.set("toDate", values[1]?.toString() || "");
+            router.replace(`?${params.toString()}`, { scroll: false });
           }}
           valueFormat={"MMM D, YYYY"}
         />
@@ -352,7 +367,9 @@ const FilterPanel: React.FC<Props> = ({
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("street", value || "");
-                router.replace(`?${params.toString()}`, { scroll: false });
+                params.delete("crossStreet1");
+                params.delete("crossStreet2");
+                router.replace(`?${params.toString()}`);
               }}
               style={{ width: 200 }}
             />

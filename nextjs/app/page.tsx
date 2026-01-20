@@ -22,12 +22,15 @@ import {
   getStreets,
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
-import { useRouter } from "next/dist/client/components/navigation";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/dist/client/components/navigation";
 
 export default function Home() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
-  // @TODO: Use this
-  const router = useRouter();
+
+  const searchParams = useSearchParams();
 
   const mapRef = React.useRef<MapRef | null>(null);
 
@@ -78,6 +81,10 @@ export default function Home() {
   const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
 
+  const [searchTool, setSearchTool] = React.useState<
+    "Radius Search" | "Street Search"
+  >("Street Search");
+
   React.useEffect(() => {
     setIsLoadingStreets(true);
 
@@ -85,6 +92,39 @@ export default function Home() {
       const streets = await getStreets();
       setStreets(streets);
       setIsLoadingStreets(false);
+
+      const searchTool = searchParams.get('tool');
+      const fromDate = searchParams.get('fromDate') || dateRange?.from;
+      const toDate = searchParams.get('toDate') || dateRange?.to;
+      const street = searchParams.get('street');
+      const crossStreet1 = searchParams.get('crossStreet1');
+      const crossStreet2 = searchParams.get('crossStreet2');
+
+      if (searchTool) {
+        setSearchTool(
+          searchTool === "Radius Search" ? "Radius Search" : "Street Search",
+        );
+      }
+
+      if (fromDate && toDate) {
+        setDateRange({
+          from: fromDate,
+          to: toDate,
+        });
+      }
+
+      setSelectedStreetSegment({
+        fullName: street || undefined,
+        crossStreets: {
+          from: crossStreet1 || undefined,
+          to: crossStreet2 || undefined,
+        },
+      });
+
+      console.log(fromDate, toDate, street);
+      if (fromDate && toDate && street) {
+        await fetchCrashDataWithArgs(radiusInFeet, { fullName: street, crossStreets: { from: crossStreet1 || undefined, to: crossStreet2 || undefined } }, { from: fromDate, to: toDate });
+      }
     })();
   }, []);
 
@@ -126,50 +166,69 @@ export default function Home() {
     });
   };
 
-  const fetchCrashData = React.useCallback(
-    async () => {
-      setIsLoading(true);
-      closeMobileFilters();
-      openLocationReport();
+      const fetchCrashDataWithArgs = async (
+        radius: number,
+        streetSegment: { fullName?: string; crossStreets?: { from?: string; to?: string } } | null,
+        range: { from?: string; to?: string } | undefined
+      ) => {
+        setIsLoading(true);
+        closeMobileFilters();
+        openLocationReport();
 
-      if (
-        radiusInFeet >= 0 && selectedStreetSegment && selectedStreetSegment.fullName) {
-        const fullName = selectedStreetSegment.fullName;
+        console.log(
+          radius,
+          streetSegment,
+          range?.from,
+          range?.to,
+          streetName,
+        );
 
-        const [centerlines, buffer, incidentsInBuffer, history] =
-          await Promise.all([
-            getStreetCenterlines(selectedStreetSegment),
-            getBufferedStreetCenterlines({
-              ...selectedStreetSegment,
-              fullName,
-              bufferInFeet: radiusInFeet,
-            }),
-            getIncidentsWithinBufferedStreet({
-              ...selectedStreetSegment,
-              fullStreetName: fullName,
-              bufferInFeet: radiusInFeet,
-              startDate: dateRange?.from,
-              endDate: dateRange?.to,
-            }),
-            getAnnualCrashHistory({
-              ...selectedStreetSegment,
-              fullStreetName: fullName,
-              bufferInFeet: radiusInFeet,
-            }),
-          ]);
-        setStreetCenterlines(centerlines);
-        setBufferedStreet(buffer);
-        setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
-        setCrashSummaryHistory(history);
+        if (
+          radius >= 0 &&
+          streetSegment &&
+          streetSegment.fullName
+        ) {
+          const fullName = streetSegment.fullName;
 
-        zoomToLayer(incidentsInBuffer);
-      }
-      setIsLoading(false);
-    },
-    [dateRange, selectedStreetSegment, radiusInFeet],
-  );
+          const [centerlines, buffer, incidentsInBuffer, history] =
+            await Promise.all([
+              getStreetCenterlines(streetSegment),
+              getBufferedStreetCenterlines({
+                ...streetSegment,
+                fullName,
+                bufferInFeet: radius,
+              }),
+              getIncidentsWithinBufferedStreet({
+                ...streetSegment,
+                fullStreetName: fullName,
+                bufferInFeet: radius,
+                startDate: range?.from,
+                endDate: range?.to,
+              }),
+              getAnnualCrashHistory({
+                ...streetSegment,
+                fullStreetName: fullName,
+                bufferInFeet: radius,
+              }),
+            ]);
+          setStreetCenterlines(centerlines);
+          setBufferedStreet(buffer);
+          setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+          setCrashSummaryHistory(history);
 
-  return (
+          zoomToLayer(incidentsInBuffer);
+        }
+        setIsLoading(false);
+      };
+
+      const fetchCrashData = React.useCallback(
+        async () => {
+          await fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange);
+        },
+        [dateRange, selectedStreetSegment, radiusInFeet],
+      );
+
+      return (
     <main
       style={{
         position: "relative",
@@ -261,9 +320,11 @@ export default function Home() {
                 setRadiusFeet={setRadiusInFeet}
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
-                onApply={fetchCrashData}
+                onApply={() => fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange)}
                 isLoading={isLoading || isLoadingStreets}
                 streets={streets}
+                searchTool={searchTool}
+                setSearchTool={setSearchTool}
               />
             </>
           )}
@@ -284,9 +345,11 @@ export default function Home() {
               setRadiusFeet={setRadiusInFeet}
               setSelectedStreetSegment={setSelectedStreetSegment}
               selectedStreetSegment={selectedStreetSegment}
-              onApply={fetchCrashData}
+              onApply={() => fetchCrashDataWithArgs(radiusInFeet, selectedStreetSegment, dateRange)}
               isLoading={isLoading || isLoadingStreets}
               streets={streets}
+              searchTool={searchTool}
+              setSearchTool={setSearchTool}
             />
           )}
         </Paper>
