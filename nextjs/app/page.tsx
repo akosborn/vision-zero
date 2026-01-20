@@ -28,7 +28,7 @@ import {
   useSearchParams,
 } from "next/dist/client/components/navigation";
 
-export default function Home() {
+function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
 
   const searchParams = useSearchParams();
@@ -460,6 +460,14 @@ export default function Home() {
           </Paper>
         </div>
       </main>
+    </Suspense>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
     </Suspense>
   );
 }
