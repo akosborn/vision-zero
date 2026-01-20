@@ -280,7 +280,7 @@ const FilterPanel: React.FC<Props> = ({
   }
 
   return (
-    <>
+    <Suspense>
       {searchTool === "Radius Search" && (
         <Alert
           variant={"light"}
