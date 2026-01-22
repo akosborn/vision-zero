@@ -32,7 +32,10 @@ const StackedAreaChart = ({ summaries }: { summaries: AnnualCrashSummary[] }) =>
   return (
     <>
       <Text size={"sm"} mt={"md"} mb="0" fw={600}>
-        Severity Counts by Year
+        Injury Severity Trends
+      </Text>
+      <Text size={"xs"} mt={"0"} mb="0" c="dimmed">
+        Crash victim outcomes by year
       </Text>
       <AreaChart
         title={"Crash severity by year"}
