@@ -17,7 +17,8 @@ import {
 } from "@/app/components/LocationReport/utils/location-report";
 import { AnnualCrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
-import BarChart from "@/app/components/LocationReport/History/CrashBarChart";
+import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
+import { Carousel } from "@mantine/carousel";
 
 type Props = {
   streetName: string | null;
@@ -170,11 +171,11 @@ const LocationReport: React.FC<Props> = ({
         <>
           {!isLoading ? (
             <>
-              {crashSummaryHistory && crashSummaryHistory.length > 0 && (
-                <Container w={'100%'} h={'100%'} px={0}>
+              <Container w={"100%"} h={"100%"} px={0}>
+                {crashSummaryHistory && crashSummaryHistory.length > 0 && (
                   <BarChart summaries={crashSummaryHistory} />
-                </Container>
-              )}
+                )}
+              </Container>
             </>
           ) : (
             <Loader />

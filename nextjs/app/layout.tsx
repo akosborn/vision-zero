@@ -8,6 +8,7 @@ import {
 } from "@mantine/core";
 import { theme } from "@/theme";
 import React from "react";
+import "@mantine/carousel/styles.css";
 
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",
@@ -20,7 +21,7 @@ import React from "react";
 // });
 
 export const metadata: Metadata = {
-  title: "Denver Zero Vision",
+  title: "Denver Zero Vision Crash Map",
   description: "Review Denver crash data",
 };
 

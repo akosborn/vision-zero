@@ -176,7 +176,7 @@ function HomeContent() {
     });
 
     const padding = isMobile
-      ? { top: 40, bottom: 300, left: 20, right: 20 }
+      ? { top: 40, bottom: 400, left: 20, right: 20 }
       : 40;
 
     mapRef.current.getMap().fitBounds(bounds, {

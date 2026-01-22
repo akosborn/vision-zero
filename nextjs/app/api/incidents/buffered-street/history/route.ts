@@ -5,8 +5,6 @@ const METERS_PER_FEET = 0.3048;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
   const fullStreetName = searchParams.get("fullStreetName");
   const bufferInFeet = searchParams.get("bufferInFeet");
 
@@ -23,20 +21,6 @@ export async function GET(request: NextRequest) {
     return Response.json({
       error: "bufferInFeet is required",
     });
-  }
-
-  let whereClause = "WHERE 1=1";
-  const queryParams: (string | number)[] = [];
-  let paramIndex = 1;
-
-  if (startDate) {
-    whereClause += ` AND first_occurrence_date >= $${paramIndex++}`;
-    queryParams.push(startDate);
-  }
-
-  if (endDate) {
-    whereClause += ` AND first_occurrence_date <= $${paramIndex++}`;
-    queryParams.push(endDate);
   }
 
   const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet);
@@ -105,7 +89,7 @@ export async function GET(request: NextRequest) {
                                                   and doti.first_occurrence_date = cdot.vz_date
                                                   and cdot.suspected_duplicate = false
       GROUP BY date_part('year', first_occurrence_date)
-      ORDER BY year desc
+      ORDER BY year
     `;
 
     const results = await dbClient.query(query);
@@ -176,7 +160,7 @@ export async function GET(request: NextRequest) {
       and doti.first_occurrence_date = cdot.vz_date
       and cdot.suspected_duplicate = false
     GROUP BY date_part('year', first_occurrence_date)
-    ORDER BY year desc
+    ORDER BY year
   `;
 
   const results = await dbClient.query(entireStreetQuery);
