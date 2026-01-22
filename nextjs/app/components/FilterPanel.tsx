@@ -45,7 +45,8 @@ type Props = {
       | null
     >
   >;
-  onApply: () => Promise<void>;
+  onApplyStreetSearch: () => Promise<void>;
+  onApplyRadiusSearch: () => Promise<void>;
   isLoading: boolean;
   streets: Street[];
   setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search'>>;
@@ -55,7 +56,8 @@ type Props = {
 const FilterPanel: React.FC<Props> = ({
   closeMobileFilters,
   isLoading,
-  onApply,
+  onApplyStreetSearch,
+  onApplyRadiusSearch,
   dateRange,
   radiusFeet,
   setDateRange,
@@ -269,7 +271,7 @@ const FilterPanel: React.FC<Props> = ({
           <Button
             disabled={isLoading || !isFormValid}
             variant="filled"
-            onClick={onApply}
+            onClick={searchTool === 'Street Search' ? onApplyStreetSearch : onApplyRadiusSearch}
             mt={"sm"}
           >
             Apply
@@ -431,7 +433,11 @@ const FilterPanel: React.FC<Props> = ({
 
         <Button
           variant="filled"
-          onClick={onApply}
+          onClick={
+            searchTool === "Street Search"
+              ? onApplyStreetSearch
+              : onApplyRadiusSearch
+          }
           mt={"sm"}
           disabled={isLoading || !isFormValid}
         >

@@ -17,7 +17,7 @@ import {
   AnnualCrashSummary,
   Crash,
   getAnnualCrashHistory,
-  getBufferedStreetCenterlines,
+  getBufferedStreetCenterlines, getIncidents,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
@@ -197,8 +197,6 @@ function HomeContent() {
     closeMobileFilters();
     openLocationReport();
 
-    console.log(radius, streetSegment, range?.from, range?.to, streetName);
-
     if (radius >= 0 && streetSegment && streetSegment.fullName) {
       const fullName = streetSegment.fullName;
 
@@ -233,13 +231,32 @@ function HomeContent() {
     setIsLoading(false);
   };
 
-  const fetchCrashData = React.useCallback(async () => {
-    await fetchCrashDataWithArgs(
-      radiusInFeet,
-      selectedStreetSegment,
-      dateRange,
-    );
-  }, [dateRange, selectedStreetSegment, radiusInFeet]);
+  const fetchCrashDataForPinRadius = async (
+    radiusInFeet: number,
+    point: { lat: number; lng: number } | null,
+    range: { from?: string; to?: string } | undefined,
+  ) => {
+    setIsLoading(true);
+    closeMobileFilters();
+    openLocationReport();
+
+    if (radiusInFeet >= 0 && point && range) {
+      const crashes = await getIncidents({
+        startDate: range.from,
+        endDate: range.to,
+        lat: point.lat,
+        lng: point.lng,
+        radiusInFeet,
+      });
+      setIncidentGeoJson(crashes);
+      setStreetCenterlines(null);
+      setBufferedStreet(null);
+      setAreaOfInterestIncidentGeoJson(null);
+
+      zoomToLayer(crashes);
+    }
+    setIsLoading(false);
+  };
 
   return (
     <Suspense>
@@ -334,10 +351,17 @@ function HomeContent() {
                   setRadiusFeet={setRadiusInFeet}
                   setSelectedStreetSegment={setSelectedStreetSegment}
                   selectedStreetSegment={selectedStreetSegment}
-                  onApply={() =>
+                  onApplyStreetSearch={() =>
                     fetchCrashDataWithArgs(
                       radiusInFeet,
                       selectedStreetSegment,
+                      dateRange,
+                    )
+                  }
+                  onApplyRadiusSearch={() =>
+                    fetchCrashDataForPinRadius(
+                      radiusInFeet,
+                      droppedPin,
                       dateRange,
                     )
                   }
@@ -365,10 +389,17 @@ function HomeContent() {
                 setRadiusFeet={setRadiusInFeet}
                 setSelectedStreetSegment={setSelectedStreetSegment}
                 selectedStreetSegment={selectedStreetSegment}
-                onApply={() =>
+                onApplyStreetSearch={() =>
                   fetchCrashDataWithArgs(
                     radiusInFeet,
                     selectedStreetSegment,
+                    dateRange,
+                  )
+                }
+                onApplyRadiusSearch={() =>
+                  fetchCrashDataForPinRadius(
+                    radiusInFeet,
+                    droppedPin,
                     dateRange,
                   )
                 }
