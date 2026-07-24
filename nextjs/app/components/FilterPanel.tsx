@@ -1,9 +1,19 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
-import React from "react";
+import React, { useState } from "react";
 import {FeatureCollection, Point} from "geojson";
 import {DatePickerInput} from "@mantine/dates";
-import { Alert, Button, em, Flex, Grid, NumberInput, SegmentedControl, Select } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  em,
+  FileInput,
+  Flex,
+  Grid,
+  NumberInput,
+  SegmentedControl,
+  Select,
+} from "@mantine/core";
 import {Crash, getStreets} from "@/app/lib/api-client";
 import {Street} from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
@@ -12,6 +22,8 @@ import {
   useRouter,
   useSearchParams,
 } from "next/dist/client/components/navigation";
+import { gpx, kml } from "@tmcw/togeojson";
+
 
 type Props = {
   closeMobileFilters: () => void;
@@ -49,8 +61,8 @@ type Props = {
   onApplyRadiusSearch: () => Promise<void>;
   isLoading: boolean;
   streets: Street[];
-  setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search'>>;
-  searchTool: 'Radius Search' | 'Street Search';
+  setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search' | 'Upload Route'>>;
+  searchTool: 'Radius Search' | 'Street Search' | 'Upload Route';
 };
 
 const FilterPanel: React.FC<Props> = ({
@@ -73,6 +85,8 @@ const FilterPanel: React.FC<Props> = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [routeFile, setRouteFile] = useState<File | null>(null);
 
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
   const crossStreetsToDisplay = React.useMemo(() => {
@@ -107,9 +121,9 @@ const FilterPanel: React.FC<Props> = ({
               disabled={isLoading}
               value={searchTool}
               onChange={(value) =>
-                setSearchTool(value as "Radius Search" | "Street Search")
+                setSearchTool(value as "Radius Search" | "Street Search" | "Upload Route")
               }
-              data={["Street Search", "Radius Search"]}
+              data={["Street Search", "Radius Search", "Upload Route"]}
               fullWidth
               size={"sm"}
               radius={"md"}
@@ -300,13 +314,15 @@ const FilterPanel: React.FC<Props> = ({
           disabled={isLoading}
           value={searchTool}
           onChange={(value) => {
-            setSearchTool(value as "Radius Search" | "Street Search");
+            setSearchTool(
+              value as "Radius Search" | "Street Search" | "Upload Route",
+            );
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("tool", value?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
-          data={["Street Search", "Radius Search"]}
+          data={["Street Search", "Radius Search", "Upload Route"]}
           fullWidth
           size={"sm"}
           radius={"md"}
@@ -429,6 +445,29 @@ const FilterPanel: React.FC<Props> = ({
               style={{ width: 200 }}
             />
           </>
+        )}
+
+        {searchTool === "Upload Route" && (
+          <FileInput
+            label="Upload GPX or KML"
+            placeholder={'Select a file'}
+            accept={"application/gpx+xml,application/vnd.google-earth.kml+xml"}
+            onChange={async (file) => {
+              setRouteFile(file);
+
+              if (!file) {
+                return;
+              }
+
+              const text = await file.text();
+              const dom = new DOMParser().parseFromString(text, "text/xml");
+
+              const geojson = file.name.endsWith(".kml") ? kml(dom) : gpx(dom);
+
+              console.log(geojson);
+              return geojson; // a FeatureCollection
+            }}
+          />
         )}
 
         <Button

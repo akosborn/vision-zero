@@ -91,7 +91,7 @@ function HomeContent() {
   const [streets, setStreets] = React.useState<Street[]>([]);
 
   const [searchTool, setSearchTool] = React.useState<
-    "Radius Search" | "Street Search"
+    "Radius Search" | "Street Search" | "Upload Route"
   >("Street Search");
 
   React.useEffect(() => {
