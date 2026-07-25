@@ -1,7 +1,7 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import React, { useState } from "react";
-import {FeatureCollection, Point} from "geojson";
+import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
 import {DatePickerInput} from "@mantine/dates";
 import {
   Alert,
@@ -49,20 +49,22 @@ type Props = {
     crossStreets?: { from?: string; to?: string };
   } | null;
   setSelectedStreetSegment: React.Dispatch<
-    React.SetStateAction<
-      | {
-          fullName?: string;
-          crossStreets?: { from?: string; to?: string };
-        }
-      | null
-    >
+    React.SetStateAction<{
+      fullName?: string;
+      crossStreets?: { from?: string; to?: string };
+    } | null>
   >;
   onApplyStreetSearch: () => Promise<void>;
   onApplyRadiusSearch: () => Promise<void>;
+  onApplyUploadRoute: (
+    uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
+  ) => Promise<void>;
   isLoading: boolean;
   streets: Street[];
-  setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search' | 'Upload Route'>>;
-  searchTool: 'Radius Search' | 'Street Search' | 'Upload Route';
+  setSearchTool: React.Dispatch<
+    React.SetStateAction<"Radius Search" | "Street Search" | "Upload Route">
+  >;
+  searchTool: "Radius Search" | "Street Search" | "Upload Route";
 };
 
 const FilterPanel: React.FC<Props> = ({
@@ -70,6 +72,7 @@ const FilterPanel: React.FC<Props> = ({
   isLoading,
   onApplyStreetSearch,
   onApplyRadiusSearch,
+  onApplyUploadRoute,
   dateRange,
   radiusFeet,
   setDateRange,
@@ -86,7 +89,7 @@ const FilterPanel: React.FC<Props> = ({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [routeFile, setRouteFile] = useState<File | null>(null);
+  const [uploadedRoute, setUploadRoute] = useState<FeatureCollection<Geometry | null, GeoJsonProperties> | null>(null);
 
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
   const crossStreetsToDisplay = React.useMemo(() => {
@@ -108,9 +111,21 @@ const FilterPanel: React.FC<Props> = ({
       crossStreet !== selectedStreetSegment?.crossStreets?.from,
   );
 
+  const handleRouteFileChange = async (file: File | null) => {
+    if (!file) {
+      setUploadRoute(null);
+      return;
+    }
+
+    const text = await file.text();
+    const dom = new DOMParser().parseFromString(text, "text/xml");
+
+    setUploadRoute(file.name.endsWith(".kml") ? kml(dom) : gpx(dom));
+  };
+
   // Must have zero cross streets selected or both cross streets selected
   const isFormValid =
-    searchTool === 'Street Search' ? selectedStreetSegment?.fullName && (selectedStreetSegment.crossStreets?.from ? !!selectedStreetSegment.crossStreets.to : true) && (selectedStreetSegment.crossStreets?.to ? !!selectedStreetSegment.crossStreets.from : true) : true;
+    searchTool === 'Street Search' ? selectedStreetSegment?.fullName && (selectedStreetSegment.crossStreets?.from ? !!selectedStreetSegment.crossStreets.to : true) && (selectedStreetSegment.crossStreets?.to ? !!selectedStreetSegment.crossStreets.from : true) : searchTool === 'Upload Route' ? !!uploadedRoute?.features.length : true;
 
   if (isMobile) {
     return (
@@ -276,6 +291,20 @@ const FilterPanel: React.FC<Props> = ({
               </Grid.Col>
             </>
           )}
+
+          {searchTool === "Upload Route" && (
+            <Grid.Col span={{ base: 12 }}>
+              <FileInput
+                label="Upload GPX or KML"
+                placeholder={"Select a file"}
+                accept={
+                  "application/gpx+xml,application/vnd.google-earth.kml+xml"
+                }
+                disabled={isLoading}
+                onChange={handleRouteFileChange}
+              />
+            </Grid.Col>
+          )}
         </Grid>
 
         <Flex justify={"space-between"}>
@@ -285,7 +314,15 @@ const FilterPanel: React.FC<Props> = ({
           <Button
             disabled={isLoading || !isFormValid}
             variant="filled"
-            onClick={searchTool === 'Street Search' ? onApplyStreetSearch : onApplyRadiusSearch}
+            onClick={() => {
+              if (searchTool === "Street Search") {
+                onApplyStreetSearch();
+              } else if (searchTool === "Radius Search") {
+                onApplyRadiusSearch();
+              } else if (uploadedRoute) {
+                onApplyUploadRoute(uploadedRoute);
+              }
+            }}
             mt={"sm"}
           >
             Apply
@@ -452,31 +489,22 @@ const FilterPanel: React.FC<Props> = ({
             label="Upload GPX or KML"
             placeholder={'Select a file'}
             accept={"application/gpx+xml,application/vnd.google-earth.kml+xml"}
-            onChange={async (file) => {
-              setRouteFile(file);
-
-              if (!file) {
-                return;
-              }
-
-              const text = await file.text();
-              const dom = new DOMParser().parseFromString(text, "text/xml");
-
-              const geojson = file.name.endsWith(".kml") ? kml(dom) : gpx(dom);
-
-              console.log(geojson);
-              return geojson; // a FeatureCollection
-            }}
+            disabled={isLoading}
+            onChange={handleRouteFileChange}
           />
         )}
 
         <Button
           variant="filled"
-          onClick={
-            searchTool === "Street Search"
-              ? onApplyStreetSearch
-              : onApplyRadiusSearch
-          }
+          onClick={() => {
+            if (searchTool === "Street Search") {
+              onApplyStreetSearch();
+            } else if (searchTool === "Radius Search") {
+              onApplyRadiusSearch();
+            } else if (uploadedRoute) {
+              onApplyUploadRoute(uploadedRoute);
+            }
+          }}
           mt={"sm"}
           disabled={isLoading || !isFormValid}
         >

@@ -4,7 +4,14 @@ import React, { Suspense, useEffect, useState } from "react";
 import Map, { defaultViewport } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { FeatureCollection, Point, Position } from "geojson";
+import {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Point,
+  Position,
+} from "geojson";
 import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import _ from "lodash";
@@ -18,6 +25,7 @@ import {
   Crash,
   getAnnualCrashHistory,
   getBufferedStreetCenterlines, getIncidents,
+  getIncidentsWithinBufferedRoute,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
@@ -130,7 +138,6 @@ function HomeContent() {
         },
       });
 
-      console.log(fromDate, toDate, street);
       if (fromDate && toDate && street) {
         await fetchCrashDataWithArgs(
           radiusInFeet,
@@ -158,18 +165,15 @@ function HomeContent() {
     data.features.forEach((feature) => {
       if (feature.geometry.type === "Point") {
         bounds.extend(feature.geometry.coordinates as [number, number]);
-      } else if (
-        feature.geometry.type === "LineString" ||
-        feature.geometry.type === "Polygon"
-      ) {
-        // For lines/polygons, we need to iterate through the nested coordinates
-        const coords = feature.geometry.coordinates;
-
-        const flattenedCoordinates = Array.isArray(coords[0])
-          ? _.flatten(coords as Position[])
-          : coords;
-
-        flattenedCoordinates.forEach((coordinate) =>
+      } else if (feature.geometry.type === "LineString") {
+        feature.geometry.coordinates.forEach((coordinate) =>
+          bounds.extend(coordinate as [number, number]),
+        );
+      } else if (feature.geometry.type === "Polygon") {
+        const flattened = _.flatten(
+          feature.geometry.coordinates as Position[][],
+        );
+        flattened.forEach((coordinate) =>
           bounds.extend(coordinate as [number, number]),
         );
       }
@@ -254,6 +258,43 @@ function HomeContent() {
       setAreaOfInterestIncidentGeoJson(null);
 
       zoomToLayer(crashes);
+    }
+    setIsLoading(false);
+  };
+
+  const getDataForUploadedRoute = async (
+    radius: number,
+    uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
+    range: { from?: string; to?: string } | undefined,
+  ) => {
+    setIsLoading(true);
+    closeMobileFilters();
+    openLocationReport();
+
+    // Features without a geometry can't be buffered or drawn
+    const route: FeatureCollection = {
+      type: "FeatureCollection",
+      features: uploadedRoute.features.filter(
+        (feature): feature is Feature<Geometry, GeoJsonProperties> =>
+          !!feature.geometry,
+      ),
+    };
+
+    if (radius >= 0 && route.features.length > 0) {
+      const incidentsInBuffer = await getIncidentsWithinBufferedRoute({
+        route,
+        bufferInFeet: radius,
+        startDate: range?.from,
+        endDate: range?.to,
+      });
+
+      setStreetCenterlines(route);
+      // The uploaded route has no street segment to buffer or summarize by year
+      setBufferedStreet(null);
+      setCrashSummaryHistory(null);
+      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+
+      zoomToLayer(route);
     }
     setIsLoading(false);
   };
@@ -365,6 +406,15 @@ function HomeContent() {
                       dateRange,
                     )
                   }
+                  onApplyUploadRoute={(
+                    uploadedRoute: FeatureCollection<Geometry | null>,
+                  ) =>
+                    getDataForUploadedRoute(
+                      radiusInFeet,
+                      uploadedRoute,
+                      dateRange,
+                    )
+                  }
                   isLoading={isLoading || isLoadingStreets}
                   streets={streets}
                   searchTool={searchTool}
@@ -400,6 +450,13 @@ function HomeContent() {
                   fetchCrashDataForPinRadius(
                     radiusInFeet,
                     droppedPin,
+                    dateRange,
+                  )
+                }
+                onApplyUploadRoute={(uploadedRoute) =>
+                  getDataForUploadedRoute(
+                    radiusInFeet,
+                    uploadedRoute,
                     dateRange,
                   )
                 }

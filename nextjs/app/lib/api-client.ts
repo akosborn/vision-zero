@@ -1,4 +1,9 @@
-import { FeatureCollection, Point } from "geojson";
+import {
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Point,
+} from "geojson";
 import axios from "axios";
 import { Street } from "@/app/api/streets/route";
 
@@ -78,6 +83,24 @@ export const getIncidentsWithinBufferedStreet = async (params: {
         startDate: params.startDate,
         endDate: params.endDate,
       },
+    },
+  );
+  return response.data;
+};
+
+export const getIncidentsWithinBufferedRoute = async (params: {
+  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
+  bufferInFeet: number;
+  startDate?: string;
+  endDate?: string;
+}) => {
+  const response = await axios.post<FeatureCollection<Point, Crash>>(
+    `${API_PATH_BASE}/incidents/buffered-route`,
+    {
+      route: params.route,
+      bufferInFeet: params.bufferInFeet,
+      startDate: params.startDate,
+      endDate: params.endDate,
     },
   );
   return response.data;
