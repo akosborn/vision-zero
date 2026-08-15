@@ -10,11 +10,8 @@ import {
   GeoJsonProperties,
   Geometry,
   Point,
-  Position,
 } from "geojson";
-import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
 import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport from "@/app/components/LocationReport";
@@ -32,6 +29,7 @@ import {
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
 import { useSearchParams } from "next/dist/client/components/navigation";
+import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -99,40 +97,23 @@ function HomeContent() {
     "Radius Search" | "Street Search" | "Upload Route"
   >("Street Search");
 
-  // Function to zoom to a specific GeoJSON data object
-  const zoomToLayer = (data: FeatureCollection | null) => {
-    if (!data || !data.features.length || !mapRef.current) {
-      return;
-    }
-
-    const bounds = new LngLatBounds();
-
-    data.features.forEach((feature) => {
-      if (feature.geometry.type === "Point") {
-        bounds.extend(feature.geometry.coordinates as [number, number]);
-      } else if (feature.geometry.type === "LineString") {
-        feature.geometry.coordinates.forEach((coordinate) =>
-          bounds.extend(coordinate as [number, number]),
-        );
-      } else if (feature.geometry.type === "Polygon") {
-        const flattened = _.flatten(
-          feature.geometry.coordinates as Position[][],
-        );
-        flattened.forEach((coordinate) =>
-          bounds.extend(coordinate as [number, number]),
-        );
+  const zoomToLayer = React.useCallback(
+    (featureCollection?: FeatureCollection | null) => {
+      const map = mapRef.current?.getMap();
+      if (!map) {
+        console.error("Map ref is null");
+        return;
       }
-    });
 
-    const padding = isMobile
-      ? { top: 40, bottom: 400, left: 20, right: 20 }
-      : 40;
+      if (!featureCollection) {
+        console.warn("No feature collection provided");
+        return;
+      }
 
-    mapRef.current.getMap().fitBounds(bounds, {
-      padding,
-      duration: 1000,
-    });
-  };
+      zoomToLayerUtil(map, featureCollection, isMobile);
+    },
+    [isMobile],
+  );
 
   const fetchCrashDataWithArgs = async (
     radius: number,
