@@ -1,9 +1,4 @@
-import {
-  FeatureCollection,
-  GeoJsonProperties,
-  Geometry,
-  Point,
-} from "geojson";
+import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
 import axios from "axios";
 import { Street } from "@/app/api/streets/route";
 
@@ -15,7 +10,13 @@ export const getStreetCenterlines = async (params: {
 }) => {
   const response = await axios.get<FeatureCollection>(
     `${API_PATH_BASE}/street-centerlines`,
-    { params: { fullStreetName: params.fullName, crossStreet1: params.crossStreets?.from, crossStreet2: params.crossStreets?.to } },
+    {
+      params: {
+        fullStreetName: params.fullName,
+        crossStreet1: params.crossStreets?.from,
+        crossStreet2: params.crossStreets?.to,
+      },
+    },
   );
   return response.data;
 };
@@ -32,7 +33,7 @@ export const getBufferedStreetCenterlines = async (params: {
         fullStreetName: params.fullName,
         crossStreet1: params.crossStreets?.from,
         crossStreet2: params.crossStreets?.to,
-        bufferInFeet: params.bufferInFeet
+        bufferInFeet: params.bufferInFeet,
       },
     },
   );
@@ -40,9 +41,7 @@ export const getBufferedStreetCenterlines = async (params: {
 };
 
 export const getStreets = async () => {
-  const response = await axios.get<Street[]>(
-    `${API_PATH_BASE}/streets`
-  );
+  const response = await axios.get<Street[]>(`${API_PATH_BASE}/streets`);
   return response.data;
 };
 

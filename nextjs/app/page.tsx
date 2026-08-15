@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useState } from "react";
 import Map, { defaultViewport } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
@@ -16,25 +16,22 @@ import { LngLatBounds } from "mapbox-gl";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
-import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
   Crash,
   getAnnualCrashHistory,
-  getBufferedStreetCenterlines, getIncidents,
+  getBufferedStreetCenterlines,
+  getIncidents,
   getIncidentsWithinBufferedRoute,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/dist/client/components/navigation";
+import { useSearchParams } from "next/dist/client/components/navigation";
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -101,58 +98,6 @@ function HomeContent() {
   const [searchTool, setSearchTool] = React.useState<
     "Radius Search" | "Street Search" | "Upload Route"
   >("Street Search");
-
-  React.useEffect(() => {
-    setIsLoadingStreets(true);
-
-    (async () => {
-      const streets = await getStreets();
-      setStreets(streets);
-      setIsLoadingStreets(false);
-
-      const searchTool = searchParams.get("tool");
-      const fromDate = searchParams.get("fromDate") || dateRange?.from;
-      const toDate = searchParams.get("toDate") || dateRange?.to;
-      const street = searchParams.get("street");
-      const crossStreet1 = searchParams.get("crossStreet1");
-      const crossStreet2 = searchParams.get("crossStreet2");
-
-      if (searchTool) {
-        setSearchTool(
-          searchTool === "Radius Search" ? "Radius Search" : "Street Search",
-        );
-      }
-
-      if (fromDate && toDate) {
-        setDateRange({
-          from: fromDate,
-          to: toDate,
-        });
-      }
-
-      setSelectedStreetSegment({
-        fullName: street || undefined,
-        crossStreets: {
-          from: crossStreet1 || undefined,
-          to: crossStreet2 || undefined,
-        },
-      });
-
-      if (fromDate && toDate && street) {
-        await fetchCrashDataWithArgs(
-          radiusInFeet,
-          {
-            fullName: street,
-            crossStreets: {
-              from: crossStreet1 || undefined,
-              to: crossStreet2 || undefined,
-            },
-          },
-          { from: fromDate, to: toDate },
-        );
-      }
-    })();
-  }, []);
 
   // Function to zoom to a specific GeoJSON data object
   const zoomToLayer = (data: FeatureCollection | null) => {
@@ -234,6 +179,58 @@ function HomeContent() {
     }
     setIsLoading(false);
   };
+
+  React.useEffect(() => {
+    setIsLoadingStreets(true);
+
+    (async () => {
+      const streets = await getStreets();
+      setStreets(streets);
+      setIsLoadingStreets(false);
+
+      const searchTool = searchParams.get("tool");
+      const fromDate = searchParams.get("fromDate") || dateRange?.from;
+      const toDate = searchParams.get("toDate") || dateRange?.to;
+      const street = searchParams.get("street");
+      const crossStreet1 = searchParams.get("crossStreet1");
+      const crossStreet2 = searchParams.get("crossStreet2");
+
+      if (searchTool) {
+        setSearchTool(
+          searchTool === "Radius Search" ? "Radius Search" : "Street Search",
+        );
+      }
+
+      if (fromDate && toDate) {
+        setDateRange({
+          from: fromDate,
+          to: toDate,
+        });
+      }
+
+      setSelectedStreetSegment({
+        fullName: street || undefined,
+        crossStreets: {
+          from: crossStreet1 || undefined,
+          to: crossStreet2 || undefined,
+        },
+      });
+
+      if (fromDate && toDate && street) {
+        await fetchCrashDataWithArgs(
+          radiusInFeet,
+          {
+            fullName: street,
+            crossStreets: {
+              from: crossStreet1 || undefined,
+              to: crossStreet2 || undefined,
+            },
+          },
+          { from: fromDate, to: toDate },
+        );
+      }
+    })();
+  }, []);
 
   const fetchCrashDataForPinRadius = async (
     radiusInFeet: number,
@@ -356,13 +353,13 @@ function HomeContent() {
           }}
         >
           <Paper
-            shadow={"xs"}
+            shadow="xs"
             radius={isMobile ? 0 : "md"}
-            p={"sm"}
+            p="sm"
             w={isMobile ? "100%" : undefined}
           >
             {isMobile && !mobileFiltersAreOpen && (
-              <Flex w={"100%"}>
+              <Flex w="100%">
                 <Button
                   variant="default"
                   onClick={() => {
@@ -486,13 +483,13 @@ function HomeContent() {
             width: isMobile ? "100%" : 500,
           }}
         >
-          <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>
+          <Paper shadow="xs" radius={isMobile ? 0 : "md"} p="sm" w="100%">
             {isMobile ? (
               <>
                 <Drawer.Root
                   opened={locationReportIsOpen}
                   onClose={closeLocationReport}
-                  position={"bottom"}
+                  position="bottom"
                 >
                   <Drawer.Content style={{ height: "auto" }}>
                     <Drawer.Header>
@@ -516,7 +513,7 @@ function HomeContent() {
                   </Drawer.Content>
                 </Drawer.Root>
 
-                <Flex w={"100%"}>
+                <Flex w="100%">
                   <Button
                     variant="default"
                     onClick={() => {
@@ -530,7 +527,7 @@ function HomeContent() {
               </>
             ) : (
               <>
-                <Text size={"md"} fw={700} mb={"sm"}>
+                <Text size="md" fw={700} mb="sm">
                   Location Report
                 </Text>
                 <LocationReport

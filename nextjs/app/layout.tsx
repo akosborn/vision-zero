@@ -42,7 +42,7 @@ export default function RootLayout({
       <body
       // className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <GoogleAnalytics gaId={"G-YVLXJHRQ6T"} />
+        <GoogleAnalytics gaId="G-YVLXJHRQ6T" />
         <MantineProvider theme={theme}>
           {/*<ThemeProvider*/}
           {/*  attribute="class"*/}

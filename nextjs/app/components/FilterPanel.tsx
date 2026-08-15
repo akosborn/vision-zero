@@ -2,7 +2,7 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import React, { useState } from "react";
 import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
-import {DatePickerInput} from "@mantine/dates";
+import { DatePickerInput } from "@mantine/dates";
 import {
   Alert,
   Button,
@@ -14,8 +14,8 @@ import {
   SegmentedControl,
   Select,
 } from "@mantine/core";
-import {Crash, getStreets} from "@/app/lib/api-client";
-import {Street} from "@/app/api/streets/route";
+import { Crash } from "@/app/lib/api-client";
+import { Street } from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconInfoCircle } from "@tabler/icons-react";
 import {
@@ -23,7 +23,6 @@ import {
   useSearchParams,
 } from "next/dist/client/components/navigation";
 import { gpx, kml } from "@tmcw/togeojson";
-
 
 type Props = {
   closeMobileFilters: () => void;
@@ -89,7 +88,10 @@ const FilterPanel: React.FC<Props> = ({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [uploadedRoute, setUploadRoute] = useState<FeatureCollection<Geometry | null, GeoJsonProperties> | null>(null);
+  const [uploadedRoute, setUploadRoute] = useState<FeatureCollection<
+    Geometry | null,
+    GeoJsonProperties
+  > | null>(null);
 
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
   const crossStreetsToDisplay = React.useMemo(() => {
@@ -101,14 +103,13 @@ const FilterPanel: React.FC<Props> = ({
       ({ fullName }) => fullName === selectedStreetSegment.fullName,
     );
     return street?.crossingStreets || [];
-  }, [streets, selectedStreetSegment?.fullName]);
+  }, [streets, selectedStreetSegment]);
 
   const fromCrossStreetsToDisplay = crossStreetsToDisplay.filter(
     (crossStreet) => crossStreet !== selectedStreetSegment?.crossStreets?.to,
   );
   const toCrossStreetsToDisplay = crossStreetsToDisplay.filter(
-    (crossStreet) =>
-      crossStreet !== selectedStreetSegment?.crossStreets?.from,
+    (crossStreet) => crossStreet !== selectedStreetSegment?.crossStreets?.from,
   );
 
   const handleRouteFileChange = async (file: File | null) => {
@@ -125,35 +126,47 @@ const FilterPanel: React.FC<Props> = ({
 
   // Must have zero cross streets selected or both cross streets selected
   const isFormValid =
-    searchTool === 'Street Search' ? selectedStreetSegment?.fullName && (selectedStreetSegment.crossStreets?.from ? !!selectedStreetSegment.crossStreets.to : true) && (selectedStreetSegment.crossStreets?.to ? !!selectedStreetSegment.crossStreets.from : true) : searchTool === 'Upload Route' ? !!uploadedRoute?.features.length : true;
+    searchTool === "Street Search"
+      ? selectedStreetSegment?.fullName &&
+        (selectedStreetSegment.crossStreets?.from
+          ? !!selectedStreetSegment.crossStreets.to
+          : true) &&
+        (selectedStreetSegment.crossStreets?.to
+          ? !!selectedStreetSegment.crossStreets.from
+          : true)
+      : searchTool === "Upload Route"
+        ? !!uploadedRoute?.features.length
+        : true;
 
   if (isMobile) {
     return (
       <>
-        <Grid gutter={"xs"}>
+        <Grid gutter="xs">
           <Grid.Col span={{ base: 12 }}>
             <SegmentedControl
               disabled={isLoading}
               value={searchTool}
               onChange={(value) =>
-                setSearchTool(value as "Radius Search" | "Street Search" | "Upload Route")
+                setSearchTool(
+                  value as "Radius Search" | "Street Search" | "Upload Route",
+                )
               }
               data={["Street Search", "Radius Search", "Upload Route"]}
               fullWidth
-              size={"sm"}
-              radius={"md"}
-              mb={"sm"}
+              size="sm"
+              radius="md"
+              mb="sm"
             />
           </Grid.Col>
 
           {searchTool === "Radius Search" && (
             <Grid.Col span={{ base: 12 }}>
               <Alert
-                variant={"light"}
+                variant="light"
                 icon={<IconInfoCircle />}
-                color={"cyan"}
-                p={"xs"}
-                my={"0"}
+                color="cyan"
+                p="xs"
+                my="0"
               >
                 To get started, click anywhere on the map to inspect a circular
                 area.
@@ -164,9 +177,9 @@ const FilterPanel: React.FC<Props> = ({
           <Grid.Col span={{ base: 8 }}>
             <DatePickerInput
               disabled={isLoading}
-              type={"range"}
-              label={"Date range"}
-              className={"bg-background"}
+              type="range"
+              label="Date range"
+              className="bg-background"
               value={[dateRange?.from || null, dateRange?.to || null]}
               onChange={(values) => {
                 setDateRange({
@@ -179,7 +192,7 @@ const FilterPanel: React.FC<Props> = ({
                 params.set("toDate", values[1]?.toString() || "");
                 router.replace(`?${params.toString()}`, { scroll: false });
               }}
-              valueFormat={"MMM D, YYYY"}
+              valueFormat="MMM D, YYYY"
             />
           </Grid.Col>
 
@@ -207,8 +220,8 @@ const FilterPanel: React.FC<Props> = ({
               <Grid.Col span={{ base: 12 }}>
                 <Select
                   disabled={isLoading}
-                  label={"Street"}
-                  placeholder={"Search for a street"}
+                  label="Street"
+                  placeholder="Search for a street"
                   searchable
                   data={streets.map(({ fullName }) => fullName)}
                   limit={20}
@@ -220,12 +233,10 @@ const FilterPanel: React.FC<Props> = ({
                     setDroppedPin(null);
                     setSelectedStreetSegment({ fullName: value || undefined });
 
-                    const params = new URLSearchParams(
-                      searchParams.toString(),
-                    );
-                    params.set('street', value || '');
-                    params.delete('crossStreet1');
-                    params.delete('crossStreet2');
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("street", value || "");
+                    params.delete("crossStreet1");
+                    params.delete("crossStreet2");
                     router.replace(`?${params.toString()}`);
                   }}
                 />
@@ -233,7 +244,7 @@ const FilterPanel: React.FC<Props> = ({
 
               <Grid.Col span={{ base: 6 }}>
                 <Select
-                  label={"From Cross street"}
+                  label="From Cross street"
                   disabled={isLoading || !selectedStreetSegment?.fullName}
                   searchable
                   data={fromCrossStreetsToDisplay}
@@ -261,7 +272,7 @@ const FilterPanel: React.FC<Props> = ({
 
               <Grid.Col span={{ base: 6 }}>
                 <Select
-                  label={"To Cross street"}
+                  label="To Cross street"
                   disabled={isLoading || !selectedStreetSegment?.fullName}
                   searchable
                   data={toCrossStreetsToDisplay}
@@ -296,10 +307,8 @@ const FilterPanel: React.FC<Props> = ({
             <Grid.Col span={{ base: 12 }}>
               <FileInput
                 label="Upload GPX or KML"
-                placeholder={"Select a file"}
-                accept={
-                  "application/gpx+xml,application/vnd.google-earth.kml+xml"
-                }
+                placeholder="Select a file"
+                accept="application/gpx+xml,application/vnd.google-earth.kml+xml"
                 disabled={isLoading}
                 onChange={handleRouteFileChange}
               />
@@ -307,8 +316,8 @@ const FilterPanel: React.FC<Props> = ({
           )}
         </Grid>
 
-        <Flex justify={"space-between"}>
-          <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
+        <Flex justify="space-between">
+          <Button variant="default" onClick={closeMobileFilters} mt="sm">
             Close
           </Button>
           <Button
@@ -323,7 +332,7 @@ const FilterPanel: React.FC<Props> = ({
                 onApplyUploadRoute(uploadedRoute);
               }
             }}
-            mt={"sm"}
+            mt="sm"
           >
             Apply
           </Button>
@@ -336,17 +345,17 @@ const FilterPanel: React.FC<Props> = ({
     <>
       {searchTool === "Radius Search" && (
         <Alert
-          variant={"light"}
+          variant="light"
           icon={<IconInfoCircle />}
-          color={"cyan"}
-          p={"xs"}
-          mb={"xs"}
+          color="cyan"
+          p="xs"
+          mb="xs"
         >
           To get started, click anywhere on the map to inspect a circular area.
         </Alert>
       )}
 
-      <Flex gap={"sm"} justify={"flex-start"} align={"flex-end"} wrap={"wrap"}>
+      <Flex gap="sm" justify="flex-start" align="flex-end" wrap="wrap">
         <SegmentedControl
           disabled={isLoading}
           value={searchTool}
@@ -361,15 +370,15 @@ const FilterPanel: React.FC<Props> = ({
           }}
           data={["Street Search", "Radius Search", "Upload Route"]}
           fullWidth
-          size={"sm"}
-          radius={"md"}
+          size="sm"
+          radius="md"
         />
 
         <DatePickerInput
           disabled={isLoading}
-          type={"range"}
-          label={"Date range"}
-          className={"bg-background"}
+          type="range"
+          label="Date range"
+          className="bg-background"
           value={[dateRange?.from || null, dateRange?.to || null]}
           onChange={(values) => {
             setDateRange({
@@ -382,7 +391,7 @@ const FilterPanel: React.FC<Props> = ({
             params.set("toDate", values[1]?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
-          valueFormat={"MMM D, YYYY"}
+          valueFormat="MMM D, YYYY"
         />
 
         <NumberInput
@@ -406,8 +415,8 @@ const FilterPanel: React.FC<Props> = ({
         {searchTool === "Street Search" && (
           <>
             <Select
-              label={"Street"}
-              placeholder={"Search for a street"}
+              label="Street"
+              placeholder="Search for a street"
               disabled={isLoading}
               searchable
               data={streets.map(({ fullName }) => fullName)}
@@ -430,7 +439,7 @@ const FilterPanel: React.FC<Props> = ({
             />
 
             <Select
-              label={"From Cross street"}
+              label="From Cross street"
               disabled={isLoading || !selectedStreetSegment?.fullName}
               searchable
               data={fromCrossStreetsToDisplay}
@@ -455,7 +464,7 @@ const FilterPanel: React.FC<Props> = ({
             />
 
             <Select
-              label={"To Cross street"}
+              label="To Cross street"
               disabled={isLoading || !selectedStreetSegment?.fullName}
               searchable
               data={toCrossStreetsToDisplay}
@@ -487,8 +496,8 @@ const FilterPanel: React.FC<Props> = ({
         {searchTool === "Upload Route" && (
           <FileInput
             label="Upload GPX or KML"
-            placeholder={'Select a file'}
-            accept={"application/gpx+xml,application/vnd.google-earth.kml+xml"}
+            placeholder="Select a file"
+            accept="application/gpx+xml,application/vnd.google-earth.kml+xml"
             disabled={isLoading}
             onChange={handleRouteFileChange}
           />
@@ -505,7 +514,7 @@ const FilterPanel: React.FC<Props> = ({
               onApplyUploadRoute(uploadedRoute);
             }
           }}
-          mt={"sm"}
+          mt="sm"
           disabled={isLoading || !isFormValid}
         >
           Apply

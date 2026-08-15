@@ -1,13 +1,4 @@
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LabelList,
-} from "recharts";
+import { Area, AreaChart, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { RechartsDevtools } from "@recharts/devtools";
 import { AnnualCrashSummary } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
@@ -20,25 +11,31 @@ type AreaData = {
   "Minor Injury or Property Damage": number;
 };
 
-const StackedAreaChart = ({ summaries }: { summaries: AnnualCrashSummary[] }) => {
-  const data = summaries.slice(summaries.length - 10, summaries.length).map<AreaData>((summary) => ({
-    Year: summary.year,
-    Fatalities: summary.fatalities,
-    "Serious Injuries": summary.seriousInjuries,
-    "Minor Injury or Property Damage":
-      summary.crashes - summary.fatalities - summary.seriousInjuries,
-  }));
+const StackedAreaChart = ({
+  summaries,
+}: {
+  summaries: AnnualCrashSummary[];
+}) => {
+  const data = summaries
+    .slice(summaries.length - 10, summaries.length)
+    .map<AreaData>((summary) => ({
+      Year: summary.year,
+      Fatalities: summary.fatalities,
+      "Serious Injuries": summary.seriousInjuries,
+      "Minor Injury or Property Damage":
+        summary.crashes - summary.fatalities - summary.seriousInjuries,
+    }));
 
   return (
     <>
-      <Text size={"sm"} mt={"md"} mb="0" fw={600}>
+      <Text size="sm" mt="md" mb="0" fw={600}>
         Injury Severity Trends
       </Text>
-      <Text size={"xs"} mt={"0"} mb="0" c="dimmed">
+      <Text size="xs" mt="0" mb="0" c="dimmed">
         Crash victim outcomes by year
       </Text>
       <AreaChart
-        title={"Crash severity by year"}
+        title="Crash severity by year"
         style={{
           width: "100%",
           maxWidth: "100%",

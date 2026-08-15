@@ -1,16 +1,16 @@
 "use client";
 
-import {GeoJSONFeature, Map, MapEvent, MapMouseEvent} from "mapbox-gl";
-import {Layer, Map as ReactMap, MapRef, Popup, Source,} from "react-map-gl/mapbox-legacy";
-import React, {forwardRef, useEffect} from "react";
-import {FeatureCollection, GeoJSON, Point} from "geojson";
+import { GeoJSONFeature, MapMouseEvent } from "mapbox-gl";
 import {
-  Crash,
-  getBufferedStreetCenterlines,
-  getIncidents,
-  getIncidentsWithinBufferedStreet,
-  getStreetCenterlines,
-} from "@/app/lib/api-client";
+  Layer,
+  Map as ReactMap,
+  MapRef,
+  Popup,
+  Source,
+} from "react-map-gl/mapbox-legacy";
+import React, { forwardRef } from "react";
+import { FeatureCollection, GeoJSON, Point } from "geojson";
+import { Crash, getIncidents } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 
 const FEET_TO_METERS = 0.3048;
@@ -92,8 +92,12 @@ type Props = {
       crossStreets?: { from?: string; to?: string };
     } | null>
   >;
-  setStreetCenterlines: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
-  setBufferedStreet: React.Dispatch<React.SetStateAction<FeatureCollection | null>>;
+  setStreetCenterlines: React.Dispatch<
+    React.SetStateAction<FeatureCollection | null>
+  >;
+  setBufferedStreet: React.Dispatch<
+    React.SetStateAction<FeatureCollection | null>
+  >;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
 };
@@ -103,7 +107,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
     areaOfInterestIncidentGeoJson,
     incidentGeoJson,
     setIncidentGeoJson,
-    setIsLoading,
     setAreaOfInterestIncidentGeoJson,
     droppedPin,
     setDroppedPin,
@@ -113,7 +116,6 @@ export default forwardRef<MapRef | null, Props>(function Map(
     setStreetName,
     viewport,
     setViewport,
-    selectedStreetSegment,
     setStreetCenterlines,
     setBufferedStreet,
     streetCenterlines,
@@ -223,10 +225,10 @@ export default forwardRef<MapRef | null, Props>(function Map(
         )}
 
         {streetCenterlines && (
-          <Source type={"geojson"} data={streetCenterlines}>
+          <Source type="geojson" data={streetCenterlines}>
             <Layer
               id="street-centerline-layer"
-              type={"line"}
+              type="line"
               paint={{
                 "line-width": 2,
                 "line-color": [
@@ -246,7 +248,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
         )}
 
         {bufferedStreet && (
-          <Source type={"geojson"} data={bufferedStreet}>
+          <Source type="geojson" data={bufferedStreet}>
             {/* The background fill */}
             <Layer
               id="buffered-street-fill"
@@ -297,7 +299,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
             latitude={(selectedPoint.geometry as Point).coordinates[1]}
             anchor="bottom"
             onClose={() => setSelectedPoint(null)}
-            maxWidth={"none"}
+            maxWidth="none"
           >
             <div className="p-2 text-black">
               <h3 className="font-bold">Incident Info</h3>

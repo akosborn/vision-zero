@@ -34,10 +34,13 @@ export const generateLocationReport = (
       summary.maxKabcoSeverityCounts[maxKabcoSeverity]++;
 
       for (const severity in kabcoSeverityCounts) {
-        summary.kabcoSeverityCounts[severity as KABCO_SEVERITY_LEVEL] += kabcoSeverityCounts[severity as KABCO_SEVERITY_LEVEL];
+        summary.kabcoSeverityCounts[severity as KABCO_SEVERITY_LEVEL] +=
+          kabcoSeverityCounts[severity as KABCO_SEVERITY_LEVEL];
       }
 
-      const vulnerableRoadUserCounts = getVulnerableRoadUserCounts(f.properties);
+      const vulnerableRoadUserCounts = getVulnerableRoadUserCounts(
+        f.properties,
+      );
       summary.bicyclesInvolved += vulnerableRoadUserCounts.bicycle;
       summary.pedestriansInvolved += vulnerableRoadUserCounts.pedestrian;
 
@@ -122,26 +125,37 @@ const getSeverityCounts = (
   throw new Error("Unknown severity");
 };
 
-type Mode = 'bicycle' | 'pedestrian';
+type Mode = "bicycle" | "pedestrian";
 
 /**
  * Assumes that crashes won't involve both bicycles and pedestrians.
  * @param crash
  */
-const getVulnerableRoadUserCounts = (
-  crash: Crash,
-): Record<Mode, number> => {
+const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
   if (crash.cdot_cuid) {
-    const BIKE_INDICATORS = ["bicycle", "bicyclist", "cyclist", "non-motorist", "scooter"];
-    const bikeIndicatedTypes = [crash.cdot_tu_1_nm_type, crash.cdot_tu_2_nm_type].filter((value) =>
-        BIKE_INDICATORS.some((indicator) =>
-          value?.toLowerCase().includes(indicator)));
+    const BIKE_INDICATORS = [
+      "bicycle",
+      "bicyclist",
+      "cyclist",
+      "non-motorist",
+      "scooter",
+    ];
+    const bikeIndicatedTypes = [
+      crash.cdot_tu_1_nm_type,
+      crash.cdot_tu_2_nm_type,
+    ].filter((value) =>
+      BIKE_INDICATORS.some((indicator) =>
+        value?.toLowerCase().includes(indicator),
+      ),
+    );
 
     let bikesInvolved = 0;
 
     if (bikeIndicatedTypes.length === 0) {
       // Sometimes the `mhe` column is populated with an indicator, but the `tu_1_nm_type` and `tu_2_nm_type` columns are empty
-      const isBikeIndicated = BIKE_INDICATORS.some((indicator) => crash.cdot_mhe?.toLowerCase().includes(indicator))
+      const isBikeIndicated = BIKE_INDICATORS.some((indicator) =>
+        crash.cdot_mhe?.toLowerCase().includes(indicator),
+      );
       if (isBikeIndicated) {
         bikesInvolved = 1;
       }
@@ -153,7 +167,11 @@ const getVulnerableRoadUserCounts = (
       };
     }
 
-    const PEDESTRIAN_INDICATORS = ["pedestrian", "personal conveyance", "wheelchair"];
+    const PEDESTRIAN_INDICATORS = [
+      "pedestrian",
+      "personal conveyance",
+      "wheelchair",
+    ];
     const pedestrianIndicatedTypes = [
       crash.cdot_tu_1_nm_type,
       crash.cdot_tu_2_nm_type,
