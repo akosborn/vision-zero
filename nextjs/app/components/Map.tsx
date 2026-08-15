@@ -12,6 +12,7 @@ import React, { forwardRef } from "react";
 import { FeatureCollection, GeoJSON, Point } from "geojson";
 import { Crash, getIncidents } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
+import { Filters } from "@/app/page";
 
 const FEET_TO_METERS = 0.3048;
 
@@ -53,18 +54,19 @@ const createGeoJSONCircle = (
   };
 };
 
-export const defaultViewport = {
+export const DEFAULT_VIEWPORT = {
   latitude: 39.74,
   longitude: -104.9874,
   zoom: 13,
 };
 
 type Props = {
+  filters: Filters;
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   incidentGeoJson?: FeatureCollection | null;
   setIncidentGeoJson: React.Dispatch<
     React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
-  setStreetName: React.Dispatch<React.SetStateAction<string | null>>;
   areaOfInterestIncidentGeoJson?: FeatureCollection | null;
   setAreaOfInterestIncidentGeoJson: React.Dispatch<
     React.SetStateAction<FeatureCollection<Point, Crash> | null>
@@ -73,25 +75,7 @@ type Props = {
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
-  startDate?: string;
-  endDate?: string;
-  radiusFeet: number;
-  droppedPin?: { lng: number; lat: number } | null;
-  setDroppedPin: React.Dispatch<
-    React.SetStateAction<{ lng: number; lat: number } | null>
-  >;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  streetName: string | null;
-  selectedStreetSegment: {
-    fullName?: string;
-    crossStreets?: { from?: string; to?: string };
-  } | null;
-  setSelectedStreetSegment: React.Dispatch<
-    React.SetStateAction<{
-      fullName?: string;
-      crossStreets?: { from?: string; to?: string };
-    } | null>
-  >;
   setStreetCenterlines: React.Dispatch<
     React.SetStateAction<FeatureCollection | null>
   >;
@@ -104,16 +88,12 @@ type Props = {
 
 export default forwardRef<MapRef | null, Props>(function Map(
   {
+    filters,
+    setFilters,
     areaOfInterestIncidentGeoJson,
     incidentGeoJson,
     setIncidentGeoJson,
     setAreaOfInterestIncidentGeoJson,
-    droppedPin,
-    setDroppedPin,
-    startDate,
-    endDate,
-    radiusFeet,
-    setStreetName,
     viewport,
     setViewport,
     setStreetCenterlines,
@@ -130,31 +110,39 @@ export default forwardRef<MapRef | null, Props>(function Map(
     const feature = event.features && event.features[0];
     if (feature) {
       setSelectedPoint(feature);
-      setDroppedPin(null);
+      setFilters((prevState) => ({
+        ...prevState,
+        droppedPin: undefined,
+      }));
     } else {
-      setStreetName("");
       setAreaOfInterestIncidentGeoJson(null);
       setIncidentGeoJson(null);
       setStreetCenterlines(null);
       setBufferedStreet(null);
       const { lng, lat } = event.lngLat;
-      setDroppedPin({ lng, lat });
+      setFilters((prevState) => ({
+        ...prevState,
+        droppedPin: { lng, lat },
+      }));
       setSelectedPoint(null);
 
       getIncidents({
-        startDate,
-        endDate,
+        startDate: filters.dateRange?.from,
+        endDate: filters.dateRange?.to,
         lat,
         lng,
-        radiusInFeet: radiusFeet,
+        radiusInFeet: filters.bufferRadiusInFeet,
       }).then((data) => {
         setIncidentGeoJson(data);
       });
     }
   };
 
-  const radiusGeoJSON = droppedPin
-    ? createGeoJSONCircle(droppedPin, (radiusFeet * FEET_TO_METERS) / 1000)
+  const radiusGeoJSON = filters.droppedPin
+    ? createGeoJSONCircle(
+        filters.droppedPin,
+        (filters.bufferRadiusInFeet * FEET_TO_METERS) / 1000,
+      )
     : null;
 
   return (

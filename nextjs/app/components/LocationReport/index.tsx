@@ -23,9 +23,8 @@ import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
 import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
 
 type Props = {
-  streetName: string | null;
   isLoading: boolean;
-  droppedPin: { lng: number; lat: number } | null;
+  droppedPin?: { lng: number; lat: number };
   incidentGeoJson: FeatureCollection<Point, Crash> | null;
   areaOfInterestIncidentGeoJson: FeatureCollection<Point, Crash> | null;
   setViewport: React.Dispatch<
