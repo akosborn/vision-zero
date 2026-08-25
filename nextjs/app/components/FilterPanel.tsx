@@ -24,6 +24,7 @@ import {
 } from "next/dist/client/components/navigation";
 import { gpx, kml } from "@tmcw/togeojson";
 import { Filters, SearchTool } from "@/app/page";
+import _ from "lodash";
 
 type Props = {
   filters: Filters;
@@ -44,6 +45,12 @@ type Props = {
   isLoading: boolean;
   streets: Street[];
 };
+
+const ENABLED_SEARCH_TOOLS: SearchTool[] = _.compact([
+  "Street Search",
+  "Radius Search",
+  process.env.UPLOAD_ROUTE_ENABLED === "true" ? "Upload Route" : undefined,
+]);
 
 const FilterPanel: React.FC<Props> = ({
   closeMobileFilters,
@@ -360,7 +367,7 @@ const FilterPanel: React.FC<Props> = ({
             params.set("tool", value?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
-          data={["Street Search", "Radius Search", "Upload Route"]}
+          data={ENABLED_SEARCH_TOOLS}
           fullWidth
           size="sm"
           radius="md"
