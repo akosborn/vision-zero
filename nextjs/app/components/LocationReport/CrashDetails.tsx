@@ -10,7 +10,7 @@ import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/loca
 
 interface IncidentItemProps {
   id: string | number;
-  dataSource: 'DOTI' | 'CDOT';
+  dataSource: "DOTI" | "CDOT";
   type: string;
   kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
@@ -23,12 +23,15 @@ interface IncidentItemProps {
   onClick?: () => void;
 }
 
-export const SEVERITY_LABELS: Record<IncidentItemProps["kabcoSeverityLevel"], string> = {
-  K: 'Fatal (K)',
-  A: 'Incapacitating Injury (A)',
-  B: 'Non-Incapacitating Injury (B)',
-  C: 'Complaint of Injury (C)',
-  O: 'No Injury, Property Damage (O)',
+export const SEVERITY_LABELS: Record<
+  IncidentItemProps["kabcoSeverityLevel"],
+  string
+> = {
+  K: "Fatal (K)",
+  A: "Incapacitating Injury (A)",
+  B: "Non-Incapacitating Injury (B)",
+  C: "Complaint of Injury (C)",
+  O: "No Injury, Property Damage (O)",
 };
 
 export const severityConfig = {
@@ -63,7 +66,7 @@ export function CrashDetails({
       className="hover:shadow-md transition-shadow"
     >
       <Group justify="space-between" align="flex-start" mb="xs">
-        <Group gap="xs" pl={"2px"}>
+        <Group gap="xs" pl="2px">
           <div
             style={{
               width: 12,

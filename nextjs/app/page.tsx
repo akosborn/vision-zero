@@ -1,32 +1,50 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
-import Map, { defaultViewport } from "./components/Map";
+import React, { Suspense, useState } from "react";
+import Map, { DEFAULT_VIEWPORT } from "./components/Map";
 import { DateTime } from "luxon";
 import "flatpickr/dist/themes/dark.css";
-import { FeatureCollection, Point, Position } from "geojson";
-import { LngLatBounds } from "mapbox-gl";
+import {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Point,
+} from "geojson";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import _ from "lodash";
 import FilterPanel from "@/app/components/FilterPanel";
-import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
   Crash,
   getAnnualCrashHistory,
-  getBufferedStreetCenterlines, getIncidents,
+  getBufferedStreetCenterlines,
+  getIncidents,
+  getIncidentsWithinBufferedRoute,
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/dist/client/components/navigation";
+import { useSearchParams } from "next/dist/client/components/navigation";
+import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
+
+export type SearchTool = "Radius Search" | "Street Search" | "Upload Route";
+
+export type Filters = {
+  searchTool: SearchTool;
+  dateRange?: { from?: string; to?: string };
+  bufferRadiusInFeet: number;
+  streetSegment?: {
+    fullName?: string;
+    crossStreets?: { from?: string; to?: string };
+  };
+  droppedPin?: { lng: number; lat: number };
+};
+
+const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -35,37 +53,29 @@ function HomeContent() {
 
   const mapRef = React.useRef<MapRef | null>(null);
 
-  const [viewport, setViewport] = React.useState(defaultViewport);
+  const [viewport, setViewport] = React.useState(DEFAULT_VIEWPORT);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [selectedStreetSegment, setSelectedStreetSegment] = React.useState<{
-    fullName?: string;
-    crossStreets?: { from?: string; to?: string };
-  } | null>(null);
-
-  const [dateRange, setDateRange] = useState<
-    { from?: string; to?: string } | undefined
-  >({
-    from: DateTime.now()
-      .setZone("America/Denver")
-      .minus({ months: 12 })
-      .toFormat("yyyy-MM-dd"),
-    to: DateTime.now().setZone("America/Denver").toFormat("yyyy-MM-dd"),
+  const [filters, setFilters] = useState<Filters>({
+    searchTool: "Radius Search",
+    dateRange: {
+      from: DateTime.now()
+        .setZone("America/Denver")
+        .minus({ months: 12 })
+        .toFormat("yyyy-MM-dd"),
+      to: DateTime.now().setZone("America/Denver").toFormat("yyyy-MM-dd"),
+    },
+    bufferRadiusInFeet: DEFAULT_BUFFER_RADIUS_IN_FEET,
+    droppedPin: {
+      lng: DEFAULT_VIEWPORT.longitude,
+      lat: DEFAULT_VIEWPORT.latitude,
+    },
   });
-  const [radiusInFeet, setRadiusInFeet] = useState(20);
 
-  const [streetName, setStreetName] = useState<string | null>(null);
   const [areaOfInterestIncidentGeoJson, setAreaOfInterestIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
-  const [droppedPin, setDroppedPin] = React.useState<{
-    lng: number;
-    lat: number;
-  } | null>({
-    lng: defaultViewport.longitude,
-    lat: defaultViewport.latitude,
-  });
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
@@ -90,108 +100,31 @@ function HomeContent() {
   const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
 
-  const [searchTool, setSearchTool] = React.useState<
-    "Radius Search" | "Street Search"
-  >("Street Search");
-
-  React.useEffect(() => {
-    setIsLoadingStreets(true);
-
-    (async () => {
-      const streets = await getStreets();
-      setStreets(streets);
-      setIsLoadingStreets(false);
-
-      const searchTool = searchParams.get("tool");
-      const fromDate = searchParams.get("fromDate") || dateRange?.from;
-      const toDate = searchParams.get("toDate") || dateRange?.to;
-      const street = searchParams.get("street");
-      const crossStreet1 = searchParams.get("crossStreet1");
-      const crossStreet2 = searchParams.get("crossStreet2");
-
-      if (searchTool) {
-        setSearchTool(
-          searchTool === "Radius Search" ? "Radius Search" : "Street Search",
-        );
+  const zoomToLayer = React.useCallback(
+    (featureCollection?: FeatureCollection | null) => {
+      const map = mapRef.current?.getMap();
+      if (!map) {
+        console.error("Map ref is null");
+        return;
       }
 
-      if (fromDate && toDate) {
-        setDateRange({
-          from: fromDate,
-          to: toDate,
-        });
+      if (!featureCollection) {
+        console.warn("No feature collection provided");
+        return;
       }
 
-      setSelectedStreetSegment({
-        fullName: street || undefined,
-        crossStreets: {
-          from: crossStreet1 || undefined,
-          to: crossStreet2 || undefined,
-        },
-      });
-
-      console.log(fromDate, toDate, street);
-      if (fromDate && toDate && street) {
-        await fetchCrashDataWithArgs(
-          radiusInFeet,
-          {
-            fullName: street,
-            crossStreets: {
-              from: crossStreet1 || undefined,
-              to: crossStreet2 || undefined,
-            },
-          },
-          { from: fromDate, to: toDate },
-        );
-      }
-    })();
-  }, []);
-
-  // Function to zoom to a specific GeoJSON data object
-  const zoomToLayer = (data: FeatureCollection | null) => {
-    if (!data || !data.features.length || !mapRef.current) {
-      return;
-    }
-
-    const bounds = new LngLatBounds();
-
-    data.features.forEach((feature) => {
-      if (feature.geometry.type === "Point") {
-        bounds.extend(feature.geometry.coordinates as [number, number]);
-      } else if (
-        feature.geometry.type === "LineString" ||
-        feature.geometry.type === "Polygon"
-      ) {
-        // For lines/polygons, we need to iterate through the nested coordinates
-        const coords = feature.geometry.coordinates;
-
-        const flattenedCoordinates = Array.isArray(coords[0])
-          ? _.flatten(coords as Position[])
-          : coords;
-
-        flattenedCoordinates.forEach((coordinate) =>
-          bounds.extend(coordinate as [number, number]),
-        );
-      }
-    });
-
-    const padding = isMobile
-      ? { top: 40, bottom: 400, left: 20, right: 20 }
-      : 40;
-
-    mapRef.current.getMap().fitBounds(bounds, {
-      padding,
-      duration: 1000,
-    });
-  };
+      zoomToLayerUtil(map, featureCollection, isMobile);
+    },
+    [isMobile],
+  );
 
   const fetchCrashDataWithArgs = async (
     radius: number,
-    streetSegment: {
+    streetSegment?: {
       fullName?: string;
       crossStreets?: { from?: string; to?: string };
-    } | null,
-    range: { from?: string; to?: string } | undefined,
+    },
+    range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
     closeMobileFilters();
@@ -231,10 +164,76 @@ function HomeContent() {
     setIsLoading(false);
   };
 
+  React.useEffect(() => {
+    setIsLoadingStreets(true);
+
+    (async () => {
+      const streets = await getStreets();
+      setStreets(streets);
+      setIsLoadingStreets(false);
+
+      const searchTool = searchParams.get("tool");
+      const fromDate = searchParams.get("fromDate") || filters.dateRange?.from;
+      const toDate = searchParams.get("toDate") || filters.dateRange?.to;
+      const street = searchParams.get("street");
+      const crossStreet1 = searchParams.get("crossStreet1");
+      const crossStreet2 = searchParams.get("crossStreet2");
+
+      if (searchTool) {
+        setFilters(() => ({
+          ...filters,
+          searchTool: searchTool as SearchTool,
+        }));
+      }
+
+      if (fromDate && toDate) {
+        setFilters((prevState) => ({
+          ...prevState,
+          dateRange: {
+            from: fromDate,
+            to: toDate,
+          },
+        }));
+      }
+
+      setFilters((prevState) => ({
+        ...prevState,
+        dateRange:
+          fromDate && toDate
+            ? {
+                from: fromDate,
+                to: toDate,
+              }
+            : undefined,
+        streetSegment: {
+          fullName: street || undefined,
+          crossStreets: {
+            from: crossStreet1 || undefined,
+            to: crossStreet2 || undefined,
+          },
+        },
+      }));
+
+      if (fromDate && toDate && street) {
+        await fetchCrashDataWithArgs(
+          filters.bufferRadiusInFeet,
+          {
+            fullName: street,
+            crossStreets: {
+              from: crossStreet1 || undefined,
+              to: crossStreet2 || undefined,
+            },
+          },
+          { from: fromDate, to: toDate },
+        );
+      }
+    })();
+  }, []);
+
   const fetchCrashDataForPinRadius = async (
     radiusInFeet: number,
-    point: { lat: number; lng: number } | null,
-    range: { from?: string; to?: string } | undefined,
+    point?: { lat: number; lng: number },
+    range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
     closeMobileFilters();
@@ -258,6 +257,43 @@ function HomeContent() {
     setIsLoading(false);
   };
 
+  const getDataForUploadedRoute = async (
+    radius: number,
+    uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
+    range: { from?: string; to?: string } | undefined,
+  ) => {
+    setIsLoading(true);
+    closeMobileFilters();
+    openLocationReport();
+
+    // Features without a geometry can't be buffered or drawn
+    const route: FeatureCollection = {
+      type: "FeatureCollection",
+      features: uploadedRoute.features.filter(
+        (feature): feature is Feature<Geometry, GeoJsonProperties> =>
+          !!feature.geometry,
+      ),
+    };
+
+    if (radius >= 0 && route.features.length > 0) {
+      const incidentsInBuffer = await getIncidentsWithinBufferedRoute({
+        route,
+        bufferInFeet: radius,
+        startDate: range?.from,
+        endDate: range?.to,
+      });
+
+      setStreetCenterlines(route);
+      // The uploaded route has no street segment to buffer or summarize by year
+      setBufferedStreet(null);
+      setCrashSummaryHistory(null);
+      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+
+      zoomToLayer(route);
+    }
+    setIsLoading(false);
+  };
+
   return (
     <Suspense>
       <main
@@ -275,23 +311,16 @@ function HomeContent() {
           style={{ position: "absolute", inset: 0 }}
         >
           <Map
-            droppedPin={droppedPin}
-            setDroppedPin={setDroppedPin}
-            startDate={dateRange?.from}
-            endDate={dateRange?.to}
-            radiusFeet={radiusInFeet}
-            streetName={streetName}
+            filters={filters}
+            setFilters={setFilters}
             viewport={viewport}
             setViewport={setViewport}
             ref={mapRef}
             areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
             setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
-            setStreetName={setStreetName}
             incidentGeoJson={incidentGeoJson}
             setIncidentGeoJson={setIncidentGeoJson}
             setIsLoading={setIsLoading}
-            setSelectedStreetSegment={setSelectedStreetSegment}
-            selectedStreetSegment={selectedStreetSegment}
             setStreetCenterlines={setStreetCenterlines}
             streetCenterlines={streetCenterlines}
             bufferedStreet={bufferedStreet}
@@ -315,13 +344,13 @@ function HomeContent() {
           }}
         >
           <Paper
-            shadow={"xs"}
+            shadow="xs"
             radius={isMobile ? 0 : "md"}
-            p={"sm"}
+            p="sm"
             w={isMobile ? "100%" : undefined}
           >
             {isMobile && !mobileFiltersAreOpen && (
-              <Flex w={"100%"}>
+              <Flex w="100%">
                 <Button
                   variant="default"
                   onClick={() => {
@@ -338,37 +367,38 @@ function HomeContent() {
               <>
                 <FilterPanel
                   closeMobileFilters={closeMobileFilters}
-                  dateRange={dateRange}
-                  setDateRange={setDateRange}
                   setAreaOfInterestIncidentGeoJson={
                     setAreaOfInterestIncidentGeoJson
                   }
                   incidentGeoJson={incidentGeoJson}
+                  filters={filters}
+                  setFilters={setFilters}
                   setIncidentGeoJson={setIncidentGeoJson}
-                  droppedPin={droppedPin}
-                  setDroppedPin={setDroppedPin}
-                  radiusFeet={radiusInFeet}
-                  setRadiusFeet={setRadiusInFeet}
-                  setSelectedStreetSegment={setSelectedStreetSegment}
-                  selectedStreetSegment={selectedStreetSegment}
                   onApplyStreetSearch={() =>
                     fetchCrashDataWithArgs(
-                      radiusInFeet,
-                      selectedStreetSegment,
-                      dateRange,
+                      filters.bufferRadiusInFeet,
+                      filters.streetSegment,
+                      filters.dateRange,
                     )
                   }
                   onApplyRadiusSearch={() =>
                     fetchCrashDataForPinRadius(
-                      radiusInFeet,
-                      droppedPin,
-                      dateRange,
+                      filters.bufferRadiusInFeet,
+                      filters.droppedPin,
+                      filters.dateRange,
+                    )
+                  }
+                  onApplyUploadRoute={(
+                    uploadedRoute: FeatureCollection<Geometry | null>,
+                  ) =>
+                    getDataForUploadedRoute(
+                      filters.bufferRadiusInFeet,
+                      uploadedRoute,
+                      filters.dateRange,
                     )
                   }
                   isLoading={isLoading || isLoadingStreets}
                   streets={streets}
-                  searchTool={searchTool}
-                  setSearchTool={setSearchTool}
                 />
               </>
             )}
@@ -376,37 +406,38 @@ function HomeContent() {
             {!isMobile && (
               <FilterPanel
                 closeMobileFilters={closeMobileFilters}
-                dateRange={dateRange}
-                setDateRange={setDateRange}
                 setAreaOfInterestIncidentGeoJson={
                   setAreaOfInterestIncidentGeoJson
                 }
                 incidentGeoJson={incidentGeoJson}
+                filters={filters}
+                setFilters={setFilters}
                 setIncidentGeoJson={setIncidentGeoJson}
-                droppedPin={droppedPin}
-                setDroppedPin={setDroppedPin}
-                radiusFeet={radiusInFeet}
-                setRadiusFeet={setRadiusInFeet}
-                setSelectedStreetSegment={setSelectedStreetSegment}
-                selectedStreetSegment={selectedStreetSegment}
                 onApplyStreetSearch={() =>
                   fetchCrashDataWithArgs(
-                    radiusInFeet,
-                    selectedStreetSegment,
-                    dateRange,
+                    filters.bufferRadiusInFeet,
+                    filters.streetSegment,
+                    filters.dateRange,
                   )
                 }
                 onApplyRadiusSearch={() =>
                   fetchCrashDataForPinRadius(
-                    radiusInFeet,
-                    droppedPin,
-                    dateRange,
+                    filters.bufferRadiusInFeet,
+                    filters.droppedPin,
+                    filters.dateRange,
+                  )
+                }
+                onApplyUploadRoute={(
+                  uploadedRoute: FeatureCollection<Geometry | null>,
+                ) =>
+                  getDataForUploadedRoute(
+                    filters.bufferRadiusInFeet,
+                    uploadedRoute,
+                    filters.dateRange,
                   )
                 }
                 isLoading={isLoading || isLoadingStreets}
                 streets={streets}
-                searchTool={searchTool}
-                setSearchTool={setSearchTool}
               />
             )}
           </Paper>
@@ -429,13 +460,13 @@ function HomeContent() {
             width: isMobile ? "100%" : 500,
           }}
         >
-          <Paper shadow={"xs"} radius={isMobile ? 0 : "md"} p={"sm"} w={"100%"}>
+          <Paper shadow="xs" radius={isMobile ? 0 : "md"} p="sm" w="100%">
             {isMobile ? (
               <>
                 <Drawer.Root
                   opened={locationReportIsOpen}
                   onClose={closeLocationReport}
-                  position={"bottom"}
+                  position="bottom"
                 >
                   <Drawer.Content style={{ height: "auto" }}>
                     <Drawer.Header>
@@ -448,8 +479,7 @@ function HomeContent() {
                         isLoading={isLoading}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
-                        streetName={streetName}
-                        droppedPin={droppedPin}
+                        droppedPin={filters.droppedPin}
                         incidentGeoJson={incidentGeoJson}
                         areaOfInterestIncidentGeoJson={
                           areaOfInterestIncidentGeoJson
@@ -459,7 +489,7 @@ function HomeContent() {
                   </Drawer.Content>
                 </Drawer.Root>
 
-                <Flex w={"100%"}>
+                <Flex w="100%">
                   <Button
                     variant="default"
                     onClick={() => {
@@ -473,7 +503,7 @@ function HomeContent() {
               </>
             ) : (
               <>
-                <Text size={"md"} fw={700} mb={"sm"}>
+                <Text size="md" fw={700} mb="sm">
                   Location Report
                 </Text>
                 <LocationReport
@@ -481,8 +511,7 @@ function HomeContent() {
                   isLoading={isLoading}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
-                  streetName={streetName}
-                  droppedPin={droppedPin}
+                  droppedPin={filters.droppedPin}
                   incidentGeoJson={incidentGeoJson}
                   areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
                 />

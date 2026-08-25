@@ -4,11 +4,14 @@ import CrashList from "@/app/components/LocationReport/CrashList";
 import {
   Anchor,
   Container,
-  Flex, Loader,
+  Flex,
+  Loader,
   Paper,
   SegmentedControl,
-  SimpleGrid, Table,
-  Text, useMantineTheme,
+  SimpleGrid,
+  Table,
+  Text,
+  useMantineTheme,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import {
@@ -18,12 +21,10 @@ import {
 import { AnnualCrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
 import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
-import { Carousel } from "@mantine/carousel";
 
 type Props = {
-  streetName: string | null;
   isLoading: boolean;
-  droppedPin: { lng: number; lat: number } | null;
+  droppedPin?: { lng: number; lat: number };
   incidentGeoJson: FeatureCollection<Point, Crash> | null;
   areaOfInterestIncidentGeoJson: FeatureCollection<Point, Crash> | null;
   setViewport: React.Dispatch<
@@ -36,21 +37,20 @@ type Props = {
 type View = "Summary" | "Crashes" | "History";
 
 const LocationReport: React.FC<Props> = ({
-  streetName,
   crashSummaryHistory,
-  droppedPin,
   incidentGeoJson,
   isLoading,
   areaOfInterestIncidentGeoJson,
-  setViewport,
-  zoomToLayer,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
 
   const theme = useMantineTheme();
 
   const locationReport = React.useMemo(() => {
-    const features = areaOfInterestIncidentGeoJson?.features || incidentGeoJson?.features || [];
+    const features =
+      areaOfInterestIncidentGeoJson?.features ||
+      incidentGeoJson?.features ||
+      [];
     return generateLocationReport(features);
   }, [incidentGeoJson, areaOfInterestIncidentGeoJson]);
 
@@ -61,15 +61,15 @@ const LocationReport: React.FC<Props> = ({
         onChange={(value) => setSelectedView(value as View)}
         data={["Summary", "Crashes", "History"]}
         fullWidth
-        size={"sm"}
-        radius={"md"}
-        mb={"sm"}
+        size="sm"
+        radius="md"
+        mb="sm"
       />
       {selectedView === "Summary" && (
         <>
           {!isLoading ? (
             <>
-              <SimpleGrid cols={2} spacing={"xs"} mb={"xs"}>
+              <SimpleGrid cols={2} spacing="xs" mb="xs">
                 <Paper
                   p="xs"
                   radius="md"
@@ -93,7 +93,7 @@ const LocationReport: React.FC<Props> = ({
                       locationReport?.comprehensiveCosts || 0,
                     )}
                   </Text>
-                  <Flex justify={"center"} gap={"2px"}>
+                  <Flex justify="center" gap="2px">
                     <Text size="xs" c="dimmed" fw={600}>
                       Cost
                     </Text>
@@ -105,8 +105,8 @@ const LocationReport: React.FC<Props> = ({
                       >
                         <IconInfoCircle
                           size={17}
-                          color={"#868e96"}
-                          cursor={"pointer"}
+                          color="#868e96"
+                          cursor="pointer"
                         />
                       </Anchor>
                     </div>
@@ -114,7 +114,7 @@ const LocationReport: React.FC<Props> = ({
                 </Paper>
               </SimpleGrid>
 
-              <Table variant="vertical" layout="auto" withTableBorder mb={"xs"}>
+              <Table variant="vertical" layout="auto" withTableBorder mb="xs">
                 <Table.Tbody>
                   {Object.entries(
                     locationReport?.kabcoSeverityCounts || {},
@@ -152,7 +152,7 @@ const LocationReport: React.FC<Props> = ({
       {selectedView === "Crashes" && (
         <>
           {!isLoading ? (
-            <Container mah={"40vh"} style={{ overflowY: "auto" }} px={0}>
+            <Container mah="40vh" style={{ overflowY: "auto" }} px={0}>
               <CrashList
                 crashFeatures={
                   (areaOfInterestIncidentGeoJson?.features ||
@@ -171,7 +171,7 @@ const LocationReport: React.FC<Props> = ({
         <>
           {!isLoading ? (
             <>
-              <Container w={"100%"} h={"100%"} px={0}>
+              <Container w="100%" h="100%" px={0}>
                 {crashSummaryHistory && crashSummaryHistory.length > 0 && (
                   <BarChart summaries={crashSummaryHistory} />
                 )}

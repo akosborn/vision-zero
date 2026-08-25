@@ -1,26 +1,35 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
-import React from "react";
-import {FeatureCollection, Point} from "geojson";
-import {DatePickerInput} from "@mantine/dates";
-import { Alert, Button, em, Flex, Grid, NumberInput, SegmentedControl, Select } from "@mantine/core";
-import {Crash, getStreets} from "@/app/lib/api-client";
-import {Street} from "@/app/api/streets/route";
+import React, { useState } from "react";
+import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
+import { DatePickerInput } from "@mantine/dates";
+import {
+  Alert,
+  Button,
+  em,
+  FileInput,
+  Flex,
+  Grid,
+  NumberInput,
+  SegmentedControl,
+  Select,
+} from "@mantine/core";
+import { Crash } from "@/app/lib/api-client";
+import { Street } from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconInfoCircle } from "@tabler/icons-react";
 import {
   useRouter,
   useSearchParams,
 } from "next/dist/client/components/navigation";
+import { gpx, kml } from "@tmcw/togeojson";
+import { Filters, SearchTool } from "@/app/page";
+import _ from "lodash";
 
 type Props = {
+  filters: Filters;
+  setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   closeMobileFilters: () => void;
-  dateRange: { from?: string; to?: string } | undefined;
-  radiusFeet: number;
-  setRadiusFeet: React.Dispatch<React.SetStateAction<number>>;
-  setDateRange: React.Dispatch<
-    React.SetStateAction<{ from?: string; to?: string } | undefined>
-  >;
   setAreaOfInterestIncidentGeoJson: React.Dispatch<
     React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
@@ -28,103 +37,116 @@ type Props = {
   setIncidentGeoJson: React.Dispatch<
     React.SetStateAction<FeatureCollection<Point, Crash> | null>
   >;
-  droppedPin: { lng: number; lat: number } | null;
-  setDroppedPin: React.Dispatch<
-    React.SetStateAction<{ lng: number; lat: number } | null>
-  >;
-  selectedStreetSegment: {
-    fullName?: string;
-    crossStreets?: { from?: string; to?: string };
-  } | null;
-  setSelectedStreetSegment: React.Dispatch<
-    React.SetStateAction<
-      | {
-          fullName?: string;
-          crossStreets?: { from?: string; to?: string };
-        }
-      | null
-    >
-  >;
   onApplyStreetSearch: () => Promise<void>;
   onApplyRadiusSearch: () => Promise<void>;
+  onApplyUploadRoute: (
+    uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
+  ) => Promise<void>;
   isLoading: boolean;
   streets: Street[];
-  setSearchTool: React.Dispatch<React.SetStateAction<'Radius Search' | 'Street Search'>>;
-  searchTool: 'Radius Search' | 'Street Search';
 };
+
+const ENABLED_SEARCH_TOOLS: SearchTool[] = _.compact([
+  "Street Search",
+  "Radius Search",
+  process.env.UPLOAD_ROUTE_ENABLED === "true" ? "Upload Route" : undefined,
+]);
 
 const FilterPanel: React.FC<Props> = ({
   closeMobileFilters,
   isLoading,
+  filters,
+  setFilters,
   onApplyStreetSearch,
   onApplyRadiusSearch,
-  dateRange,
-  radiusFeet,
-  setDateRange,
-  setRadiusFeet,
+  onApplyUploadRoute,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
-  setDroppedPin,
-  selectedStreetSegment,
-  setSelectedStreetSegment,
   streets,
-  setSearchTool,
-  searchTool,
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [uploadedRoute, setUploadRoute] = useState<FeatureCollection<
+    Geometry | null,
+    GeoJsonProperties
+  > | null>(null);
+
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
   const crossStreetsToDisplay = React.useMemo(() => {
-    if (!selectedStreetSegment?.fullName) {
+    if (!filters.streetSegment?.fullName) {
       return [];
     }
 
     const street = streets.find(
-      ({ fullName }) => fullName === selectedStreetSegment.fullName,
+      ({ fullName }) => fullName === filters.streetSegment?.fullName,
     );
     return street?.crossingStreets || [];
-  }, [streets, selectedStreetSegment?.fullName]);
+  }, [streets, filters.streetSegment]);
 
   const fromCrossStreetsToDisplay = crossStreetsToDisplay.filter(
-    (crossStreet) => crossStreet !== selectedStreetSegment?.crossStreets?.to,
+    (crossStreet) => crossStreet !== filters.streetSegment?.crossStreets?.to,
   );
   const toCrossStreetsToDisplay = crossStreetsToDisplay.filter(
-    (crossStreet) =>
-      crossStreet !== selectedStreetSegment?.crossStreets?.from,
+    (crossStreet) => crossStreet !== filters.streetSegment?.crossStreets?.from,
   );
 
-  // Must have zero cross streets selected or both cross streets selected
+  const handleRouteFileChange = async (file: File | null) => {
+    if (!file) {
+      setUploadRoute(null);
+      return;
+    }
+
+    const text = await file.text();
+    const dom = new DOMParser().parseFromString(text, "text/xml");
+
+    setUploadRoute(file.name.endsWith(".kml") ? kml(dom) : gpx(dom));
+  };
+
+  // Must have zero cross streets selected or both cross-streets selected
   const isFormValid =
-    searchTool === 'Street Search' ? selectedStreetSegment?.fullName && (selectedStreetSegment.crossStreets?.from ? !!selectedStreetSegment.crossStreets.to : true) && (selectedStreetSegment.crossStreets?.to ? !!selectedStreetSegment.crossStreets.from : true) : true;
+    filters.searchTool === "Street Search"
+      ? filters.streetSegment?.fullName &&
+        (filters.streetSegment.crossStreets?.from
+          ? !!filters.streetSegment.crossStreets.to
+          : true) &&
+        (filters.streetSegment.crossStreets?.to
+          ? !!filters.streetSegment.crossStreets.from
+          : true)
+      : filters.searchTool === "Upload Route"
+        ? !!uploadedRoute?.features.length
+        : true;
 
   if (isMobile) {
     return (
       <>
-        <Grid gutter={"xs"}>
+        <Grid gutter="xs">
           <Grid.Col span={{ base: 12 }}>
             <SegmentedControl
               disabled={isLoading}
-              value={searchTool}
+              value={filters.searchTool}
               onChange={(value) =>
-                setSearchTool(value as "Radius Search" | "Street Search")
+                setFilters((prevState) => ({
+                  ...prevState,
+                  searchTool: value as SearchTool,
+                }))
               }
-              data={["Street Search", "Radius Search"]}
+              data={["Street Search", "Radius Search", "Upload Route"]}
               fullWidth
-              size={"sm"}
-              radius={"md"}
-              mb={"sm"}
+              size="sm"
+              radius="md"
+              mb="sm"
             />
           </Grid.Col>
 
-          {searchTool === "Radius Search" && (
+          {filters.searchTool === "Radius Search" && (
             <Grid.Col span={{ base: 12 }}>
               <Alert
-                variant={"light"}
+                variant="light"
                 icon={<IconInfoCircle />}
-                color={"cyan"}
-                p={"xs"}
-                my={"0"}
+                color="cyan"
+                p="xs"
+                my="0"
               >
                 To get started, click anywhere on the map to inspect a circular
                 area.
@@ -135,33 +157,42 @@ const FilterPanel: React.FC<Props> = ({
           <Grid.Col span={{ base: 8 }}>
             <DatePickerInput
               disabled={isLoading}
-              type={"range"}
-              label={"Date range"}
-              className={"bg-background"}
-              value={[dateRange?.from || null, dateRange?.to || null]}
+              type="range"
+              label="Date range"
+              className="bg-background"
+              value={[
+                filters.dateRange?.from || null,
+                filters.dateRange?.to || null,
+              ]}
               onChange={(values) => {
-                setDateRange({
-                  from: values[0] || undefined,
-                  to: values[1] || undefined,
-                });
+                setFilters((prevState) => ({
+                  ...prevState,
+                  dateRange: {
+                    from: values[0] || undefined,
+                    to: values[1] || undefined,
+                  },
+                }));
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("fromDate", values[0]?.toString() || "");
                 params.set("toDate", values[1]?.toString() || "");
                 router.replace(`?${params.toString()}`, { scroll: false });
               }}
-              valueFormat={"MMM D, YYYY"}
+              valueFormat="MMM D, YYYY"
             />
           </Grid.Col>
 
           <Grid.Col span={{ base: 4 }}>
             <NumberInput
               disabled={isLoading}
-              label={`${searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-              placeholder={`${searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
-              value={radiusFeet}
+              label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
+              placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+              value={filters.bufferRadiusInFeet}
               onChange={(value) => {
-                setRadiusFeet(value as number);
+                setFilters((prevState) => ({
+                  ...prevState,
+                  bufferRadiusInFeet: value as number,
+                }));
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("r", value?.toString() || "");
@@ -173,30 +204,31 @@ const FilterPanel: React.FC<Props> = ({
             />
           </Grid.Col>
 
-          {searchTool === "Street Search" && (
+          {filters.searchTool === "Street Search" && (
             <>
               <Grid.Col span={{ base: 12 }}>
                 <Select
                   disabled={isLoading}
-                  label={"Street"}
-                  placeholder={"Search for a street"}
+                  label="Street"
+                  placeholder="Search for a street"
                   searchable
                   data={streets.map(({ fullName }) => fullName)}
                   limit={20}
-                  value={selectedStreetSegment?.fullName || null}
+                  value={filters.streetSegment?.fullName || null}
                   onChange={(value) => {
                     // @TODO: This is probably not necessary
                     setIncidentGeoJson(null);
                     setAreaOfInterestIncidentGeoJson(null);
-                    setDroppedPin(null);
-                    setSelectedStreetSegment({ fullName: value || undefined });
+                    setFilters((prevState) => ({
+                      ...prevState,
+                      droppedPin: undefined,
+                      streetSegment: { fullName: value || undefined },
+                    }));
 
-                    const params = new URLSearchParams(
-                      searchParams.toString(),
-                    );
-                    params.set('street', value || '');
-                    params.delete('crossStreet1');
-                    params.delete('crossStreet2');
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set("street", value || "");
+                    params.delete("crossStreet1");
+                    params.delete("crossStreet2");
                     router.replace(`?${params.toString()}`);
                   }}
                 />
@@ -204,23 +236,26 @@ const FilterPanel: React.FC<Props> = ({
 
               <Grid.Col span={{ base: 6 }}>
                 <Select
-                  label={"From Cross street"}
-                  disabled={isLoading || !selectedStreetSegment?.fullName}
+                  label="From Cross street"
+                  disabled={isLoading || !filters.streetSegment?.fullName}
                   searchable
                   data={fromCrossStreetsToDisplay}
                   limit={20}
-                  value={selectedStreetSegment?.crossStreets?.from || null}
+                  value={filters.streetSegment?.crossStreets?.from || null}
                   required={
-                    selectedStreetSegment?.crossStreets?.to !== undefined
+                    filters.streetSegment?.crossStreets?.to !== undefined
                   }
                   onChange={(value) => {
                     // @TODO: This is probably not necessary
                     setIncidentGeoJson(null);
                     setAreaOfInterestIncidentGeoJson(null);
-                    setDroppedPin(null);
-                    setSelectedStreetSegment((prev) => ({
-                      ...prev,
-                      crossStreets: { from: value || undefined },
+                    setFilters((prevState) => ({
+                      ...prevState,
+                      droppedPin: undefined,
+                      streetSegment: {
+                        ...prevState.streetSegment,
+                        crossStreets: { from: value || undefined },
+                      },
                     }));
 
                     const params = new URLSearchParams(searchParams.toString());
@@ -232,25 +267,28 @@ const FilterPanel: React.FC<Props> = ({
 
               <Grid.Col span={{ base: 6 }}>
                 <Select
-                  label={"To Cross street"}
-                  disabled={isLoading || !selectedStreetSegment?.fullName}
+                  label="To Cross street"
+                  disabled={isLoading || !filters.streetSegment?.fullName}
                   searchable
                   data={toCrossStreetsToDisplay}
                   limit={20}
-                  value={selectedStreetSegment?.crossStreets?.to || null}
+                  value={filters.streetSegment?.crossStreets?.to || null}
                   required={
-                    selectedStreetSegment?.crossStreets?.from !== undefined
+                    filters.streetSegment?.crossStreets?.from !== undefined
                   }
                   onChange={(value) => {
                     // @TODO: This is probably not necessary
                     setIncidentGeoJson(null);
                     setAreaOfInterestIncidentGeoJson(null);
-                    setDroppedPin(null);
-                    setSelectedStreetSegment((prev) => ({
-                      ...prev,
-                      crossStreets: {
-                        ...prev?.crossStreets,
-                        to: value || undefined,
+                    setFilters((prevState) => ({
+                      ...prevState,
+                      droppedPin: undefined,
+                      streetSegment: {
+                        ...prevState.streetSegment,
+                        crossStreets: {
+                          ...prevState.streetSegment?.crossStreets,
+                          to: value || undefined,
+                        },
                       },
                     }));
 
@@ -262,17 +300,37 @@ const FilterPanel: React.FC<Props> = ({
               </Grid.Col>
             </>
           )}
+
+          {filters.searchTool === "Upload Route" && (
+            <Grid.Col span={{ base: 12 }}>
+              <FileInput
+                label="Upload GPX or KML"
+                placeholder="Select a file"
+                accept="application/gpx+xml,application/vnd.google-earth.kml+xml"
+                disabled={isLoading}
+                onChange={handleRouteFileChange}
+              />
+            </Grid.Col>
+          )}
         </Grid>
 
-        <Flex justify={"space-between"}>
-          <Button variant="default" onClick={closeMobileFilters} mt={"sm"}>
+        <Flex justify="space-between">
+          <Button variant="default" onClick={closeMobileFilters} mt="sm">
             Close
           </Button>
           <Button
             disabled={isLoading || !isFormValid}
             variant="filled"
-            onClick={searchTool === 'Street Search' ? onApplyStreetSearch : onApplyRadiusSearch}
-            mt={"sm"}
+            onClick={() => {
+              if (filters.searchTool === "Street Search") {
+                onApplyStreetSearch();
+              } else if (filters.searchTool === "Radius Search") {
+                onApplyRadiusSearch();
+              } else if (uploadedRoute) {
+                onApplyUploadRoute(uploadedRoute);
+              }
+            }}
+            mt="sm"
           >
             Apply
           </Button>
@@ -283,62 +341,74 @@ const FilterPanel: React.FC<Props> = ({
 
   return (
     <>
-      {searchTool === "Radius Search" && (
+      {filters.searchTool === "Radius Search" && (
         <Alert
-          variant={"light"}
+          variant="light"
           icon={<IconInfoCircle />}
-          color={"cyan"}
-          p={"xs"}
-          mb={"xs"}
+          color="cyan"
+          p="xs"
+          mb="xs"
         >
           To get started, click anywhere on the map to inspect a circular area.
         </Alert>
       )}
 
-      <Flex gap={"sm"} justify={"flex-start"} align={"flex-end"} wrap={"wrap"}>
+      <Flex gap="sm" justify="flex-start" align="flex-end" wrap="wrap">
         <SegmentedControl
           disabled={isLoading}
-          value={searchTool}
+          value={filters.searchTool}
           onChange={(value) => {
-            setSearchTool(value as "Radius Search" | "Street Search");
+            setFilters((prevState) => ({
+              ...prevState,
+              searchTool: value as SearchTool,
+            }));
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("tool", value?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
-          data={["Street Search", "Radius Search"]}
+          data={ENABLED_SEARCH_TOOLS}
           fullWidth
-          size={"sm"}
-          radius={"md"}
+          size="sm"
+          radius="md"
         />
 
         <DatePickerInput
           disabled={isLoading}
-          type={"range"}
-          label={"Date range"}
-          className={"bg-background"}
-          value={[dateRange?.from || null, dateRange?.to || null]}
+          type="range"
+          label="Date range"
+          className="bg-background"
+          value={[
+            filters.dateRange?.from || null,
+            filters.dateRange?.to || null,
+          ]}
           onChange={(values) => {
-            setDateRange({
-              from: values[0] || undefined,
-              to: values[1] || undefined,
-            });
+            setFilters((prevState) => ({
+              ...prevState,
+              dateRange: {
+                from: values[0] || undefined,
+                to: values[1] || undefined,
+              },
+            }));
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("fromDate", values[0]?.toString() || "");
             params.set("toDate", values[1]?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
-          valueFormat={"MMM D, YYYY"}
+          valueFormat="MMM D, YYYY"
         />
 
         <NumberInput
           disabled={isLoading}
-          label={`${searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-          placeholder={`${searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
-          value={radiusFeet}
+          label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
+          placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+          value={filters.bufferRadiusInFeet}
           onChange={(value) => {
-            setRadiusFeet(value as number);
+            setFilters((prevState) => ({
+              ...prevState,
+              bufferRadiusInFeet: value as number,
+            }));
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("r", value?.toString() || "");
@@ -350,22 +420,25 @@ const FilterPanel: React.FC<Props> = ({
           style={{ width: 100 }}
         />
 
-        {searchTool === "Street Search" && (
+        {filters.searchTool === "Street Search" && (
           <>
             <Select
-              label={"Street"}
-              placeholder={"Search for a street"}
+              label="Street"
+              placeholder="Search for a street"
               disabled={isLoading}
               searchable
               data={streets.map(({ fullName }) => fullName)}
               limit={20}
-              value={selectedStreetSegment?.fullName || null}
+              value={filters.streetSegment?.fullName || null}
               onChange={(value) => {
                 // @TODO: This is probably not necessary
                 setIncidentGeoJson(null);
                 setAreaOfInterestIncidentGeoJson(null);
-                setDroppedPin(null);
-                setSelectedStreetSegment({ fullName: value || undefined });
+                setFilters((prevState) => ({
+                  ...prevState,
+                  droppedPin: undefined,
+                  streetSegment: { fullName: value || undefined },
+                }));
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("street", value || "");
@@ -377,21 +450,24 @@ const FilterPanel: React.FC<Props> = ({
             />
 
             <Select
-              label={"From Cross street"}
-              disabled={isLoading || !selectedStreetSegment?.fullName}
+              label="From Cross street"
+              disabled={isLoading || !filters.streetSegment?.fullName}
               searchable
               data={fromCrossStreetsToDisplay}
               limit={20}
-              value={selectedStreetSegment?.crossStreets?.from || null}
-              required={selectedStreetSegment?.crossStreets?.to !== undefined}
+              value={filters.streetSegment?.crossStreets?.from || null}
+              required={filters.streetSegment?.crossStreets?.to !== undefined}
               onChange={(value) => {
                 // @TODO: This is probably not necessary
                 setIncidentGeoJson(null);
                 setAreaOfInterestIncidentGeoJson(null);
-                setDroppedPin(null);
-                setSelectedStreetSegment((prev) => ({
-                  ...prev,
-                  crossStreets: { from: value || undefined },
+                setFilters((prevState) => ({
+                  ...prevState,
+                  droppedPin: undefined,
+                  streetSegment: {
+                    ...prevState.streetSegment,
+                    crossStreets: { from: value || undefined },
+                  },
                 }));
 
                 const params = new URLSearchParams(searchParams.toString());
@@ -402,23 +478,26 @@ const FilterPanel: React.FC<Props> = ({
             />
 
             <Select
-              label={"To Cross street"}
-              disabled={isLoading || !selectedStreetSegment?.fullName}
+              label="To Cross street"
+              disabled={isLoading || !filters.streetSegment?.fullName}
               searchable
               data={toCrossStreetsToDisplay}
               limit={20}
-              value={selectedStreetSegment?.crossStreets?.to || null}
-              required={selectedStreetSegment?.crossStreets?.from !== undefined}
+              value={filters.streetSegment?.crossStreets?.to || null}
+              required={filters.streetSegment?.crossStreets?.from !== undefined}
               onChange={(value) => {
                 // @TODO: This is probably not necessary
                 setIncidentGeoJson(null);
                 setAreaOfInterestIncidentGeoJson(null);
-                setDroppedPin(null);
-                setSelectedStreetSegment((prev) => ({
-                  ...prev,
-                  crossStreets: {
-                    ...prev?.crossStreets,
-                    to: value || undefined,
+                setFilters((prevState) => ({
+                  ...prevState,
+                  droppedPin: undefined,
+                  streetSegment: {
+                    ...prevState.streetSegment,
+                    crossStreets: {
+                      ...prevState.streetSegment?.crossStreets,
+                      to: value || undefined,
+                    },
                   },
                 }));
 
@@ -431,14 +510,28 @@ const FilterPanel: React.FC<Props> = ({
           </>
         )}
 
+        {filters.searchTool === "Upload Route" && (
+          <FileInput
+            label="Upload GPX or KML"
+            placeholder="Select a file"
+            accept="application/gpx+xml,application/vnd.google-earth.kml+xml"
+            disabled={isLoading}
+            onChange={handleRouteFileChange}
+          />
+        )}
+
         <Button
           variant="filled"
-          onClick={
-            searchTool === "Street Search"
-              ? onApplyStreetSearch
-              : onApplyRadiusSearch
-          }
-          mt={"sm"}
+          onClick={() => {
+            if (filters.searchTool === "Street Search") {
+              onApplyStreetSearch();
+            } else if (filters.searchTool === "Radius Search") {
+              onApplyRadiusSearch();
+            } else if (uploadedRoute) {
+              onApplyUploadRoute(uploadedRoute);
+            }
+          }}
+          mt="sm"
           disabled={isLoading || !isFormValid}
         >
           Apply

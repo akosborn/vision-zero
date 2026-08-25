@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     queryParams.push(endDate);
   }
 
-  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet);
+  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet, 10);
 
   if (crossStreet1 && crossStreet2) {
     const query = `

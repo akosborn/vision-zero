@@ -1,9 +1,8 @@
 import React from "react";
 import { Feature, Geometry, Point } from "geojson";
 import { DateTime } from "luxon";
-import { Container, em } from "@mantine/core";
+import { Container } from "@mantine/core";
 import { CrashDetails } from "@/app/components/LocationReport/CrashDetails";
-import { useMediaQuery } from "@mantine/hooks";
 import { Crash } from "@/app/lib/api-client";
 import { getMaxSeverity } from "@/app/components/LocationReport/utils/location-report";
 
@@ -12,8 +11,6 @@ type Props = {
 };
 
 const CrashList: React.FC<Props> = ({ crashFeatures }) => {
-  const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
-
   const sortedFeatures = crashFeatures.toSorted((a, b) => {
     return (
       DateTime.fromISO(b.properties.doti_first_occurrence_date).toMillis() -
@@ -33,7 +30,7 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
         const [lng, lat] = (geometry as Point).coordinates;
 
         return (
-          <Container key={properties.doti_incident_id} px={0} mb={"sm"}>
+          <Container key={properties.doti_incident_id} px={0} mb="sm">
             <CrashDetails
               id={properties.cdot_cuid || properties.doti_incident_id}
               dataSource={properties.cdot_cuid ? "CDOT" : "DOTI"}

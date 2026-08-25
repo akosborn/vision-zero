@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet);
+  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet, 10);
 
   if (crossStreet1 && crossStreet2) {
     const query = `
@@ -170,13 +170,13 @@ export async function GET(request: NextRequest) {
 const mapRow = (row: any) => {
   return {
     year: row.year,
-    crashes: parseInt(row.crashes),
-    fatalities: parseInt(row.fatalities),
-    seriousInjuries: parseInt(row.seriousInjuries),
-    bicycleInvolvedCrashes: parseInt(row.bicycleInvolvedCrashes),
-    pedestrianInvolvedCrashes: parseInt(row.pedestrianInvolvedCrashes),
+    crashes: parseInt(row.crashes, 10),
+    fatalities: parseInt(row.fatalities, 10),
+    seriousInjuries: parseInt(row.seriousInjuries, 10),
+    bicycleInvolvedCrashes: parseInt(row.bicycleInvolvedCrashes, 10),
+    pedestrianInvolvedCrashes: parseInt(row.pedestrianInvolvedCrashes, 10),
     maxSpeedMph: parseFloat(row.maxSpeedMph),
-    crashesOverSpeedLimit: parseInt(row.crashesOverSpeedLimit),
-    crashesWithSpeedData: parseInt(row.crashesWithSpeedData),
+    crashesOverSpeedLimit: parseInt(row.crashesOverSpeedLimit, 10),
+    crashesWithSpeedData: parseInt(row.crashesWithSpeedData, 10),
   };
 };
