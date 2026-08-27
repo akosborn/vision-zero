@@ -239,9 +239,18 @@ result: export metadata belongs to the last successfully applied result set.
 
 ### Planned drawn route
 
-The planned drawing tool should produce the same GeoJSON contract as an uploaded
-route and reuse `POST /api/incidents/buffered-route`. The first version should be
-a drawn corridor, not an exact road-snapping or routing engine. See `TODO.md`.
+The first-version drawing tool lets the user place vertices to create an
+arbitrary GeoJSON `LineString`. The selected buffer-distance control, in feet,
+turns that line into the crash-search corridor. The client should wrap the line
+in the same GeoJSON `FeatureCollection` contract as an uploaded route and reuse
+`POST /api/incidents/buffered-route`.
+
+The MVP preserves the line the user drew. Snapping it to Denver street
+centerlines, correcting it to a routable path, or interpreting it as a named
+street is deferred. Because drawn and uploaded routes share the same initial
+query contract, neither receives annual-history results; the separate History
+work in `TODO.md` will decide whether to add route history or make that view
+unavailable for route searches.
 
 ## API Surface
 

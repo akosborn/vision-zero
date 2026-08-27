@@ -108,10 +108,10 @@ Official references:
 
 ## P1: Draw a Route or Road Corridor on the Map
 
-- [ ] Confirm the first-version interaction model.
-  - [ ] Record whether the MVP is a user-drawn corridor buffered by the selected
+- [x] Confirm the first-version interaction model.
+  - [x] Record whether the MVP is a user-drawn corridor buffered by the selected
         number of feet.
-  - [ ] Record exact Denver street-centerline snapping as included or deferred.
+  - [x] Record exact Denver street-centerline snapping as included or deferred.
 - [ ] Add `Draw Route` as a search mode for desktop and mobile.
 - [ ] Implement drawing state separately from radius-search state.
   - [ ] Start drawing explicitly.
