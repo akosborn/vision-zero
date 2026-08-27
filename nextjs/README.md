@@ -18,6 +18,23 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/Map.tsx`. The page auto-updates as you edit the file.
 
+## Tests
+
+Use Node 24, install dependencies, and run the test suite once:
+
+```bash
+nvm use
+yarn install --frozen-lockfile
+yarn test
+```
+
+For local watch mode, run `yarn test:watch`.
+
+Tests use Vitest with jsdom, React Testing Library, and `user-event`. Pure
+TypeScript utility tests and React component interaction tests run locally and
+must not connect to the remote database. Mock database and API boundaries when a
+test needs data.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## TODOs

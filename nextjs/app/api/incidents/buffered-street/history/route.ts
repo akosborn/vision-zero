@@ -1,39 +1,51 @@
 import dbClient from "@/app/lib/db";
+import { databaseFailureResponse } from "@/app/lib/api-responses";
+import {
+  validateBufferInFeet,
+  validateCrossStreetPair,
+  validateStreetName,
+} from "@/app/lib/street-route-input";
 import { NextRequest } from "next/server";
 
 const METERS_PER_FEET = 0.3048;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const fullStreetName = searchParams.get("fullStreetName");
-  const bufferInFeet = searchParams.get("bufferInFeet");
-
-  const crossStreet1 = searchParams.get("crossStreet1");
-  const crossStreet2 = searchParams.get("crossStreet2");
-
-  if (!fullStreetName) {
-    return Response.json({
-      error: "fullStreetName is required",
-    });
+  const fullStreetName = validateStreetName(
+    searchParams.get("fullStreetName"),
+    "fullStreetName",
+    true,
+  );
+  if (fullStreetName.error) {
+    return fullStreetName.error;
   }
 
-  if (!bufferInFeet) {
-    return Response.json({
-      error: "bufferInFeet is required",
-    });
+  const bufferInFeet = validateBufferInFeet(searchParams.get("bufferInFeet"));
+  if (bufferInFeet.error) {
+    return bufferInFeet.error;
   }
 
-  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet, 10);
+  const crossStreets = validateCrossStreetPair(
+    searchParams.get("crossStreet1"),
+    searchParams.get("crossStreet2"),
+  );
+  if (crossStreets.error) {
+    return crossStreets.error;
+  }
 
-  if (crossStreet1 && crossStreet2) {
-    const query = `
+  const bufferInMeters = METERS_PER_FEET * bufferInFeet.value;
+
+  try {
+    if (crossStreets.value) {
+      const query = `
       with buffered_line as (SELECT ST_Buffer(
                                       ST_Union(geom)::geography,
-                                      ${bufferInMeters}
+                                      $1
                               )::geometry AS line
-                       FROM (select *
-                             from get_street_segments_between('${fullStreetName}', '${crossStreet1}',
-                                                              '${crossStreet2}')) inputs)
+                       FROM (
+                         SELECT *
+                         FROM get_street_segments_between($2::varchar, $3::varchar, $4::varchar)
+                       ) inputs)
       SELECT
           date_part('year', first_occurrence_date)           as year,
           count(*)                                           as crashes,
@@ -92,18 +104,22 @@ export async function GET(request: NextRequest) {
       ORDER BY year
     `;
 
-    const results = await dbClient.query(query);
-    return Response.json(results.rows.map(mapRow));
-  }
+      const results = await dbClient.query(query, [
+        bufferInMeters,
+        fullStreetName.value,
+        ...crossStreets.value,
+      ]);
+      return Response.json(results.rows.map(mapRow));
+    }
 
-  const entireStreetQuery = `
+    const entireStreetQuery = `
     with buffered_line as (
         SELECT ST_Buffer(
                 ST_Union(geom)::geography,
-                ${bufferInMeters}
+                $1
                 )::geometry AS line
         FROM public.denver_street_centerlines
-        WHERE fullname = '${fullStreetName}'
+        WHERE fullname = $2
     )
     SELECT
       date_part('year', first_occurrence_date)           as year,
@@ -163,8 +179,14 @@ export async function GET(request: NextRequest) {
     ORDER BY year
   `;
 
-  const results = await dbClient.query(entireStreetQuery);
-  return Response.json(results.rows.map(mapRow));
+    const results = await dbClient.query(entireStreetQuery, [
+      bufferInMeters,
+      fullStreetName.value,
+    ]);
+    return Response.json(results.rows.map(mapRow));
+  } catch {
+    return databaseFailureResponse();
+  }
 }
 
 const mapRow = (row: any) => {
