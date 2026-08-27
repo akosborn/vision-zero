@@ -351,6 +351,7 @@ function HomeContent() {
     candidateRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
     range: { from?: string; to?: string } | undefined,
     searchTool: "Upload Route" | "Draw Route",
+    options: { preserveExistingResults?: boolean } = {},
   ) => {
     const preparedSearch = prepareRouteSearch(candidateRoute, radius, range);
     if (!preparedSearch) {
@@ -358,7 +359,9 @@ function HomeContent() {
     }
 
     setIsLoading(true);
-    clearSearchGeometryAndResults();
+    if (!options.preserveExistingResults) {
+      clearSearchGeometryAndResults();
+    }
     closeMobileFilters();
     openLocationReport();
 
@@ -394,6 +397,28 @@ function HomeContent() {
       "Draw Route",
     );
     dispatchRouteDrawing({ type: "cancel" });
+  };
+
+  const refreshAppliedDrawnRoute = async (range: {
+    from?: string;
+    to?: string;
+  }) => {
+    if (
+      filters.searchTool !== "Draw Route" ||
+      !routeGeometry ||
+      !range.from ||
+      !range.to
+    ) {
+      return;
+    }
+
+    await getDataForRoute(
+      filters.bufferRadiusInFeet,
+      routeGeometry,
+      range,
+      "Draw Route",
+      { preserveExistingResults: true },
+    );
   };
 
   const previousSearchTool = React.useRef(filters.searchTool);
@@ -530,6 +555,9 @@ function HomeContent() {
                   }
                   onApplyDrawnRoute={() => void applyDrawnRoute()}
                   onClearRoute={clearAppliedRoute}
+                  onDateRangeChange={(range) =>
+                    void refreshAppliedDrawnRoute(range)
+                  }
                   setIncidentGeoJson={setIncidentGeoJson}
                   onApplyStreetSearch={() =>
                     fetchCrashDataWithArgs(
@@ -585,6 +613,9 @@ function HomeContent() {
                 }
                 onApplyDrawnRoute={() => void applyDrawnRoute()}
                 onClearRoute={clearAppliedRoute}
+                onDateRangeChange={(range) =>
+                  void refreshAppliedDrawnRoute(range)
+                }
                 setIncidentGeoJson={setIncidentGeoJson}
                 onApplyStreetSearch={() =>
                   fetchCrashDataWithArgs(

@@ -60,6 +60,9 @@ const renderPanel = (
     onClearRouteDrawing?: Mock<() => void>;
     onApplyDrawnRoute?: Mock<() => void>;
     onClearRoute?: Mock<() => void>;
+    onDateRangeChange?: Mock<
+      (dateRange: { from?: string; to?: string }) => void
+    >;
   } = {},
 ) => {
   const setFilters = vi.fn() as React.Dispatch<React.SetStateAction<Filters>>;
@@ -70,6 +73,7 @@ const renderPanel = (
   const onClearRouteDrawing = options.onClearRouteDrawing || vi.fn();
   const onApplyDrawnRoute = options.onApplyDrawnRoute || vi.fn();
   const onClearRoute = options.onClearRoute || vi.fn();
+  const onDateRangeChange = options.onDateRangeChange || vi.fn();
 
   render(
     <MantineProvider>
@@ -94,6 +98,7 @@ const renderPanel = (
         onClearRouteDrawing={onClearRouteDrawing}
         onApplyDrawnRoute={onApplyDrawnRoute}
         onClearRoute={onClearRoute}
+        onDateRangeChange={onDateRangeChange}
         isLoading={false}
         streets={[]}
       />
@@ -108,6 +113,7 @@ const renderPanel = (
     onClearRouteDrawing,
     onApplyDrawnRoute,
     onClearRoute,
+    onDateRangeChange,
   };
 };
 

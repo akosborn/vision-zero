@@ -250,6 +250,11 @@ and Apply follow the "Click on map to plot route" prompt in the top panel's
 drawing-control row while vertices are being placed. The same public route-mode
 flags and enabled-tools list drive both desktop and mobile controls.
 
+After a drawn route has been applied, completing a new date range immediately
+reposts the stored applied geometry to the buffered-route endpoint with the new
+dates. The prior geometry and results remain visible until the refresh succeeds,
+so a failed date refresh does not erase the last successful route report.
+
 Apply converts two or more distinct vertices into one GeoJSON `LineString`
 inside a `FeatureCollection`. Drawn routes and browser-parsed GPX/KML uploads
 then use the same route-search preparation and exact request contract:

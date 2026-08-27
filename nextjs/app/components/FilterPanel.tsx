@@ -53,6 +53,7 @@ type Props = {
   onClearRouteDrawing: () => void;
   onApplyDrawnRoute: () => void;
   onClearRoute: () => void;
+  onDateRangeChange: (dateRange: { from?: string; to?: string }) => void;
   isLoading: boolean;
   streets: Street[];
 };
@@ -93,6 +94,7 @@ const FilterPanel: React.FC<Props> = ({
   onClearRouteDrawing,
   onApplyDrawnRoute,
   onClearRoute,
+  onDateRangeChange,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
   streets,
@@ -215,18 +217,23 @@ const FilterPanel: React.FC<Props> = ({
                 filters.dateRange?.to || null,
               ]}
               onChange={(values) => {
+                const dateRange = {
+                  from: values[0] || undefined,
+                  to: values[1] || undefined,
+                };
                 setFilters((prevState) => ({
                   ...prevState,
-                  dateRange: {
-                    from: values[0] || undefined,
-                    to: values[1] || undefined,
-                  },
+                  dateRange,
                 }));
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("fromDate", values[0]?.toString() || "");
                 params.set("toDate", values[1]?.toString() || "");
                 router.replace(`?${params.toString()}`, { scroll: false });
+
+                if (dateRange.from && dateRange.to) {
+                  onDateRangeChange(dateRange);
+                }
               }}
               valueFormat="MMM D, YYYY"
             />
@@ -457,18 +464,23 @@ const FilterPanel: React.FC<Props> = ({
             filters.dateRange?.to || null,
           ]}
           onChange={(values) => {
+            const dateRange = {
+              from: values[0] || undefined,
+              to: values[1] || undefined,
+            };
             setFilters((prevState) => ({
               ...prevState,
-              dateRange: {
-                from: values[0] || undefined,
-                to: values[1] || undefined,
-              },
+              dateRange,
             }));
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("fromDate", values[0]?.toString() || "");
             params.set("toDate", values[1]?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
+
+            if (dateRange.from && dateRange.to) {
+              onDateRangeChange(dateRange);
+            }
           }}
           valueFormat="MMM D, YYYY"
         />
