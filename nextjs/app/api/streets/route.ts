@@ -1,8 +1,13 @@
 import dbClient from "@/app/lib/db";
+import { databaseFailureResponse } from "@/app/lib/api-responses";
 
 export async function GET() {
-  const results = await dbClient.query<Street>(query);
-  return Response.json(results.rows);
+  try {
+    const results = await dbClient.query<Street>(query);
+    return Response.json(results.rows);
+  } catch {
+    return databaseFailureResponse();
+  }
 }
 
 const query = `

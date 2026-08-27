@@ -1,3 +1,5 @@
+import { invalidInputResponse } from "@/app/lib/api-responses";
+
 const MAX_STREET_NAME_LENGTH = 200;
 // Bound the area of spatial queries while remaining well above the UI's
 // current 500-foot maximum.
@@ -9,12 +11,11 @@ type ValidationResult<T> =
 
 export type CrossStreetPair = readonly [string, string];
 export type BoundingBox = readonly [number, number, number, number];
-
-export const invalidInputResponse = (message: string) =>
-  Response.json({ error: message }, { status: 400 });
-
-export const databaseFailureResponse = () =>
-  Response.json({ error: "Database query failed" }, { status: 500 });
+export type RadiusSearch = {
+  latitude: number;
+  longitude: number;
+  radiusInFeet: number;
+};
 
 const invalidStreetNameResponse = (parameterName: string) =>
   invalidInputResponse(
@@ -98,19 +99,21 @@ export const validateCrossStreetPair = (
 };
 
 export const validateBufferInFeet = (
-  rawValue: string | null,
+  rawValue: unknown,
 ): ValidationResult<number> => {
-  if (rawValue === null) {
+  if (rawValue === null || rawValue === undefined) {
     return { error: invalidInputResponse("bufferInFeet is required") };
   }
 
-  const value = Number(rawValue.trim());
-  if (
-    rawValue.trim().length === 0 ||
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > MAX_BUFFER_IN_FEET
-  ) {
+  const normalizedValue =
+    typeof rawValue === "string" ? rawValue.trim() : rawValue;
+  const value =
+    typeof normalizedValue === "number"
+      ? normalizedValue
+      : typeof normalizedValue === "string" && normalizedValue.length > 0
+        ? Number(normalizedValue)
+        : Number.NaN;
+  if (!Number.isFinite(value) || value < 0 || value > MAX_BUFFER_IN_FEET) {
     return {
       error: invalidInputResponse(
         `bufferInFeet must be a number between 0 and ${MAX_BUFFER_IN_FEET}`,
@@ -122,11 +125,19 @@ export const validateBufferInFeet = (
 };
 
 const validateDate = (
-  rawValue: string | null,
+  rawValue: unknown,
   parameterName: string,
 ): ValidationResult<string | null> => {
-  if (rawValue === null) {
+  if (rawValue === null || rawValue === undefined) {
     return { value: null };
+  }
+
+  if (typeof rawValue !== "string") {
+    return {
+      error: invalidInputResponse(
+        `${parameterName} must be a valid date in YYYY-MM-DD format`,
+      ),
+    };
   }
 
   const value = rawValue.trim();
@@ -147,8 +158,8 @@ const validateDate = (
 };
 
 export const validateDateRange = (
-  rawStartDate: string | null,
-  rawEndDate: string | null,
+  rawStartDate: unknown,
+  rawEndDate: unknown,
 ): ValidationResult<{ startDate: string | null; endDate: string | null }> => {
   const startDate = validateDate(rawStartDate, "startDate");
   if (startDate.error) {
@@ -212,4 +223,66 @@ export const validateBoundingBox = (
   }
 
   return { value: [minLongitude, minLatitude, maxLongitude, maxLatitude] };
+};
+
+export const validateRadiusSearch = (
+  rawLatitude: string | null,
+  rawLongitude: string | null,
+  rawRadiusInFeet: string | null,
+): ValidationResult<RadiusSearch | null> => {
+  const suppliedValues = [rawLatitude, rawLongitude, rawRadiusInFeet].filter(
+    (value) => value !== null,
+  );
+  if (suppliedValues.length === 0) {
+    return { value: null };
+  }
+
+  if (suppliedValues.length !== 3) {
+    return {
+      error: invalidInputResponse(
+        "lat, lng, and radiusInFeet must be provided together",
+      ),
+    };
+  }
+
+  const latitude = Number(rawLatitude?.trim());
+  const longitude = Number(rawLongitude?.trim());
+  const radiusInFeet = Number(rawRadiusInFeet?.trim());
+
+  if (
+    rawLatitude?.trim().length === 0 ||
+    !Number.isFinite(latitude) ||
+    latitude < -90 ||
+    latitude > 90
+  ) {
+    return {
+      error: invalidInputResponse("lat must be a number between -90 and 90"),
+    };
+  }
+
+  if (
+    rawLongitude?.trim().length === 0 ||
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return {
+      error: invalidInputResponse("lng must be a number between -180 and 180"),
+    };
+  }
+
+  if (
+    rawRadiusInFeet?.trim().length === 0 ||
+    !Number.isFinite(radiusInFeet) ||
+    radiusInFeet < 0 ||
+    radiusInFeet > MAX_BUFFER_IN_FEET
+  ) {
+    return {
+      error: invalidInputResponse(
+        `radiusInFeet must be a number between 0 and ${MAX_BUFFER_IN_FEET}`,
+      ),
+    };
+  }
+
+  return { value: { latitude, longitude, radiusInFeet } };
 };
