@@ -38,12 +38,12 @@ Priority meanings:
   - [x] Validate dates, buffer distances, street names, and cross-street pairs.
 - [x] Add consistent API error responses and status codes for invalid inputs and
       database failures.
-- [ ] Confirm and document analytical assumptions with the maintainer.
-  - [ ] DOTI/CDOT match requires the normalized time and a distance within 200
+- [x] Confirm and document analytical assumptions with the maintainer.
+  - [x] DOTI/CDOT match requires the normalized time and a distance within 200
         meters.
-  - [ ] DOTI is the base result set; CDOT-only records are omitted.
-  - [ ] KABCO fallbacks for DOTI records.
-  - [ ] Comprehensive cost source and update policy.
+  - [x] DOTI is the base result set; CDOT-only records are omitted.
+  - [x] KABCO fallbacks for DOTI records.
+  - [x] Comprehensive cost source and update policy.
 
 ## P1: Export Current Results to CSV
 
@@ -129,6 +129,12 @@ Official references:
 - [ ] Extract the repeated DOTI/CDOT crash projection into a shared, reviewed SQL
       or query-building boundary.
 - [ ] Centralize DOTI/CDOT matching and GeoJSON construction.
+- [ ] Add a separately reviewed probable-match stage for records left unmatched
+      by exact DOTI/CDOT matching.
+  - [ ] Start with a five-minute and 50-meter candidate boundary.
+  - [ ] Require a unique mutual-nearest one-to-one pairing.
+  - [ ] Preserve time difference, distance, and match method as confidence data.
+  - [ ] Validate a sample before probable matches affect map results.
 - [ ] Keep search-specific geometry selection separate from shared crash fields.
 - [ ] Add database-mocked route tests before consolidating existing queries.
 - [ ] Add request schemas or shared validators for API inputs.
@@ -147,6 +153,8 @@ keep query-result parity visible in each pull request.
 - [ ] Document how `vision_zero.incidents_denver` is created and refreshed.
 - [ ] Document how `public.denver_street_centerlines` is created and refreshed.
 - [ ] Replace the hard-coded CDOT source filename with an explicit import argument.
+- [ ] Make the CDOT import maintain `vz_date` and recalculate
+      `suspected_duplicate` deterministically.
 - [ ] Add safe migration tracking rather than relying on manually ordered SQL
       files.
 - [ ] Align the Dockerfile Node version with the Node 24 application requirement.

@@ -111,10 +111,33 @@ same expression. Map API enrichment excludes suspected CDOT duplicates. When
 both geometries exist, API responses generally prefer the CDOT point with
 `COALESCE(cdot.geo, doti.geo)`.
 
-The 200-meter tolerance is an analytical assumption, not a guaranteed identity
-match. There is no time tolerance or nearest-match rule, so more than one CDOT
-row can be eligible for a DOTI incident. Changes to these rules require data
-review and regression evidence.
+`suspected_duplicate` is a local heuristic rather than a CDOT designation. The
+checked-in migration groups CDOT rows with the same crash date, crash time,
+system code, city, first-unit age, and first-unit sex. It retains the most
+recently updated row (then the greatest CUID) and flags the rest. The current
+import does not recalculate these flags.
+
+The maintainer confirmed the current authoritative matching policy on
+2026-08-26: exact normalized timestamp equality, within 200 meters, excluding
+suspected duplicates, with DOTI as the base population. The distance rule is a
+heuristic, not a guaranteed identity match. There is no active time tolerance
+or nearest-match rule, so more than one CDOT row can still be eligible for a
+DOTI incident.
+
+A read-only 2023–2024 comparison found all live source timestamps aligned to
+whole minutes. The exact rule matched 23,236 DOTI incidents. A five-minute
+window added 117 matches while doubling ambiguous matches from 0.28% to 0.56%;
+a 60-minute window added 604 while raising ambiguity to 1.95%, and 129 of those
+new candidates used a CDOT row already exact-matched elsewhere. Based on this
+evidence, hour rounding and automatic fuzzy matching are not part of the
+authoritative rule.
+
+A future, separately reviewed probable-match stage may consider only records
+left unmatched by the exact rule. Its initial contract is within five minutes
+and 50 meters, excluding suspected duplicates, with a unique mutual-nearest
+one-to-one pairing. It must retain time difference, distance, and match method
+as confidence metadata and undergo sample validation before affecting map
+results.
 
 `data/cdot/schema/4_add_vz_date.sql` backfills `vz_date`, but the current CDOT
 upsert does not maintain that derived value. Import operations must refresh it
@@ -197,8 +220,7 @@ crash.
 
 ### Current KABCO and comprehensive-cost behavior
 
-These rules describe the tested implementation. They remain analytical policy
-choices pending maintainer confirmation:
+The maintainer confirmed these tested analytical rules on 2026-08-26:
 
 - for a CDOT-enriched incident, the report uses CDOT injury fields `04` through
   `00` for K through O and does not fall back to DOTI when those fields are empty;
@@ -219,12 +241,10 @@ They are analytical estimates, not legal damages estimates. The application
 does not apply a Colorado per-capita-income adjustment or an independent
 inflation adjustment.
 
-The proposed update policy is to review the table annually and when FHWA
-publishes a replacement, without independently applying CPI. A cost update
-should change the publication identifier and URL, dollar year, constants,
-tests, UI explanation, and this documentation together. This cadence and the
-choice of national rather than Colorado-adjusted values require maintainer
-approval before the analytical-assumption TODO can be closed.
+The confirmed update policy is to review the table annually and when FHWA
+publishes a replacement, without independently applying CPI. A cost update must
+change the publication identifier and URL, dollar year, constants, tests, UI
+explanation, and this documentation together.
 
 ## Deployment
 
