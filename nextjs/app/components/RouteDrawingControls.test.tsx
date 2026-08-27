@@ -45,6 +45,11 @@ describe("RouteDrawingControls", () => {
     expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
     expect(screen.queryByText(/click or tap the map/i)).toBeNull();
+    expect(
+      Array.from(
+        screen.getByRole("group", { name: /Route drawing controls/ }).children,
+      ).map((element) => element.textContent),
+    ).toEqual(["Click on map to plot route", "Undo", "Clear", "Apply"]);
 
     rerender(
       <MantineProvider>

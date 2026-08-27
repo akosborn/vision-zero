@@ -246,9 +246,9 @@ that reducer. While drawing, map clicks do not trigger radius searches and
 double-click zoom is disabled to avoid a gesture conflict. Normal pan and zoom
 remain available. The top filter panel starts a new drawing, changes that action
 to Cancel while editing, and changes it to Clear Route after Apply. Undo, Clear,
-and Apply occupy the top panel's drawing-control row while vertices are being
-placed. The same public route-mode flags and enabled-tools list drive both
-desktop and mobile controls.
+and Apply follow the "Click on map to plot route" prompt in the top panel's
+drawing-control row while vertices are being placed. The same public route-mode
+flags and enabled-tools list drive both desktop and mobile controls.
 
 Apply converts two or more distinct vertices into one GeoJSON `LineString`
 inside a `FeatureCollection`. Drawn routes and browser-parsed GPX/KML uploads

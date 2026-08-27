@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button, Flex } from "@mantine/core";
+import { Button, Flex, Text } from "@mantine/core";
 
 type Props = {
   vertexCount: number;
@@ -29,6 +29,7 @@ const RouteDrawingControls: React.FC<Props> = ({
       vertexCount === 1 ? "vertex" : "vertices"
     }`}
   >
+    <Text size="sm">Click on map to plot route</Text>
     <Button
       variant="default"
       size="xs"

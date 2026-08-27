@@ -203,6 +203,9 @@ describe("FilterPanel route modes", () => {
       expect(screen.queryByRole("button", { name: "Clear Route" })).toBeNull();
       expect(screen.queryByText(/start drawing, then/i)).toBeNull();
       expect(screen.queryByText(/click or tap the map/i)).toBeNull();
+      expect(
+        screen.getByText("Click on map to plot route"),
+      ).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Undo" }));
       await user.click(screen.getByRole("button", { name: "Clear" }));
       await user.click(screen.getByRole("button", { name: "Apply" }));
