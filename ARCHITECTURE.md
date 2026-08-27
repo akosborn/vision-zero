@@ -74,6 +74,13 @@ The public source is Denver's Traffic Accidents dataset:
 The database setup and refresh process for this table is not fully represented
 in this repository.
 
+Crash rows link back to the same official ArcGIS layer. The API already emits
+Denver's `object_id` as the GeoJSON feature ID, so the UI and CSV use that ID
+for an exact, human-readable FeatureServer record page. If the object ID is
+missing, they fall back to an official ArcGIS query for `incident_id`. That
+fallback may return more than one row because `incident_id` is not globally
+unique in the live source. Google Maps remains a separate location action.
+
 ### Colorado CDOT crashes
 
 `vision_zero.cdot_crashes` contains state crash fields. `data/cdot/upsert.ts`
@@ -181,16 +188,16 @@ summary file because radius and uploaded-route searches do not have the same
 history data as street searches.
 
 The public export excludes age, sex, other demographics, free-text data notes,
-and per-record source/request links. The current age and sex properties are
-ambiguous because the API projects motorist and non-motorist values onto the
-same names. The Google Maps value is a generated location link rather than an
-authoritative crash record. Source links can be added after the application has
-a verified authoritative per-record link model.
+the Google Maps location URL, and CDOT report-request guidance. The current age
+and sex properties are ambiguous because the API projects motorist and
+non-motorist values onto the same names. The Google Maps value is a generated
+location link rather than an authoritative crash record.
 
-The maintainer confirmed this version 1 contract on 2026-08-26. After the
-authoritative DOTI record-link phase is complete, the CSV contract should add
-that verified DOTI link as a new column. It must remain distinct from the
-Google Maps location link.
+The maintainer confirmed the original 27-column version 1 contract on
+2026-08-26. The verified authoritative-source phase appends one column,
+`doti_source_record_url`, without changing the order of the original columns.
+It uses the same resolver as the crash-row UI and remains distinct from both the
+Google Maps location link and Colorado DMV report-request guidance.
 
 Columns have this fixed order:
 
@@ -221,6 +228,7 @@ Columns have this fixed order:
 25. `unit_2_speed_limit_mph`
 26. `unit_2_estimated_speed_mph`
 27. `unit_2_recorded_speed_mph`
+28. `doti_source_record_url`
 
 Severity, fatality, serious-injury, bicyclist, and pedestrian values use the
 same DOTI/CDOT precedence and fallback rules as the Location Report so the CSV
