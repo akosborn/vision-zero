@@ -22,9 +22,8 @@ import {
   useRouter,
   useSearchParams,
 } from "next/dist/client/components/navigation";
-import { gpx, kml } from "@tmcw/togeojson";
-import { Filters, SearchTool } from "@/app/page";
-import _ from "lodash";
+import type { Filters, SearchTool } from "@/app/page";
+import { parseRouteFile } from "@/app/lib/route-file";
 
 type Props = {
   filters: Filters;
@@ -42,15 +41,27 @@ type Props = {
   onApplyUploadRoute: (
     uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
   ) => Promise<void>;
+  onSearchToolChange: (searchTool: SearchTool) => void;
   isLoading: boolean;
   streets: Street[];
 };
 
-const ENABLED_SEARCH_TOOLS: SearchTool[] = _.compact([
+const uploadRouteIsEnabled =
+  process.env.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED === "true" ||
+  (process.env.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED === undefined &&
+    process.env.UPLOAD_ROUTE_ENABLED === "true");
+const drawRouteIsEnabled =
+  process.env.NEXT_PUBLIC_DRAW_ROUTE_ENABLED !== "false";
+
+export const ENABLED_SEARCH_TOOLS: SearchTool[] = [
   "Street Search",
   "Radius Search",
-  process.env.UPLOAD_ROUTE_ENABLED === "true" ? "Upload Route" : undefined,
-]);
+  ...(uploadRouteIsEnabled ? (["Upload Route"] as const) : []),
+  ...(drawRouteIsEnabled ? (["Draw Route"] as const) : []),
+];
+
+export const isEnabledSearchTool = (value: string): value is SearchTool =>
+  ENABLED_SEARCH_TOOLS.includes(value as SearchTool);
 
 const FilterPanel: React.FC<Props> = ({
   closeMobileFilters,
@@ -60,6 +71,7 @@ const FilterPanel: React.FC<Props> = ({
   onApplyStreetSearch,
   onApplyRadiusSearch,
   onApplyUploadRoute,
+  onSearchToolChange,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
   streets,
@@ -97,11 +109,20 @@ const FilterPanel: React.FC<Props> = ({
       return;
     }
 
-    const text = await file.text();
-    const dom = new DOMParser().parseFromString(text, "text/xml");
-
-    setUploadRoute(file.name.endsWith(".kml") ? kml(dom) : gpx(dom));
+    setUploadRoute(await parseRouteFile(file));
   };
+
+  const handleSearchToolChange = (value: string) => {
+    const searchTool = value as SearchTool;
+    onSearchToolChange(searchTool);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tool", searchTool);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  const distanceLabel =
+    filters.searchTool === "Radius Search" ? "Radius" : "Buffer";
 
   // Must have zero cross streets selected or both cross-streets selected
   const isFormValid =
@@ -125,13 +146,8 @@ const FilterPanel: React.FC<Props> = ({
             <SegmentedControl
               disabled={isLoading}
               value={filters.searchTool}
-              onChange={(value) =>
-                setFilters((prevState) => ({
-                  ...prevState,
-                  searchTool: value as SearchTool,
-                }))
-              }
-              data={["Street Search", "Radius Search", "Upload Route"]}
+              onChange={handleSearchToolChange}
+              data={ENABLED_SEARCH_TOOLS}
               fullWidth
               size="sm"
               radius="md"
@@ -150,6 +166,20 @@ const FilterPanel: React.FC<Props> = ({
               >
                 To get started, click anywhere on the map to inspect a circular
                 area.
+              </Alert>
+            </Grid.Col>
+          )}
+
+          {filters.searchTool === "Draw Route" && (
+            <Grid.Col span={{ base: 12 }}>
+              <Alert
+                variant="light"
+                icon={<IconInfoCircle />}
+                color="cyan"
+                p="xs"
+                my="0"
+              >
+                Start drawing, then tap the map to add route vertices.
               </Alert>
             </Grid.Col>
           )}
@@ -185,8 +215,8 @@ const FilterPanel: React.FC<Props> = ({
           <Grid.Col span={{ base: 4 }}>
             <NumberInput
               disabled={isLoading}
-              label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-              placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+              label={`${distanceLabel} (ft)`}
+              placeholder={`${distanceLabel} in feet`}
               value={filters.bufferRadiusInFeet}
               onChange={(value) => {
                 setFilters((prevState) => ({
@@ -318,22 +348,24 @@ const FilterPanel: React.FC<Props> = ({
           <Button variant="default" onClick={closeMobileFilters} mt="sm">
             Close
           </Button>
-          <Button
-            disabled={isLoading || !isFormValid}
-            variant="filled"
-            onClick={() => {
-              if (filters.searchTool === "Street Search") {
-                onApplyStreetSearch();
-              } else if (filters.searchTool === "Radius Search") {
-                onApplyRadiusSearch();
-              } else if (uploadedRoute) {
-                onApplyUploadRoute(uploadedRoute);
-              }
-            }}
-            mt="sm"
-          >
-            Apply
-          </Button>
+          {filters.searchTool !== "Draw Route" && (
+            <Button
+              disabled={isLoading || !isFormValid}
+              variant="filled"
+              onClick={() => {
+                if (filters.searchTool === "Street Search") {
+                  onApplyStreetSearch();
+                } else if (filters.searchTool === "Radius Search") {
+                  onApplyRadiusSearch();
+                } else if (uploadedRoute) {
+                  onApplyUploadRoute(uploadedRoute);
+                }
+              }}
+              mt="sm"
+            >
+              Apply
+            </Button>
+          )}
         </Flex>
       </>
     );
@@ -353,20 +385,23 @@ const FilterPanel: React.FC<Props> = ({
         </Alert>
       )}
 
+      {filters.searchTool === "Draw Route" && (
+        <Alert
+          variant="light"
+          icon={<IconInfoCircle />}
+          color="cyan"
+          p="xs"
+          mb="xs"
+        >
+          Start drawing, then click the map to add route vertices.
+        </Alert>
+      )}
+
       <Flex gap="sm" justify="flex-start" align="flex-end" wrap="wrap">
         <SegmentedControl
           disabled={isLoading}
           value={filters.searchTool}
-          onChange={(value) => {
-            setFilters((prevState) => ({
-              ...prevState,
-              searchTool: value as SearchTool,
-            }));
-
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("tool", value?.toString() || "");
-            router.replace(`?${params.toString()}`, { scroll: false });
-          }}
+          onChange={handleSearchToolChange}
           data={ENABLED_SEARCH_TOOLS}
           fullWidth
           size="sm"
@@ -401,8 +436,8 @@ const FilterPanel: React.FC<Props> = ({
 
         <NumberInput
           disabled={isLoading}
-          label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-          placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+          label={`${distanceLabel} (ft)`}
+          placeholder={`${distanceLabel} in feet`}
           value={filters.bufferRadiusInFeet}
           onChange={(value) => {
             setFilters((prevState) => ({
@@ -520,22 +555,24 @@ const FilterPanel: React.FC<Props> = ({
           />
         )}
 
-        <Button
-          variant="filled"
-          onClick={() => {
-            if (filters.searchTool === "Street Search") {
-              onApplyStreetSearch();
-            } else if (filters.searchTool === "Radius Search") {
-              onApplyRadiusSearch();
-            } else if (uploadedRoute) {
-              onApplyUploadRoute(uploadedRoute);
-            }
-          }}
-          mt="sm"
-          disabled={isLoading || !isFormValid}
-        >
-          Apply
-        </Button>
+        {filters.searchTool !== "Draw Route" && (
+          <Button
+            variant="filled"
+            onClick={() => {
+              if (filters.searchTool === "Street Search") {
+                onApplyStreetSearch();
+              } else if (filters.searchTool === "Radius Search") {
+                onApplyRadiusSearch();
+              } else if (uploadedRoute) {
+                onApplyUploadRoute(uploadedRoute);
+              }
+            }}
+            mt="sm"
+            disabled={isLoading || !isFormValid}
+          >
+            Apply
+          </Button>
+        )}
       </Flex>
     </>
   );

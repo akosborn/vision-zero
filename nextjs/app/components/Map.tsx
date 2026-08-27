@@ -89,6 +89,11 @@ type Props = {
   ) => void;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
+  isDrawingRoute: boolean;
+  drawnRoutePreview?: FeatureCollection | null;
+  routeGeometry?: FeatureCollection | null;
+  routeSearchArea?: FeatureCollection | null;
+  onAddDrawnRouteVertex: (coordinate: [number, number]) => void;
 };
 
 export default forwardRef<MapRef | null, Props>(function Map(
@@ -108,6 +113,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
     onRadiusResultsChange,
     streetCenterlines,
     bufferedStreet,
+    isDrawingRoute,
+    drawnRoutePreview,
+    routeGeometry,
+    routeSearchArea,
+    onAddDrawnRouteVertex,
   },
   mapRef,
 ) {
@@ -115,6 +125,13 @@ export default forwardRef<MapRef | null, Props>(function Map(
     React.useState<GeoJSONFeature | null>(null);
 
   const onClick = (event: MapMouseEvent) => {
+    if (isDrawingRoute) {
+      const { lng, lat } = event.lngLat;
+      setSelectedPoint(null);
+      onAddDrawnRouteVertex([lng, lat]);
+      return;
+    }
+
     const feature = event.features && event.features[0];
     if (feature) {
       setSelectedPoint(feature);
@@ -123,6 +140,10 @@ export default forwardRef<MapRef | null, Props>(function Map(
         droppedPin: undefined,
       }));
     } else {
+      if (filters.searchTool === "Draw Route") {
+        return;
+      }
+
       if (isLoading) {
         return;
       }
@@ -181,6 +202,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
         ref={mapRef}
         onMove={(evt) => setViewport(evt.viewState)}
         onClick={onClick}
+        doubleClickZoom={!isDrawingRoute}
         interactiveLayerIds={[
           "incident-layer",
           "area-of-interest-incident-layer",
@@ -239,6 +261,75 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 ],
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
+              }}
+            />
+          </Source>
+        )}
+
+        {routeSearchArea && (
+          <Source
+            id="drawn-route-search-area-source"
+            type="geojson"
+            data={routeSearchArea}
+          >
+            <Layer
+              id="drawn-route-search-area-fill"
+              type="fill"
+              paint={{
+                "fill-color": "#7c3aed",
+                "fill-opacity": 0.14,
+              }}
+            />
+            <Layer
+              id="drawn-route-search-area-outline"
+              type="line"
+              paint={{
+                "line-color": "#6d28d9",
+                "line-width": 2,
+                "line-dasharray": [2, 2],
+              }}
+            />
+          </Source>
+        )}
+
+        {routeGeometry && (
+          <Source id="drawn-route-source" type="geojson" data={routeGeometry}>
+            <Layer
+              id="drawn-route-line"
+              type="line"
+              paint={{
+                "line-color": "#5b21b6",
+                "line-width": 4,
+              }}
+            />
+          </Source>
+        )}
+
+        {drawnRoutePreview && (
+          <Source
+            id="drawn-route-preview-source"
+            type="geojson"
+            data={drawnRoutePreview}
+          >
+            <Layer
+              id="drawn-route-preview-line"
+              type="line"
+              filter={["==", ["geometry-type"], "LineString"]}
+              paint={{
+                "line-color": "#f59e0b",
+                "line-width": 3,
+                "line-dasharray": [2, 1],
+              }}
+            />
+            <Layer
+              id="drawn-route-preview-vertices"
+              type="circle"
+              filter={["==", ["geometry-type"], "Point"]}
+              paint={{
+                "circle-color": "#f59e0b",
+                "circle-radius": 5,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 2,
               }}
             />
           </Source>

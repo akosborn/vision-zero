@@ -12,7 +12,8 @@ import {
   Point,
 } from "geojson";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import FilterPanel from "@/app/components/FilterPanel";
+import FilterPanel, { isEnabledSearchTool } from "@/app/components/FilterPanel";
+import RouteDrawingControls from "@/app/components/RouteDrawingControls";
 import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport, {
   ExportCsvButton,
@@ -32,8 +33,19 @@ import {
 import { Street } from "@/app/api/streets/route";
 import { useSearchParams } from "next/dist/client/components/navigation";
 import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
+import {
+  createFinalRoute,
+  createRoutePreview,
+  INITIAL_ROUTE_DRAWING_STATE,
+  routeDrawingReducer,
+} from "@/app/lib/route-drawing";
+import { prepareRouteSearch } from "@/app/lib/route-search";
 
-export type SearchTool = "Radius Search" | "Street Search" | "Upload Route";
+export type SearchTool =
+  | "Radius Search"
+  | "Street Search"
+  | "Upload Route"
+  | "Draw Route";
 
 export type Filters = {
   searchTool: SearchTool;
@@ -104,6 +116,34 @@ function HomeContent() {
     React.useState<FeatureCollection | null>(null);
   const [bufferedStreet, setBufferedStreet] =
     React.useState<FeatureCollection | null>(null);
+  const [routeGeometry, setRouteGeometry] =
+    React.useState<FeatureCollection | null>(null);
+  const [routeSearchArea, setRouteSearchArea] =
+    React.useState<FeatureCollection | null>(null);
+  const [routeDrawingState, dispatchRouteDrawing] = React.useReducer(
+    routeDrawingReducer,
+    INITIAL_ROUTE_DRAWING_STATE,
+  );
+
+  const drawnRoutePreview = React.useMemo(
+    () =>
+      routeDrawingState.status === "drawing"
+        ? createRoutePreview(routeDrawingState)
+        : null,
+    [routeDrawingState],
+  );
+  const finalDrawnRoute = React.useMemo(
+    () => createFinalRoute(routeDrawingState),
+    [routeDrawingState],
+  );
+
+  const clearSearchGeometryAndResults = React.useCallback(() => {
+    clearCrashResults();
+    setStreetCenterlines(null);
+    setBufferedStreet(null);
+    setRouteGeometry(null);
+    setRouteSearchArea(null);
+  }, [clearCrashResults]);
 
   const [
     mobileFiltersAreOpen,
@@ -113,6 +153,26 @@ function HomeContent() {
     locationReportIsOpen,
     { open: openLocationReport, close: closeLocationReport },
   ] = useDisclosure(true);
+
+  const handleSearchToolChange = React.useCallback(
+    (searchTool: SearchTool) => {
+      clearSearchGeometryAndResults();
+      dispatchRouteDrawing({ type: "cancel" });
+      setFilters((previousFilters) => ({
+        ...previousFilters,
+        searchTool,
+        droppedPin: undefined,
+      }));
+    },
+    [clearSearchGeometryAndResults],
+  );
+
+  const startRouteDrawing = React.useCallback(() => {
+    clearSearchGeometryAndResults();
+    dispatchRouteDrawing({ type: "start" });
+    closeMobileFilters();
+    closeLocationReport();
+  }, [clearSearchGeometryAndResults, closeLocationReport, closeMobileFilters]);
 
   const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
@@ -201,10 +261,10 @@ function HomeContent() {
       const crossStreet1 = searchParams.get("crossStreet1");
       const crossStreet2 = searchParams.get("crossStreet2");
 
-      if (searchTool) {
-        setFilters(() => ({
-          ...filters,
-          searchTool: searchTool as SearchTool,
+      if (searchTool && isEnabledSearchTool(searchTool)) {
+        setFilters((prevState) => ({
+          ...prevState,
+          searchTool,
         }));
       }
 
@@ -283,55 +343,64 @@ function HomeContent() {
     setIsLoading(false);
   };
 
-  const getDataForUploadedRoute = async (
+  const getDataForRoute = async (
     radius: number,
-    uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
+    candidateRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
     range: { from?: string; to?: string } | undefined,
+    searchTool: "Upload Route" | "Draw Route",
   ) => {
+    const preparedSearch = prepareRouteSearch(candidateRoute, radius, range);
+    if (!preparedSearch) {
+      return;
+    }
+
     setIsLoading(true);
-    clearCrashResults();
+    clearSearchGeometryAndResults();
     closeMobileFilters();
     openLocationReport();
 
-    // Features without a geometry can't be buffered or drawn
-    const route: FeatureCollection = {
-      type: "FeatureCollection",
-      features: uploadedRoute.features.filter(
-        (feature): feature is Feature<Geometry, GeoJsonProperties> =>
-          !!feature.geometry,
-      ),
-    };
+    try {
+      const incidentsInBuffer = await getIncidentsWithinBufferedRoute(
+        preparedSearch.request,
+      );
 
-    if (radius >= 0 && route.features.length > 0) {
-      const incidentsInBuffer = await getIncidentsWithinBufferedRoute({
-        route,
-        bufferInFeet: radius,
-        startDate: range?.from,
-        endDate: range?.to,
-      });
-
-      setStreetCenterlines(route);
-      // The uploaded route has no street segment to buffer or summarize by year
-      setBufferedStreet(null);
+      setRouteGeometry(preparedSearch.route);
+      setRouteSearchArea(preparedSearch.searchArea);
       setCrashSummaryHistory(null);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setActiveCrashResults({
-        searchTool: "Upload Route",
+        searchTool,
         features: incidentsInBuffer.features,
       });
 
-      zoomToLayer(route);
+      zoomToLayer(preparedSearch.route);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  const applyDrawnRoute = async () => {
+    if (!finalDrawnRoute) {
+      return;
+    }
+
+    await getDataForRoute(
+      filters.bufferRadiusInFeet,
+      finalDrawnRoute,
+      filters.dateRange,
+      "Draw Route",
+    );
+    dispatchRouteDrawing({ type: "cancel" });
   };
 
   const previousSearchTool = React.useRef(filters.searchTool);
   React.useEffect(() => {
     if (previousSearchTool.current !== filters.searchTool) {
-      clearCrashResults();
+      clearSearchGeometryAndResults();
+      dispatchRouteDrawing({ type: "cancel" });
       previousSearchTool.current = filters.searchTool;
     }
-  }, [clearCrashResults, filters.searchTool]);
+  }, [clearSearchGeometryAndResults, filters.searchTool]);
 
   React.useEffect(() => {
     if (!incidentGeoJson && !areaOfInterestIncidentGeoJson) {
@@ -388,6 +457,13 @@ function HomeContent() {
             bufferedStreet={bufferedStreet}
             setBufferedStreet={setBufferedStreet}
             onRadiusResultsChange={handleMapRadiusResultsChange}
+            isDrawingRoute={routeDrawingState.status === "drawing"}
+            drawnRoutePreview={drawnRoutePreview}
+            routeGeometry={routeGeometry}
+            routeSearchArea={routeSearchArea}
+            onAddDrawnRouteVertex={(coordinate) =>
+              dispatchRouteDrawing({ type: "add-vertex", coordinate })
+            }
           />
         </div>
 
@@ -436,6 +512,7 @@ function HomeContent() {
                   incidentGeoJson={incidentGeoJson}
                   filters={filters}
                   setFilters={setFilters}
+                  onSearchToolChange={handleSearchToolChange}
                   setIncidentGeoJson={setIncidentGeoJson}
                   onApplyStreetSearch={() =>
                     fetchCrashDataWithArgs(
@@ -454,10 +531,11 @@ function HomeContent() {
                   onApplyUploadRoute={(
                     uploadedRoute: FeatureCollection<Geometry | null>,
                   ) =>
-                    getDataForUploadedRoute(
+                    getDataForRoute(
                       filters.bufferRadiusInFeet,
                       uploadedRoute,
                       filters.dateRange,
+                      "Upload Route",
                     )
                   }
                   isLoading={isLoading || isLoadingStreets}
@@ -475,6 +553,7 @@ function HomeContent() {
                 incidentGeoJson={incidentGeoJson}
                 filters={filters}
                 setFilters={setFilters}
+                onSearchToolChange={handleSearchToolChange}
                 setIncidentGeoJson={setIncidentGeoJson}
                 onApplyStreetSearch={() =>
                   fetchCrashDataWithArgs(
@@ -493,10 +572,11 @@ function HomeContent() {
                 onApplyUploadRoute={(
                   uploadedRoute: FeatureCollection<Geometry | null>,
                 ) =>
-                  getDataForUploadedRoute(
+                  getDataForRoute(
                     filters.bufferRadiusInFeet,
                     uploadedRoute,
                     filters.dateRange,
+                    "Upload Route",
                   )
                 }
                 isLoading={isLoading || isLoadingStreets}
@@ -505,6 +585,35 @@ function HomeContent() {
             )}
           </Paper>
         </div>
+
+        {filters.searchTool === "Draw Route" &&
+          (!isMobile || !mobileFiltersAreOpen) && (
+            <div
+              style={{
+                position: "absolute",
+                top: isMobile ? "4rem" : undefined,
+                bottom: isMobile ? undefined : "1rem",
+                right: isMobile ? "0.5rem" : "1rem",
+                zIndex: 11,
+              }}
+            >
+              <RouteDrawingControls
+                isDrawing={routeDrawingState.status === "drawing"}
+                vertexCount={routeDrawingState.coordinates.length}
+                canApply={finalDrawnRoute !== null}
+                isLoading={isLoading}
+                onStart={startRouteDrawing}
+                onUndo={() => dispatchRouteDrawing({ type: "undo" })}
+                onClear={() => dispatchRouteDrawing({ type: "clear" })}
+                onCancel={() => {
+                  dispatchRouteDrawing({ type: "cancel" });
+                  setRouteGeometry(null);
+                  setRouteSearchArea(null);
+                }}
+                onApply={() => void applyDrawnRoute()}
+              />
+            </div>
+          )}
 
         {/* Location Report Overlay */}
         <div
@@ -551,6 +660,7 @@ function HomeContent() {
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
+                        historyAvailable={reportSearchTool === "Street Search"}
                       />
                     </Drawer.Body>
                   </Drawer.Content>
@@ -587,6 +697,7 @@ function HomeContent() {
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
+                  historyAvailable={reportSearchTool === "Street Search"}
                 />
               </>
             )}

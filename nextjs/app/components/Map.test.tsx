@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import { FeatureCollection } from "geojson";
 import { GeoJSONFeature } from "mapbox-gl";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +12,15 @@ import Map, { DEFAULT_VIEWPORT } from "./Map";
 const mapHarness = vi.hoisted(() => ({
   interactiveLayerIds: [] as string[],
   onClick: undefined as ((event: unknown) => void) | undefined,
+  doubleClickZoom: undefined as boolean | undefined,
+  sourceData: {} as Record<string, unknown>,
+  layers: {} as Record<string, unknown>,
+}));
+
+const getIncidentsMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/app/lib/api-client", () => ({
+  getIncidents: getIncidentsMock,
 }));
 
 vi.mock("react-map-gl/mapbox-legacy", async () => {
@@ -19,10 +29,12 @@ vi.mock("react-map-gl/mapbox-legacy", async () => {
     (
       {
         children,
+        doubleClickZoom,
         interactiveLayerIds,
         onClick,
       }: {
         children: React.ReactNode;
+        doubleClickZoom: boolean;
         interactiveLayerIds: string[];
         onClick: (event: unknown) => void;
       },
@@ -30,18 +42,34 @@ vi.mock("react-map-gl/mapbox-legacy", async () => {
     ) => {
       mapHarness.interactiveLayerIds = interactiveLayerIds;
       mapHarness.onClick = onClick;
+      mapHarness.doubleClickZoom = doubleClickZoom;
       return React.createElement("div", { "data-testid": "map" }, children);
     },
   );
   MockMap.displayName = "MockMap";
 
   return {
-    Layer: () => null,
+    Layer: ({ id, ...props }: { id: string }) => {
+      mapHarness.layers[id] = props;
+      return null;
+    },
     Map: MockMap,
     Popup: ({ children }: { children: React.ReactNode }) =>
       React.createElement("div", { "data-testid": "popup" }, children),
-    Source: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
+    Source: ({
+      children,
+      data,
+      id,
+    }: {
+      children: React.ReactNode;
+      data: unknown;
+      id?: string;
+    }) => {
+      if (id) {
+        mapHarness.sourceData[id] = data;
+      }
+      return React.createElement(React.Fragment, null, children);
+    },
   };
 });
 
@@ -63,27 +91,34 @@ const feature = (
     },
   }) as unknown as GeoJSONFeature;
 
-const renderMap = () => {
+const renderMap = (
+  overrides: Partial<React.ComponentProps<typeof Map>> = {},
+) => {
   const filters: Filters = {
     searchTool: "Radius Search",
     bufferRadiusInFeet: 20,
   };
 
-  return render(
-    <Map
-      filters={filters}
-      setFilters={vi.fn()}
-      setIncidentGeoJson={vi.fn()}
-      setAreaOfInterestIncidentGeoJson={vi.fn()}
-      viewport={DEFAULT_VIEWPORT}
-      setViewport={vi.fn()}
-      isLoading={false}
-      setIsLoading={vi.fn()}
-      setStreetCenterlines={vi.fn()}
-      setBufferedStreet={vi.fn()}
-      onRadiusResultsChange={vi.fn()}
-    />,
-  );
+  const props: React.ComponentProps<typeof Map> = {
+    filters,
+    setFilters: vi.fn(),
+    setIncidentGeoJson: vi.fn(),
+    setAreaOfInterestIncidentGeoJson: vi.fn(),
+    viewport: DEFAULT_VIEWPORT,
+    setViewport: vi.fn(),
+    isLoading: false,
+    setIsLoading: vi.fn(),
+    setStreetCenterlines: vi.fn(),
+    setBufferedStreet: vi.fn(),
+    onRadiusResultsChange: vi.fn(),
+    isDrawingRoute: false,
+    onAddDrawnRouteVertex: vi.fn(),
+    ...overrides,
+  };
+
+  const rendered = render(<Map {...props} />);
+
+  return { ...rendered, props };
 };
 
 const selectFeature = (selectedFeature: GeoJSONFeature) => {
@@ -96,6 +131,10 @@ describe("Map crash popup source action", () => {
   beforeEach(() => {
     mapHarness.interactiveLayerIds = [];
     mapHarness.onClick = undefined;
+    mapHarness.doubleClickZoom = undefined;
+    mapHarness.sourceData = {};
+    mapHarness.layers = {};
+    getIncidentsMock.mockReset();
   });
 
   it("links an exact DOTI object ID and makes both crash layers interactive", () => {
@@ -158,6 +197,167 @@ describe("Map crash popup source action", () => {
       expect(
         screen.queryByRole("link", { name: /View DOTI source record/ }),
       ).not.toBeInTheDocument();
+    },
+  );
+});
+
+describe("Map drawn route interaction", () => {
+  beforeEach(() => {
+    mapHarness.interactiveLayerIds = [];
+    mapHarness.onClick = undefined;
+    mapHarness.doubleClickZoom = undefined;
+    mapHarness.sourceData = {};
+    mapHarness.layers = {};
+    getIncidentsMock.mockReset();
+  });
+
+  it.each([
+    { target: "blank map", features: [] },
+    { target: "crash feature", features: [feature({}, 304214148)] },
+  ])(
+    "adds a vertex over the $target without starting a radius search",
+    ({ features }) => {
+      const { props } = renderMap({ isDrawingRoute: true });
+
+      act(() => {
+        mapHarness.onClick?.({
+          features,
+          lngLat: { lng: -104.99, lat: 39.74 },
+        });
+      });
+
+      expect(props.onAddDrawnRouteVertex).toHaveBeenCalledWith([
+        -104.99, 39.74,
+      ]);
+      expect(screen.queryByTestId("popup")).not.toBeInTheDocument();
+      expect(getIncidentsMock).not.toHaveBeenCalled();
+      expect(props.setFilters).not.toHaveBeenCalled();
+      expect(props.setIsLoading).not.toHaveBeenCalled();
+      expect(props.onRadiusResultsChange).not.toHaveBeenCalled();
+      expect(props.setIncidentGeoJson).not.toHaveBeenCalled();
+      expect(props.setAreaOfInterestIncidentGeoJson).not.toHaveBeenCalled();
+      expect(props.setStreetCenterlines).not.toHaveBeenCalled();
+      expect(props.setBufferedStreet).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does nothing on a blank click in idle Draw Route mode", () => {
+    const { props } = renderMap({
+      filters: {
+        searchTool: "Draw Route" as Filters["searchTool"],
+        bufferRadiusInFeet: 20,
+      },
+    });
+
+    act(() => {
+      mapHarness.onClick?.({
+        features: [],
+        lngLat: { lng: -104.99, lat: 39.74 },
+      });
+    });
+
+    expect(props.onAddDrawnRouteVertex).not.toHaveBeenCalled();
+    expect(getIncidentsMock).not.toHaveBeenCalled();
+    expect(props.setFilters).not.toHaveBeenCalled();
+    expect(props.setIsLoading).not.toHaveBeenCalled();
+    expect(props.onRadiusResultsChange).not.toHaveBeenCalled();
+    expect(props.setIncidentGeoJson).not.toHaveBeenCalled();
+    expect(props.setAreaOfInterestIncidentGeoJson).not.toHaveBeenCalled();
+    expect(props.setStreetCenterlines).not.toHaveBeenCalled();
+    expect(props.setBufferedStreet).not.toHaveBeenCalled();
+  });
+
+  it("still opens a crash popup in idle Draw Route mode", () => {
+    renderMap({
+      filters: {
+        searchTool: "Draw Route" as Filters["searchTool"],
+        bufferRadiusInFeet: 20,
+      },
+    });
+
+    selectFeature(feature({}, 304214148));
+
+    expect(screen.getByTestId("popup")).toBeInTheDocument();
+    expect(getIncidentsMock).not.toHaveBeenCalled();
+  });
+
+  it("renders preview, applied route, and search-area data with stable IDs", () => {
+    const drawnRoutePreview = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "Point", coordinates: [-104.99, 39.74] },
+        },
+      ],
+    } as FeatureCollection;
+    const routeGeometry = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [-104.99, 39.74],
+              [-104.98, 39.75],
+            ],
+          },
+        },
+      ],
+    } as FeatureCollection;
+    const routeSearchArea = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-105, 39.73],
+                [-104.97, 39.73],
+                [-104.97, 39.76],
+                [-105, 39.73],
+              ],
+            ],
+          },
+        },
+      ],
+    } as FeatureCollection;
+
+    renderMap({ drawnRoutePreview, routeGeometry, routeSearchArea });
+
+    expect(mapHarness.sourceData["drawn-route-preview-source"]).toBe(
+      drawnRoutePreview,
+    );
+    expect(mapHarness.sourceData["drawn-route-source"]).toBe(routeGeometry);
+    expect(mapHarness.sourceData["drawn-route-search-area-source"]).toBe(
+      routeSearchArea,
+    );
+    expect(Object.keys(mapHarness.layers)).toEqual(
+      expect.arrayContaining([
+        "drawn-route-preview-line",
+        "drawn-route-preview-vertices",
+        "drawn-route-line",
+        "drawn-route-search-area-fill",
+        "drawn-route-search-area-outline",
+      ]),
+    );
+  });
+
+  it.each([
+    { isDrawingRoute: true, expected: false },
+    { isDrawingRoute: false, expected: true },
+  ])(
+    "sets double-click zoom to $expected when drawing is $isDrawingRoute",
+    ({ isDrawingRoute, expected }) => {
+      renderMap({ isDrawingRoute });
+
+      expect(mapHarness.doubleClickZoom).toBe(expected);
     },
   );
 });
