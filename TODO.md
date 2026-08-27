@@ -112,27 +112,27 @@ Official references:
   - [x] Record whether the MVP is a user-drawn corridor buffered by the selected
         number of feet.
   - [x] Record exact Denver street-centerline snapping as included or deferred.
-- [ ] Add `Draw Route` as a search mode for desktop and mobile.
-- [ ] Implement drawing state separately from radius-search state.
-  - [ ] Start drawing explicitly.
-  - [ ] Add vertices by click or tap.
-  - [ ] Preview the line as it is drawn.
-  - [ ] Provide Undo, Clear, Cancel, and Apply.
-  - [ ] Prevent map clicks from launching radius searches while drawing.
-  - [ ] Preserve normal pan and zoom behavior where practical.
-- [ ] Convert the drawn line to a GeoJSON `FeatureCollection`.
-- [ ] Reuse `POST /api/incidents/buffered-route` rather than creating duplicate
+- [x] Add `Draw Route` as a search mode for desktop and mobile.
+- [x] Implement drawing state separately from radius-search state.
+  - [x] Start drawing explicitly.
+  - [x] Add vertices by click or tap.
+  - [x] Preview the line as it is drawn.
+  - [x] Provide Undo, Clear, Cancel, and Apply.
+  - [x] Prevent map clicks from launching radius searches while drawing.
+  - [x] Preserve normal pan and zoom behavior where practical.
+- [x] Convert the drawn line to a GeoJSON `FeatureCollection`.
+- [x] Reuse `POST /api/incidents/buffered-route` rather than creating duplicate
       PostGIS query logic.
-- [ ] Reuse the existing date-range and buffer-distance controls.
-- [ ] Draw both the selected line and its search area clearly on the map.
-- [ ] Define what the **History** tab shows for drawn and uploaded routes.
-  - [ ] Confirm that current uploaded-route behavior provides no annual history.
-  - [ ] Either add route-history support or hide/disable the unavailable view.
-- [ ] Make route upload and route drawing feature flags consistent across desktop
+- [x] Reuse the existing date-range and buffer-distance controls.
+- [x] Draw both the selected line and its search area clearly on the map.
+- [x] Define what the **History** tab shows for drawn and uploaded routes.
+  - [x] Confirm that current uploaded-route behavior provides no annual history.
+  - [x] Either add route-history support or hide/disable the unavailable view.
+- [x] Make route upload and route drawing feature flags consistent across desktop
       and mobile.
-- [ ] Add tests for route creation, undo, clear, apply, empty geometry, mobile
+- [x] Add tests for route creation, undo, clear, apply, empty geometry, mobile
       interaction, mode switching, and API payload shape.
-- [ ] Verify a drawn route and an equivalent uploaded GPX/KML route return the
+- [x] Verify a drawn route and an equivalent uploaded GPX/KML route return the
       same crash set for the same buffer and dates.
 
 ## P2: Backend Maintainability

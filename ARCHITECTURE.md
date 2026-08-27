@@ -237,20 +237,39 @@ same DOTI/CDOT precedence and fallback rules as the Location Report so the CSV
 reconciles with the visible summary. Draft filter changes do not relabel an old
 result: export metadata belongs to the last successfully applied result set.
 
-### Planned drawn route
+### Drawn route
 
-The first-version drawing tool lets the user place vertices to create an
-arbitrary GeoJSON `LineString`. The selected buffer-distance control, in feet,
-turns that line into the crash-search corridor. The client should wrap the line
-in the same GeoJSON `FeatureCollection` contract as an uploaded route and reuse
-`POST /api/incidents/buffered-route`.
+`page.tsx` keeps route drawing in a dedicated reducer with explicit idle and
+drawing states, separate from radius-search state. Start enters drawing mode;
+map clicks or taps append vertices; and Undo, Clear, Cancel, and Apply operate on
+that reducer. While drawing, map clicks do not trigger radius searches and
+double-click zoom is disabled to avoid a gesture conflict. Normal pan and zoom
+remain available. The same public route-mode flags and enabled-tools list drive
+both desktop and mobile controls.
 
-The MVP preserves the line the user drew. Snapping it to Denver street
-centerlines, correcting it to a routable path, or interpreting it as a named
-street is deferred. Because drawn and uploaded routes share the same initial
-query contract, neither receives annual-history results; the separate History
-work in `TODO.md` will decide whether to add route history or make that view
-unavailable for route searches.
+Apply converts two or more distinct vertices into one GeoJSON `LineString`
+inside a `FeatureCollection`. Drawn routes and browser-parsed GPX/KML uploads
+then use the same route-search preparation and exact request contract:
+`{ route, bufferInFeet, startDate, endDate }` is sent to
+`POST /api/incidents/buffered-route`. The existing date-range and buffer-distance
+controls therefore have identical meaning for both paths.
+
+The browser uses Turf to create the visible buffer polygon so the user can see
+the selected search area. That polygon is display-only: the API independently
+unions and buffers the submitted geometry in PostGIS, and the PostGIS result is
+authoritative for crash inclusion. The map renders the applied line and its
+display buffer as distinct layers. The MVP preserves the user's arbitrary line;
+Denver street-centerline snapping, route correction, and named-street
+interpretation remain deferred.
+
+Annual History is available only for street searches. Radius, drawn-route, and
+uploaded-route reports disable the History tab because those query paths do not
+produce annual-history results. Automated coverage exercises the drawing state,
+controls, map interaction, responsive mode list, empty geometry, and exact API
+payload. Desktop and mobile browser checks cover the complete interaction, and
+a live read-only parity check confirmed that one fixed Denver line produced the
+same nonempty crash set when drawn directly or supplied as equivalent GPX and
+KML geometry with the same dates and buffer.
 
 ## API Surface
 
