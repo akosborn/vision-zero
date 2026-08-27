@@ -28,7 +28,6 @@ import type { SearchTool } from "@/app/page";
 
 type Props = {
   isLoading: boolean;
-  searchTool: SearchTool;
   crashFeatures: Feature<Point, Crash>[];
   droppedPin?: { lng: number; lat: number };
   setViewport: React.Dispatch<
@@ -43,7 +42,6 @@ type View = "Summary" | "Crashes" | "History";
 const LocationReport: React.FC<Props> = ({
   crashSummaryHistory,
   isLoading,
-  searchTool,
   crashFeatures,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
@@ -65,20 +63,6 @@ const LocationReport: React.FC<Props> = ({
         radius="md"
         mb="sm"
       />
-      <Flex justify="flex-end" mb="sm">
-        <Button
-          variant="default"
-          disabled={isLoading || crashFeatures.length === 0}
-          onClick={() =>
-            downloadCrashCsv(crashFeatures, {
-              searchTool,
-              date: getCurrentDenverDate(),
-            })
-          }
-        >
-          Export CSV
-        </Button>
-      </Flex>
       {selectedView === "Summary" && (
         <>
           {!isLoading ? (
@@ -195,6 +179,31 @@ const LocationReport: React.FC<Props> = ({
     </div>
   );
 };
+
+type ExportCsvButtonProps = {
+  crashFeatures: Feature<Point, Crash>[];
+  isLoading: boolean;
+  searchTool: SearchTool;
+};
+
+export const ExportCsvButton: React.FC<ExportCsvButtonProps> = ({
+  crashFeatures,
+  isLoading,
+  searchTool,
+}) => (
+  <Button
+    variant="default"
+    disabled={isLoading || crashFeatures.length === 0}
+    onClick={() =>
+      downloadCrashCsv(crashFeatures, {
+        searchTool,
+        date: getCurrentDenverDate(),
+      })
+    }
+  >
+    Export CSV
+  </Button>
+);
 
 const getCurrentDenverDate = (): Date => {
   const denverDate = DateTime.now().setZone("America/Denver");

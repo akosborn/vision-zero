@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Crash } from "@/app/lib/api-client";
 
-import LocationReport from ".";
+import { ExportCsvButton } from ".";
 import { downloadCrashCsv } from "./utils/crash-csv";
 
 Object.defineProperty(window, "matchMedia", {
@@ -46,7 +46,7 @@ const crashFeature: Feature<Point, Crash> = {
   } as Crash,
 };
 
-const renderReport = ({
+const renderExportButton = ({
   crashFeatures = [crashFeature],
   isLoading = false,
 }: {
@@ -55,13 +55,10 @@ const renderReport = ({
 } = {}) =>
   render(
     <MantineProvider>
-      <LocationReport
-        crashSummaryHistory={null}
+      <ExportCsvButton
         isLoading={isLoading}
         searchTool="Street Search"
         crashFeatures={crashFeatures}
-        setViewport={vi.fn()}
-        zoomToLayer={vi.fn()}
       />
     </MantineProvider>,
   );
@@ -69,7 +66,7 @@ const renderReport = ({
 describe("LocationReport CSV export", () => {
   it("exports the crash features with the active search tool", async () => {
     const user = userEvent.setup();
-    renderReport();
+    renderExportButton();
 
     await user.click(screen.getByRole("button", { name: "Export CSV" }));
 
@@ -83,7 +80,7 @@ describe("LocationReport CSV export", () => {
     ["while loading", { isLoading: true }],
     ["without crashes", { crashFeatures: [] }],
   ])("disables export %s", (_description, props) => {
-    renderReport(props);
+    renderExportButton(props);
 
     expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
   });

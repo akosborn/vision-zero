@@ -14,7 +14,9 @@ import {
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import FilterPanel from "@/app/components/FilterPanel";
 import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
-import LocationReport from "@/app/components/LocationReport";
+import LocationReport, {
+  ExportCsvButton,
+} from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
@@ -350,6 +352,9 @@ function HomeContent() {
     [],
   );
 
+  const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
+  const reportCrashFeatures = activeCrashResults?.features || [];
+
   return (
     <Suspense>
       <main
@@ -529,16 +534,20 @@ function HomeContent() {
                   <Drawer.Content style={{ height: "auto" }}>
                     <Drawer.Header>
                       <Drawer.Title fw={700}>Location Report</Drawer.Title>
-                      <Drawer.CloseButton />
+                      <Flex align="center" gap="xs" ml="auto">
+                        <ExportCsvButton
+                          isLoading={isLoading}
+                          searchTool={reportSearchTool}
+                          crashFeatures={reportCrashFeatures}
+                        />
+                        <Drawer.CloseButton />
+                      </Flex>
                     </Drawer.Header>
                     <Drawer.Body>
                       <LocationReport
                         crashSummaryHistory={crashSummaryHistory}
                         isLoading={isLoading}
-                        searchTool={
-                          activeCrashResults?.searchTool || filters.searchTool
-                        }
-                        crashFeatures={activeCrashResults?.features || []}
+                        crashFeatures={reportCrashFeatures}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
@@ -561,16 +570,20 @@ function HomeContent() {
               </>
             ) : (
               <>
-                <Text size="md" fw={700} mb="sm">
-                  Location Report
-                </Text>
+                <Flex align="center" justify="space-between" mb="sm">
+                  <Text size="md" fw={700}>
+                    Location Report
+                  </Text>
+                  <ExportCsvButton
+                    isLoading={isLoading}
+                    searchTool={reportSearchTool}
+                    crashFeatures={reportCrashFeatures}
+                  />
+                </Flex>
                 <LocationReport
                   crashSummaryHistory={crashSummaryHistory}
                   isLoading={isLoading}
-                  searchTool={
-                    activeCrashResults?.searchTool || filters.searchTool
-                  }
-                  crashFeatures={activeCrashResults?.features || []}
+                  crashFeatures={reportCrashFeatures}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
