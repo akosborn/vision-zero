@@ -5,6 +5,7 @@ import { Container } from "@mantine/core";
 import { CrashDetails } from "@/app/components/LocationReport/CrashDetails";
 import { Crash } from "@/app/lib/api-client";
 import { getMaxSeverity } from "@/app/components/LocationReport/utils/location-report";
+import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 
 type Props = {
   crashFeatures: Feature<Geometry, Crash>[];
@@ -20,7 +21,7 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
 
   return (
     <>
-      {sortedFeatures.map(({ geometry, properties }) => {
+      {sortedFeatures.map(({ id: featureId, geometry, properties }) => {
         const type = getType(
           properties.doti_bicycle_involved,
           properties.doti_pedestrian_involved,
@@ -28,12 +29,20 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
         const severity = getMaxSeverity(properties);
 
         const [lng, lat] = (geometry as Point).coordinates;
+        const sourceLinks = getCrashSourceLinks(properties, featureId);
+        const rowKey =
+          featureId ??
+          properties.doti_incident_id ??
+          properties.cdot_cuid ??
+          `${lng},${lat},${properties.doti_first_occurrence_date}`;
 
         return (
-          <Container key={properties.doti_incident_id} px={0} mb="sm">
+          <Container key={rowKey} px={0} mb="sm">
             <CrashDetails
-              id={properties.cdot_cuid || properties.doti_incident_id}
-              dataSource={properties.cdot_cuid ? "CDOT" : "DOTI"}
+              dotiIncidentId={properties.doti_incident_id}
+              cdotCuid={properties.cdot_cuid}
+              sourceLinks={sourceLinks}
+              googleMapsUrl={properties.doti_google_maps_url}
               type={type}
               kabcoSeverityLevel={severity}
               area={properties.doti_address || ""}

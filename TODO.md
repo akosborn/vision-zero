@@ -68,32 +68,38 @@ Priority meanings:
 - [x] Add unit tests for columns, escaping, empty values, formulas, filenames, and
       mixed DOTI/CDOT records.
 - [ ] Manually verify the result in Excel, Numbers, and a plain-text editor.
-  - [x] Verify the adversarial fixture as UTF-8 plain text with 27 columns per row.
+  - [x] Verify the version-1 adversarial fixture as UTF-8 plain text with 27
+        columns per row.
+  - [ ] Re-verify the current 28-column fixture after adding the authoritative
+        DOTI record URL.
   - [ ] Verify the downloaded fixture in Excel.
   - [ ] Verify the downloaded fixture in Numbers.
 
 ## P1: Link Crash Rows to Authoritative Sources
 
-- [ ] Add an optional source-link model to the `Crash` interface and crash-row UI.
-- [ ] Implement **View DOTI source record**.
-  - [ ] Build the link from an official Denver Open Data/ArcGIS identifier.
-  - [ ] Prefer a human-readable filtered record view when stable.
-  - [ ] Fall back to an official ArcGIS query result rather than a third-party site.
-  - [ ] Verify links against several current and older incidents.
-  - [ ] Add the verified authoritative DOTI record link to the CSV export.
-- [ ] Implement honest CDOT report guidance.
-  - [ ] Keep displaying the CDOT CUID.
-  - [ ] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
-  - [ ] Link to Colorado DMV's official crash-report request instructions.
-  - [ ] Label the action **How to request the official report**, not **View report**.
-- [ ] Preserve the existing Google Maps location link as a separate action.
-- [ ] Add accessibility text and ensure external links open safely.
-- [ ] Add tests for DOTI-only, CDOT-enriched, missing-ID, and missing-link cases.
+- [x] Add an optional source-link model to the `Crash` interface and crash-row UI.
+- [x] Implement **View DOTI source record**.
+  - [x] Build the link from an official Denver Open Data/ArcGIS identifier.
+  - [x] Prefer an exact human-readable ArcGIS feature page when the object ID is
+        available.
+  - [x] Fall back to an official ArcGIS query result rather than a third-party site.
+  - [x] Verify links against several current and older incidents.
+  - [x] Add the verified authoritative DOTI record link to the CSV export.
+- [x] Implement honest CDOT report guidance.
+  - [x] Keep displaying the CDOT CUID.
+  - [x] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
+  - [x] Link to Colorado DMV's official crash-report request instructions.
+  - [x] Label the action **How to request the official report**, not **View report**.
+- [x] Preserve the existing Google Maps location link as a separate action.
+- [x] Add accessibility text and ensure external links open safely.
+- [x] Add tests for DOTI-only, CDOT-enriched, missing-ID, and missing-link cases.
 
 Official references:
 
 - Denver Traffic Accidents dataset:
   <https://data.colorado.gov/Community/City-of-Denver-Traffic-Accidents/cpwf-cznk>
+- Denver Traffic Accidents ArcGIS layer:
+  <https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/ArcGIS/rest/services/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325>
 - CDOT crash data guidance:
   <https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data>
 - Colorado DMV report requests:

@@ -1,16 +1,29 @@
-import { Paper, Text, Group, Badge, Stack, ThemeIcon } from "@mantine/core";
+import {
+  Anchor,
+  Paper,
+  Text,
+  Group,
+  Badge,
+  Stack,
+  ThemeIcon,
+} from "@mantine/core";
 import {
   IconMapPin,
   IconCalendar,
   IconDatabase,
+  IconExternalLink,
   IconUser,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/location-report";
+import { getSafeHttpsUrl } from "@/app/components/LocationReport/utils/crash-source-links";
+import { CrashSourceLinks } from "@/app/lib/api-client";
 
 interface IncidentItemProps {
-  id: string | number;
-  dataSource: "DOTI" | "CDOT";
+  dotiIncidentId?: string | null;
+  cdotCuid?: string | null;
+  sourceLinks?: CrashSourceLinks;
+  googleMapsUrl?: string | null;
   type: string;
   kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
@@ -44,8 +57,10 @@ export const severityConfig = {
 
 export function CrashDetails({
   demographics,
-  id,
-  dataSource,
+  dotiIncidentId,
+  cdotCuid,
+  sourceLinks,
+  googleMapsUrl,
   type,
   kabcoSeverityLevel,
   area,
@@ -54,10 +69,18 @@ export function CrashDetails({
   onClick,
 }: IncidentItemProps) {
   const { color, dotColor } = severityConfig[kabcoSeverityLevel];
+  const normalizedDotiIncidentId = dotiIncidentId?.trim();
+  const normalizedCdotCuid = cdotCuid?.trim();
+  const dotiRecordUrl = getSafeHttpsUrl(sourceLinks?.dotiRecordUrl);
+  const cdotReportRequestUrl = getSafeHttpsUrl(
+    sourceLinks?.cdotReportRequestUrl,
+  );
+  const safeGoogleMapsUrl = getSafeHttpsUrl(googleMapsUrl);
+  const stopRowClick = (event: React.MouseEvent<HTMLAnchorElement>) =>
+    event.stopPropagation();
 
   return (
     <Paper
-      key={id}
       p="md"
       radius="md"
       withBorder
@@ -137,29 +160,87 @@ export function CrashDetails({
           </Group>
         )}
 
-        <Group gap="xs">
-          <ThemeIcon
-            size="sm"
-            variant="subtle"
-            color="gray"
-            styles={{
-              root: { justifyContent: "flex-start" },
-            }}
-          >
-            <IconDatabase size={14} />
-          </ThemeIcon>
-          <Text size="sm" c="dimmed">
-            {dataSource === "CDOT" ? (
-              <>
-                CO Dept. of Transportation CUID <b>{id}</b>
-              </>
-            ) : (
-              <>
-                Denver DOTI Incident ID <b>{id}</b>
-              </>
+        {normalizedDotiIncidentId && (
+          <Group gap="xs">
+            <ThemeIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              styles={{
+                root: { justifyContent: "flex-start" },
+              }}
+            >
+              <IconDatabase size={14} />
+            </ThemeIcon>
+            <Text size="sm" c="dimmed">
+              Denver DOTI Incident ID <b>{normalizedDotiIncidentId}</b>
+            </Text>
+          </Group>
+        )}
+
+        {normalizedCdotCuid && (
+          <Group gap="xs">
+            <ThemeIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              styles={{
+                root: { justifyContent: "flex-start" },
+              }}
+            >
+              <IconDatabase size={14} />
+            </ThemeIcon>
+            <Text size="sm" c="dimmed">
+              CDOT crash data ID (CUID) <b>{normalizedCdotCuid}</b>
+            </Text>
+          </Group>
+        )}
+
+        {(dotiRecordUrl || cdotReportRequestUrl || safeGoogleMapsUrl) && (
+          <Group gap="md" mt="xs" wrap="wrap">
+            {dotiRecordUrl && (
+              <Anchor
+                href={dotiRecordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="xs"
+                aria-label={`View DOTI source record for ${normalizedDotiIncidentId || "this crash"} (opens in a new tab)`}
+                onClick={stopRowClick}
+              >
+                View DOTI source record{" "}
+                <IconExternalLink size={12} aria-hidden />
+              </Anchor>
             )}
-          </Text>
-        </Group>
+
+            {cdotReportRequestUrl && (
+              <Anchor
+                href={cdotReportRequestUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="xs"
+                aria-label="How to request the official report on the Colorado DMV website (opens in a new tab)"
+                onClick={stopRowClick}
+              >
+                How to request the official report{" "}
+                <IconExternalLink size={12} aria-hidden />
+              </Anchor>
+            )}
+
+            {safeGoogleMapsUrl && (
+              <Anchor
+                href={safeGoogleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="xs"
+                aria-label="View crash location in Google Maps (opens in a new tab)"
+                onClick={stopRowClick}
+              >
+                View location in Google Maps{" "}
+                <IconExternalLink size={12} aria-hidden />
+              </Anchor>
+            )}
+          </Group>
+        )}
 
         {!!(coordinates.lat && coordinates.lng) && (
           <Text size="xs" c="dimmed" mt="xs">

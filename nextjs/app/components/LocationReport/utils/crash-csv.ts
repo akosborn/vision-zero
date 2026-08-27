@@ -1,6 +1,7 @@
 import { Feature, Point } from "geojson";
 
 import { generateLocationReport, getMaxSeverity } from "./location-report";
+import { getCrashSourceLinks } from "./crash-source-links";
 import { Crash } from "@/app/lib/api-client";
 
 type CsvValue = string | number | boolean | null | undefined;
@@ -9,8 +10,8 @@ type CsvValue = string | number | boolean | null | undefined;
  * Public crash-export contract. Keep this order stable so saved exports can be
  * compared and consumed without detecting columns dynamically.
  *
- * CDOT age and sex fields, data notes, and URLs are intentionally excluded
- * from the initial public export contract.
+ * CDOT age and sex fields, data notes, Google Maps URLs, and CDOT report-request
+ * URLs are intentionally excluded from the public export contract.
  */
 export const CRASH_CSV_COLUMNS = [
   "doti_incident_id",
@@ -40,6 +41,7 @@ export const CRASH_CSV_COLUMNS = [
   "unit_2_speed_limit_mph",
   "unit_2_estimated_speed_mph",
   "unit_2_recorded_speed_mph",
+  "doti_source_record_url",
 ] as const;
 
 /**
@@ -150,6 +152,7 @@ const crashFeatureToCsvRow = (feature: Feature<Point, Crash>): CsvValue[] => {
     properties.cdot_tu_2_speed_limit,
     properties.cdot_tu_2_estimated_speed,
     properties.cdot_tu_2_speed,
+    getCrashSourceLinks(properties, feature.id).dotiRecordUrl,
   ];
 };
 
