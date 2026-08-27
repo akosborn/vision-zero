@@ -14,7 +14,9 @@ import {
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import FilterPanel from "@/app/components/FilterPanel";
 import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
-import LocationReport from "@/app/components/LocationReport";
+import LocationReport, {
+  ExportCsvButton,
+} from "@/app/components/LocationReport";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
@@ -42,6 +44,11 @@ export type Filters = {
     crossStreets?: { from?: string; to?: string };
   };
   droppedPin?: { lng: number; lat: number };
+};
+
+type ActiveCrashResults = {
+  searchTool: SearchTool;
+  features: Feature<Point, Crash>[];
 };
 
 const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
@@ -82,6 +89,16 @@ function HomeContent() {
   const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<
     AnnualCrashSummary[] | null
   >(null);
+
+  const [activeCrashResults, setActiveCrashResults] =
+    React.useState<ActiveCrashResults | null>(null);
+
+  const clearCrashResults = React.useCallback(() => {
+    setIncidentGeoJson(null);
+    setAreaOfInterestIncidentGeoJson(null);
+    setCrashSummaryHistory(null);
+    setActiveCrashResults(null);
+  }, []);
 
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
@@ -127,6 +144,7 @@ function HomeContent() {
     range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -158,6 +176,10 @@ function HomeContent() {
       setBufferedStreet(buffer);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setCrashSummaryHistory(history);
+      setActiveCrashResults({
+        searchTool: "Street Search",
+        features: incidentsInBuffer.features,
+      });
 
       zoomToLayer(incidentsInBuffer);
     }
@@ -236,6 +258,7 @@ function HomeContent() {
     range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -250,7 +273,10 @@ function HomeContent() {
       setIncidentGeoJson(crashes);
       setStreetCenterlines(null);
       setBufferedStreet(null);
-      setAreaOfInterestIncidentGeoJson(null);
+      setActiveCrashResults({
+        searchTool: "Radius Search",
+        features: crashes.features,
+      });
 
       zoomToLayer(crashes);
     }
@@ -263,6 +289,7 @@ function HomeContent() {
     range: { from?: string; to?: string } | undefined,
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -288,11 +315,45 @@ function HomeContent() {
       setBufferedStreet(null);
       setCrashSummaryHistory(null);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+      setActiveCrashResults({
+        searchTool: "Upload Route",
+        features: incidentsInBuffer.features,
+      });
 
       zoomToLayer(route);
     }
     setIsLoading(false);
   };
+
+  const previousSearchTool = React.useRef(filters.searchTool);
+  React.useEffect(() => {
+    if (previousSearchTool.current !== filters.searchTool) {
+      clearCrashResults();
+      previousSearchTool.current = filters.searchTool;
+    }
+  }, [clearCrashResults, filters.searchTool]);
+
+  React.useEffect(() => {
+    if (!incidentGeoJson && !areaOfInterestIncidentGeoJson) {
+      setCrashSummaryHistory(null);
+      setActiveCrashResults(null);
+    }
+  }, [areaOfInterestIncidentGeoJson, incidentGeoJson]);
+
+  const handleMapRadiusResultsChange = React.useCallback(
+    (results: FeatureCollection<Point, Crash> | null) => {
+      setCrashSummaryHistory(null);
+      setActiveCrashResults(
+        results
+          ? { searchTool: "Radius Search", features: results.features }
+          : null,
+      );
+    },
+    [],
+  );
+
+  const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
+  const reportCrashFeatures = activeCrashResults?.features || [];
 
   return (
     <Suspense>
@@ -320,11 +381,13 @@ function HomeContent() {
             setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
             incidentGeoJson={incidentGeoJson}
             setIncidentGeoJson={setIncidentGeoJson}
+            isLoading={isLoading}
             setIsLoading={setIsLoading}
             setStreetCenterlines={setStreetCenterlines}
             streetCenterlines={streetCenterlines}
             bufferedStreet={bufferedStreet}
             setBufferedStreet={setBufferedStreet}
+            onRadiusResultsChange={handleMapRadiusResultsChange}
           />
         </div>
 
@@ -471,19 +534,23 @@ function HomeContent() {
                   <Drawer.Content style={{ height: "auto" }}>
                     <Drawer.Header>
                       <Drawer.Title fw={700}>Location Report</Drawer.Title>
-                      <Drawer.CloseButton />
+                      <Flex align="center" gap="xs" ml="auto">
+                        <ExportCsvButton
+                          isLoading={isLoading}
+                          searchTool={reportSearchTool}
+                          crashFeatures={reportCrashFeatures}
+                        />
+                        <Drawer.CloseButton />
+                      </Flex>
                     </Drawer.Header>
                     <Drawer.Body>
                       <LocationReport
                         crashSummaryHistory={crashSummaryHistory}
                         isLoading={isLoading}
+                        crashFeatures={reportCrashFeatures}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
-                        incidentGeoJson={incidentGeoJson}
-                        areaOfInterestIncidentGeoJson={
-                          areaOfInterestIncidentGeoJson
-                        }
                       />
                     </Drawer.Body>
                   </Drawer.Content>
@@ -503,17 +570,23 @@ function HomeContent() {
               </>
             ) : (
               <>
-                <Text size="md" fw={700} mb="sm">
-                  Location Report
-                </Text>
+                <Flex align="center" justify="space-between" mb="sm">
+                  <Text size="md" fw={700}>
+                    Location Report
+                  </Text>
+                  <ExportCsvButton
+                    isLoading={isLoading}
+                    searchTool={reportSearchTool}
+                    crashFeatures={reportCrashFeatures}
+                  />
+                </Flex>
                 <LocationReport
                   crashSummaryHistory={crashSummaryHistory}
                   isLoading={isLoading}
+                  crashFeatures={reportCrashFeatures}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
-                  incidentGeoJson={incidentGeoJson}
-                  areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
                 />
               </>
             )}
