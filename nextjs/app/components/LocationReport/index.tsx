@@ -35,6 +35,7 @@ type Props = {
   >;
   zoomToLayer: (geojson: FeatureCollection) => void;
   crashSummaryHistory: AnnualCrashSummary[] | null;
+  historyAvailable: boolean;
 };
 
 type View = "Summary" | "Crashes" | "History";
@@ -43,8 +44,15 @@ const LocationReport: React.FC<Props> = ({
   crashSummaryHistory,
   isLoading,
   crashFeatures,
+  historyAvailable,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
+
+  React.useEffect(() => {
+    if (!historyAvailable && selectedView === "History") {
+      setSelectedView("Summary");
+    }
+  }, [historyAvailable, selectedView]);
 
   const theme = useMantineTheme();
 
@@ -57,7 +65,11 @@ const LocationReport: React.FC<Props> = ({
       <SegmentedControl
         value={selectedView}
         onChange={(value) => setSelectedView(value as View)}
-        data={["Summary", "Crashes", "History"]}
+        data={[
+          "Summary",
+          "Crashes",
+          { label: "History", value: "History", disabled: !historyAvailable },
+        ]}
         fullWidth
         size="sm"
         radius="md"

@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createFinalRoute,
+  INITIAL_ROUTE_DRAWING_STATE,
+  routeDrawingReducer,
+} from "@/app/lib/route-drawing";
+import { parseRouteText } from "@/app/lib/route-file";
 
 const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 
@@ -36,6 +42,47 @@ const route = {
       },
     },
   ],
+};
+
+const equivalentCoordinates = [
+  [-104.99, 39.74],
+  [-104.98, 39.75],
+];
+
+const equivalentGpx = `
+  <gpx version="1.1" creator="Vision Zero" xmlns="http://www.topografix.com/GPX/1/1">
+    <trk>
+      <trkseg>
+        <trkpt lat="39.74" lon="-104.99" />
+        <trkpt lat="39.75" lon="-104.98" />
+      </trkseg>
+    </trk>
+  </gpx>
+`;
+
+const equivalentKml = `
+  <kml xmlns="http://www.opengis.net/kml/2.2">
+    <Placemark>
+      <LineString>
+        <coordinates>-104.99,39.74 -104.98,39.75</coordinates>
+      </LineString>
+    </Placemark>
+  </kml>
+`;
+
+const equivalentDrawnRoute = () => {
+  let state = routeDrawingReducer(INITIAL_ROUTE_DRAWING_STATE, {
+    type: "start",
+  });
+
+  for (const coordinate of equivalentCoordinates) {
+    state = routeDrawingReducer(state, {
+      type: "add-vertex",
+      coordinate,
+    });
+  }
+
+  return createFinalRoute(state)!;
 };
 
 const successfulGeojsonQuery = () =>
@@ -160,6 +207,44 @@ describe("buffered-route incidents route", () => {
     ]);
   });
 
+  it("binds equivalent drawn, GPX, and KML routes identically", async () => {
+    successfulGeojsonQuery();
+
+    const routes = [
+      equivalentDrawnRoute(),
+      parseRouteText("equivalent.gpx", equivalentGpx),
+      parseRouteText("equivalent.kml", equivalentKml),
+    ];
+
+    const responses = await Promise.all(
+      routes.map((equivalentRoute) =>
+        postBufferedRoute(
+          postRequest({
+            route: equivalentRoute,
+            bufferInFeet: 20,
+            startDate: "2025-01-01",
+            endDate: "2025-12-31",
+          }),
+        ),
+      ),
+    );
+
+    expect(query).toHaveBeenCalledTimes(3);
+    expect(query.mock.calls.map((call) => call[1])).toEqual(
+      Array(3).fill([
+        JSON.stringify([route.features[0].geometry]),
+        6.096,
+        "2025-01-01",
+        "2025-12-31",
+      ]),
+    );
+    await Promise.all(
+      responses.map((response) =>
+        expect(response.json()).resolves.toEqual(geojson),
+      ),
+    );
+  });
+
   it("preserves the invalid-JSON response", async () => {
     const response = await postBufferedRoute(invalidJsonRequest());
 
@@ -176,6 +261,16 @@ describe("buffered-route incidents route", () => {
     ],
     [
       { route: { type: "FeatureCollection", features: [] }, bufferInFeet: 20 },
+      "route must contain at least one feature with a geometry",
+    ],
+    [
+      {
+        route: {
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: null }],
+        },
+        bufferInFeet: 20,
+      },
       "route must contain at least one feature with a geometry",
     ],
     [{ route }, "bufferInFeet is required"],

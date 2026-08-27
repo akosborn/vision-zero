@@ -22,9 +22,9 @@ import {
   useRouter,
   useSearchParams,
 } from "next/dist/client/components/navigation";
-import { gpx, kml } from "@tmcw/togeojson";
-import { Filters, SearchTool } from "@/app/page";
-import _ from "lodash";
+import type { Filters, SearchTool } from "@/app/page";
+import { parseRouteFile } from "@/app/lib/route-file";
+import RouteDrawingControls from "@/app/components/RouteDrawingControls";
 
 type Props = {
   filters: Filters;
@@ -42,15 +42,38 @@ type Props = {
   onApplyUploadRoute: (
     uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
   ) => Promise<void>;
+  onSearchToolChange: (searchTool: SearchTool) => void;
+  hasAppliedRoute: boolean;
+  isDrawingRoute: boolean;
+  routeDrawingVertexCount: number;
+  canApplyDrawnRoute: boolean;
+  onStartRouteDrawing: () => void;
+  onCancelRouteDrawing: () => void;
+  onUndoRouteDrawing: () => void;
+  onClearRouteDrawing: () => void;
+  onApplyDrawnRoute: () => void;
+  onClearRoute: () => void;
+  onDateRangeChange: (dateRange: { from?: string; to?: string }) => void;
   isLoading: boolean;
   streets: Street[];
 };
 
-const ENABLED_SEARCH_TOOLS: SearchTool[] = _.compact([
+const uploadRouteIsEnabled =
+  process.env.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED === "true" ||
+  (process.env.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED === undefined &&
+    process.env.UPLOAD_ROUTE_ENABLED === "true");
+const drawRouteIsEnabled =
+  process.env.NEXT_PUBLIC_DRAW_ROUTE_ENABLED !== "false";
+
+export const ENABLED_SEARCH_TOOLS: SearchTool[] = [
   "Street Search",
   "Radius Search",
-  process.env.UPLOAD_ROUTE_ENABLED === "true" ? "Upload Route" : undefined,
-]);
+  ...(uploadRouteIsEnabled ? (["Upload Route"] as const) : []),
+  ...(drawRouteIsEnabled ? (["Draw Route"] as const) : []),
+];
+
+export const isEnabledSearchTool = (value: string): value is SearchTool =>
+  ENABLED_SEARCH_TOOLS.includes(value as SearchTool);
 
 const FilterPanel: React.FC<Props> = ({
   closeMobileFilters,
@@ -60,6 +83,18 @@ const FilterPanel: React.FC<Props> = ({
   onApplyStreetSearch,
   onApplyRadiusSearch,
   onApplyUploadRoute,
+  onSearchToolChange,
+  hasAppliedRoute,
+  isDrawingRoute,
+  routeDrawingVertexCount,
+  canApplyDrawnRoute,
+  onStartRouteDrawing,
+  onCancelRouteDrawing,
+  onUndoRouteDrawing,
+  onClearRouteDrawing,
+  onApplyDrawnRoute,
+  onClearRoute,
+  onDateRangeChange,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
   streets,
@@ -97,11 +132,20 @@ const FilterPanel: React.FC<Props> = ({
       return;
     }
 
-    const text = await file.text();
-    const dom = new DOMParser().parseFromString(text, "text/xml");
-
-    setUploadRoute(file.name.endsWith(".kml") ? kml(dom) : gpx(dom));
+    setUploadRoute(await parseRouteFile(file));
   };
+
+  const handleSearchToolChange = (value: string) => {
+    const searchTool = value as SearchTool;
+    onSearchToolChange(searchTool);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tool", searchTool);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  const distanceLabel =
+    filters.searchTool === "Radius Search" ? "Radius" : "Buffer";
 
   // Must have zero cross streets selected or both cross-streets selected
   const isFormValid =
@@ -125,13 +169,8 @@ const FilterPanel: React.FC<Props> = ({
             <SegmentedControl
               disabled={isLoading}
               value={filters.searchTool}
-              onChange={(value) =>
-                setFilters((prevState) => ({
-                  ...prevState,
-                  searchTool: value as SearchTool,
-                }))
-              }
-              data={["Street Search", "Radius Search", "Upload Route"]}
+              onChange={handleSearchToolChange}
+              data={ENABLED_SEARCH_TOOLS}
               fullWidth
               size="sm"
               radius="md"
@@ -154,6 +193,19 @@ const FilterPanel: React.FC<Props> = ({
             </Grid.Col>
           )}
 
+          {filters.searchTool === "Draw Route" && isDrawingRoute && (
+            <Grid.Col span={{ base: 12 }}>
+              <RouteDrawingControls
+                vertexCount={routeDrawingVertexCount}
+                canApply={canApplyDrawnRoute}
+                isLoading={isLoading}
+                onUndo={onUndoRouteDrawing}
+                onClear={onClearRouteDrawing}
+                onApply={onApplyDrawnRoute}
+              />
+            </Grid.Col>
+          )}
+
           <Grid.Col span={{ base: 8 }}>
             <DatePickerInput
               disabled={isLoading}
@@ -165,18 +217,23 @@ const FilterPanel: React.FC<Props> = ({
                 filters.dateRange?.to || null,
               ]}
               onChange={(values) => {
+                const dateRange = {
+                  from: values[0] || undefined,
+                  to: values[1] || undefined,
+                };
                 setFilters((prevState) => ({
                   ...prevState,
-                  dateRange: {
-                    from: values[0] || undefined,
-                    to: values[1] || undefined,
-                  },
+                  dateRange,
                 }));
 
                 const params = new URLSearchParams(searchParams.toString());
                 params.set("fromDate", values[0]?.toString() || "");
                 params.set("toDate", values[1]?.toString() || "");
                 router.replace(`?${params.toString()}`, { scroll: false });
+
+                if (dateRange.from && dateRange.to) {
+                  onDateRangeChange(dateRange);
+                }
               }}
               valueFormat="MMM D, YYYY"
             />
@@ -185,8 +242,8 @@ const FilterPanel: React.FC<Props> = ({
           <Grid.Col span={{ base: 4 }}>
             <NumberInput
               disabled={isLoading}
-              label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-              placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+              label={`${distanceLabel} (ft)`}
+              placeholder={`${distanceLabel} in feet`}
               value={filters.bufferRadiusInFeet}
               onChange={(value) => {
                 setFilters((prevState) => ({
@@ -318,22 +375,44 @@ const FilterPanel: React.FC<Props> = ({
           <Button variant="default" onClick={closeMobileFilters} mt="sm">
             Close
           </Button>
-          <Button
-            disabled={isLoading || !isFormValid}
-            variant="filled"
-            onClick={() => {
-              if (filters.searchTool === "Street Search") {
-                onApplyStreetSearch();
-              } else if (filters.searchTool === "Radius Search") {
-                onApplyRadiusSearch();
-              } else if (uploadedRoute) {
-                onApplyUploadRoute(uploadedRoute);
+          {filters.searchTool !== "Draw Route" && (
+            <Button
+              disabled={isLoading || !isFormValid}
+              variant="filled"
+              onClick={() => {
+                if (filters.searchTool === "Street Search") {
+                  onApplyStreetSearch();
+                } else if (filters.searchTool === "Radius Search") {
+                  onApplyRadiusSearch();
+                } else if (uploadedRoute) {
+                  onApplyUploadRoute(uploadedRoute);
+                }
+              }}
+              mt="sm"
+            >
+              Apply
+            </Button>
+          )}
+          {filters.searchTool === "Draw Route" && (
+            <Button
+              disabled={isLoading}
+              variant={isDrawingRoute || hasAppliedRoute ? "default" : "filled"}
+              onClick={
+                isDrawingRoute
+                  ? onCancelRouteDrawing
+                  : hasAppliedRoute
+                    ? onClearRoute
+                    : onStartRouteDrawing
               }
-            }}
-            mt="sm"
-          >
-            Apply
-          </Button>
+              mt="sm"
+            >
+              {isDrawingRoute
+                ? "Cancel"
+                : hasAppliedRoute
+                  ? "Clear Route"
+                  : "Start Drawing"}
+            </Button>
+          )}
         </Flex>
       </>
     );
@@ -353,20 +432,22 @@ const FilterPanel: React.FC<Props> = ({
         </Alert>
       )}
 
+      {filters.searchTool === "Draw Route" && isDrawingRoute && (
+        <RouteDrawingControls
+          vertexCount={routeDrawingVertexCount}
+          canApply={canApplyDrawnRoute}
+          isLoading={isLoading}
+          onUndo={onUndoRouteDrawing}
+          onClear={onClearRouteDrawing}
+          onApply={onApplyDrawnRoute}
+        />
+      )}
+
       <Flex gap="sm" justify="flex-start" align="flex-end" wrap="wrap">
         <SegmentedControl
           disabled={isLoading}
           value={filters.searchTool}
-          onChange={(value) => {
-            setFilters((prevState) => ({
-              ...prevState,
-              searchTool: value as SearchTool,
-            }));
-
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("tool", value?.toString() || "");
-            router.replace(`?${params.toString()}`, { scroll: false });
-          }}
+          onChange={handleSearchToolChange}
           data={ENABLED_SEARCH_TOOLS}
           fullWidth
           size="sm"
@@ -383,26 +464,31 @@ const FilterPanel: React.FC<Props> = ({
             filters.dateRange?.to || null,
           ]}
           onChange={(values) => {
+            const dateRange = {
+              from: values[0] || undefined,
+              to: values[1] || undefined,
+            };
             setFilters((prevState) => ({
               ...prevState,
-              dateRange: {
-                from: values[0] || undefined,
-                to: values[1] || undefined,
-              },
+              dateRange,
             }));
 
             const params = new URLSearchParams(searchParams.toString());
             params.set("fromDate", values[0]?.toString() || "");
             params.set("toDate", values[1]?.toString() || "");
             router.replace(`?${params.toString()}`, { scroll: false });
+
+            if (dateRange.from && dateRange.to) {
+              onDateRangeChange(dateRange);
+            }
           }}
           valueFormat="MMM D, YYYY"
         />
 
         <NumberInput
           disabled={isLoading}
-          label={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} (ft)`}
-          placeholder={`${filters.searchTool === "Street Search" ? "Buffer" : "Radius"} in feet`}
+          label={`${distanceLabel} (ft)`}
+          placeholder={`${distanceLabel} in feet`}
           value={filters.bufferRadiusInFeet}
           onChange={(value) => {
             setFilters((prevState) => ({
@@ -520,22 +606,44 @@ const FilterPanel: React.FC<Props> = ({
           />
         )}
 
-        <Button
-          variant="filled"
-          onClick={() => {
-            if (filters.searchTool === "Street Search") {
-              onApplyStreetSearch();
-            } else if (filters.searchTool === "Radius Search") {
-              onApplyRadiusSearch();
-            } else if (uploadedRoute) {
-              onApplyUploadRoute(uploadedRoute);
+        {filters.searchTool !== "Draw Route" && (
+          <Button
+            variant="filled"
+            onClick={() => {
+              if (filters.searchTool === "Street Search") {
+                onApplyStreetSearch();
+              } else if (filters.searchTool === "Radius Search") {
+                onApplyRadiusSearch();
+              } else if (uploadedRoute) {
+                onApplyUploadRoute(uploadedRoute);
+              }
+            }}
+            mt="sm"
+            disabled={isLoading || !isFormValid}
+          >
+            Apply
+          </Button>
+        )}
+        {filters.searchTool === "Draw Route" && (
+          <Button
+            disabled={isLoading}
+            variant={isDrawingRoute || hasAppliedRoute ? "default" : "filled"}
+            onClick={
+              isDrawingRoute
+                ? onCancelRouteDrawing
+                : hasAppliedRoute
+                  ? onClearRoute
+                  : onStartRouteDrawing
             }
-          }}
-          mt="sm"
-          disabled={isLoading || !isFormValid}
-        >
-          Apply
-        </Button>
+            mt="sm"
+          >
+            {isDrawingRoute
+              ? "Cancel"
+              : hasAppliedRoute
+                ? "Clear Route"
+                : "Start Drawing"}
+          </Button>
+        )}
       </Flex>
     </>
   );

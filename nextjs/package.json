@@ -33,6 +33,7 @@
     "@tabler/icons-react": "^3.36.1",
     "@tanstack/react-table": "^8.21.3",
     "@tmcw/togeojson": "^7.1.2",
+    "@turf/buffer": "^7.4.0",
     "@types/pg": "^8.16.0",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",

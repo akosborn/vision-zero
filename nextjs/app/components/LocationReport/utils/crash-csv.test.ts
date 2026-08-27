@@ -273,6 +273,7 @@ describe("getCrashCsvFilename", () => {
     ["Radius Search", "radius-search"],
     ["Street Search", "street-search"],
     ["Upload Route", "upload-route"],
+    ["Draw Route", "draw-route"],
   ])("includes the normalized %s type and date", (searchType, slug) => {
     expect(getCrashCsvFilename(searchType, new Date(2026, 7, 26))).toBe(
       `vision-zero-crashes-${slug}-2026-08-26.csv`,
