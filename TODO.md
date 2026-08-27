@@ -14,29 +14,29 @@ Priority meanings:
 
 ## P0: Short Stabilization Pass
 
-- [ ] Add an automated test foundation for `nextjs/`.
-  - [ ] Cover pure TypeScript utilities without a database.
-  - [ ] Support React component tests where user interaction matters.
-  - [ ] Add a checked-in `test` script and document the command.
-  - [ ] Do not make routine tests depend on the remote database.
-- [ ] Add characterization tests for current location-report calculations.
-  - [ ] KABCO severity selection.
-  - [ ] Fatality and injury counts.
-  - [ ] Bicycle and pedestrian involvement.
-  - [ ] Comprehensive crash-cost calculation.
-- [ ] Fix bicycle and pedestrian counting in
+- [x] Add an automated test foundation for `nextjs/`.
+  - [x] Cover pure TypeScript utilities without a database.
+  - [x] Support React component tests where user interaction matters.
+  - [x] Add a checked-in `test` script and document the command.
+  - [x] Do not make routine tests depend on the remote database.
+- [x] Add characterization tests for current location-report calculations.
+  - [x] KABCO severity selection.
+  - [x] Fatality and injury counts.
+  - [x] Bicycle and pedestrian involvement.
+  - [x] Comprehensive crash-cost calculation.
+- [x] Fix bicycle and pedestrian counting in
       `LocationReport/utils/location-report.ts`.
-  - [ ] Recognized CDOT bicycle types must increment the bicycle count.
-  - [ ] Pedestrian matching must use pedestrian indicators rather than bicycle
+  - [x] Recognized CDOT bicycle types must increment the bicycle count.
+  - [x] Pedestrian matching must use pedestrian indicators rather than bicycle
         indicators.
-  - [ ] Cover DOTI, CDOT, mixed, missing, and fallback data.
-- [ ] Parameterize user-controlled values in every street-related SQL route.
-  - [ ] `street-centerlines`
-  - [ ] `buffered-street-centerlines`
-  - [ ] `incidents/buffered-street`
-  - [ ] `incidents/buffered-street/history`
-  - [ ] Validate dates, buffer distances, street names, and cross-street pairs.
-- [ ] Add consistent API error responses and status codes for invalid inputs and
+  - [x] Cover DOTI, CDOT, mixed, missing, and fallback data.
+- [x] Parameterize user-controlled values in every street-related SQL route.
+  - [x] `street-centerlines`
+  - [x] `buffered-street-centerlines`
+  - [x] `incidents/buffered-street`
+  - [x] `incidents/buffered-street/history`
+  - [x] Validate dates, buffer distances, street names, and cross-street pairs.
+- [x] Add consistent API error responses and status codes for invalid inputs and
       database failures.
 - [ ] Confirm and document analytical assumptions with the maintainer.
   - [ ] DOTI/CDOT match requires the normalized time and a distance within 200
