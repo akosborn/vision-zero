@@ -48,26 +48,29 @@ Priority meanings:
 ## P1: Export Current Results to CSV
 
 - [ ] Confirm the initial export contract with the maintainer.
-  - [ ] Default proposal: one row per currently filtered crash.
-  - [ ] Decide whether to include a second summary CSV or summary header rows.
-  - [ ] Decide whether age and sex fields belong in the public export.
-- [ ] Add a reusable crash-to-CSV utility.
-  - [ ] Use a fixed, documented column order.
-  - [ ] Preserve both DOTI and CDOT identifiers when present.
-  - [ ] Include date, address, coordinates, severity, fatalities, serious injuries,
+  - [x] Version 1: one row per crash in the last successfully applied result set.
+  - [x] Do not include a second summary CSV or summary header rows in version 1.
+  - [x] Exclude age, sex, demographics, and free-text notes from the public export.
+- [x] Add a reusable crash-to-CSV utility.
+  - [x] Use a fixed, documented column order.
+  - [x] Preserve both DOTI and CDOT identifiers when present.
+  - [x] Include date, address, coordinates, severity, fatalities, serious injuries,
         bicycle/pedestrian involvement, and relevant road/speed fields.
-  - [ ] Include source/request URLs only when they are accurate.
-  - [ ] Escape commas, quotes, and line breaks according to CSV conventions.
-  - [ ] Neutralize values beginning with `=`, `+`, `-`, or `@` to prevent spreadsheet
+  - [x] Exclude source/request URLs until an accurate authoritative link model exists.
+  - [x] Escape commas, quotes, and line breaks according to CSV conventions.
+  - [x] Neutralize values beginning with `=`, `+`, `-`, or `@` to prevent spreadsheet
         formula injection.
-- [ ] Add an **Export CSV** action to the location report.
-  - [ ] Export the active result set, not stale results from another search mode.
-  - [ ] Disable the action while loading or when there are no crashes.
-  - [ ] Use a meaningful filename containing the search type and date.
-  - [ ] Support desktop and mobile layouts.
-- [ ] Add unit tests for columns, escaping, empty values, formulas, filenames, and
+- [x] Add an **Export CSV** action to the location report.
+  - [x] Export the active result set, not stale results from another search mode.
+  - [x] Disable the action while loading or when there are no crashes.
+  - [x] Use a meaningful filename containing the search type and date.
+  - [x] Support desktop and mobile layouts.
+- [x] Add unit tests for columns, escaping, empty values, formulas, filenames, and
       mixed DOTI/CDOT records.
 - [ ] Manually verify the result in Excel, Numbers, and a plain-text editor.
+  - [x] Verify the adversarial fixture as UTF-8 plain text with 27 columns per row.
+  - [ ] Verify the downloaded fixture in Excel.
+  - [ ] Verify the downloaded fixture in Numbers.
 
 ## P1: Link Crash Rows to Authoritative Sources
 
