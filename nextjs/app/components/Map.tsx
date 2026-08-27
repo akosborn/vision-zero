@@ -12,6 +12,7 @@ import React, { forwardRef } from "react";
 import { FeatureCollection, GeoJSON, Point } from "geojson";
 import { Crash, getIncidents } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
+import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 import { Filters } from "@/app/page";
 
 const FEET_TO_METERS = 0.3048;
@@ -164,6 +165,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
       )
     : null;
 
+  const selectedPointDotiRecordUrl = selectedPoint
+    ? getCrashSourceLinks(selectedPoint.properties as Crash, selectedPoint.id)
+        .dotiRecordUrl
+    : undefined;
+
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
@@ -171,7 +177,10 @@ export default forwardRef<MapRef | null, Props>(function Map(
         ref={mapRef}
         onMove={(evt) => setViewport(evt.viewState)}
         onClick={onClick}
-        interactiveLayerIds={["incident-layer"]}
+        interactiveLayerIds={[
+          "incident-layer",
+          "area-of-interest-incident-layer",
+        ]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
@@ -310,6 +319,17 @@ export default forwardRef<MapRef | null, Props>(function Map(
           >
             <div className="p-2 text-black">
               <h3 className="font-bold">Incident Info</h3>
+              {selectedPointDotiRecordUrl && (
+                <a
+                  href={selectedPointDotiRecordUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View DOTI source record for ${selectedPoint.properties.doti_incident_id || "this crash"} (opens in a new tab)`}
+                  className="text-xs font-medium text-blue-700 underline"
+                >
+                  View DOTI source record
+                </a>
+              )}
               <pre className="text-xs">
                 {JSON.stringify(selectedPoint.properties, null, 2)}
               </pre>

@@ -85,6 +85,7 @@ Priority meanings:
   - [x] Fall back to an official ArcGIS query result rather than a third-party site.
   - [x] Verify links against several current and older incidents.
   - [x] Add the verified authoritative DOTI record link to the CSV export.
+  - [x] Show the same authoritative action in map crash callouts.
 - [x] Implement honest CDOT report guidance.
   - [x] Keep displaying the CDOT CUID.
   - [x] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
