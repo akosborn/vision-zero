@@ -90,7 +90,7 @@ Priority meanings:
   - [x] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
   - [x] Link to Colorado DMV's official crash-report request instructions.
   - [x] Label the action **How to request the official report**, not **View report**.
-- [x] Preserve the existing Google Maps location link as a separate action.
+- [x] Keep Google Maps location URLs out of crash-row source actions.
 - [x] Add accessibility text and ensure external links open safely.
 - [x] Add tests for DOTI-only, CDOT-enriched, missing-ID, and missing-link cases.
 

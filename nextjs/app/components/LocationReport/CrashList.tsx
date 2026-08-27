@@ -42,7 +42,6 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
               dotiIncidentId={properties.doti_incident_id}
               cdotCuid={properties.cdot_cuid}
               sourceLinks={sourceLinks}
-              googleMapsUrl={properties.doti_google_maps_url}
               type={type}
               kabcoSeverityLevel={severity}
               area={properties.doti_address || ""}
