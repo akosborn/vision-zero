@@ -74,12 +74,13 @@ The public source is Denver's Traffic Accidents dataset:
 The database setup and refresh process for this table is not fully represented
 in this repository.
 
-Crash rows link back to the same official ArcGIS layer. The API already emits
-Denver's `object_id` as the GeoJSON feature ID, so the UI and CSV use that ID
-for an exact, human-readable FeatureServer record page. If the object ID is
-missing, they fall back to an official ArcGIS query for `incident_id`. That
-fallback may return more than one row because `incident_id` is not globally
-unique in the live source. Google Maps remains a separate location action.
+Crash rows and map crash callouts link back to the same official ArcGIS layer.
+The API already emits Denver's `object_id` as the GeoJSON feature ID, so the UI
+and CSV use that ID for an exact, human-readable FeatureServer record page. If
+the object ID is missing, they fall back to an official ArcGIS query for
+`incident_id`. That fallback may return more than one row because `incident_id`
+is not globally unique in the live source. The generated Google Maps URL is not
+shown as a crash source action because it is not an authoritative crash record.
 
 ### Colorado CDOT crashes
 
@@ -197,7 +198,8 @@ The maintainer confirmed the original 27-column version 1 contract on
 2026-08-26. The verified authoritative-source phase appends one column,
 `doti_source_record_url`, without changing the order of the original columns.
 It uses the same resolver as the crash-row UI and remains distinct from both the
-Google Maps location link and Colorado DMV report-request guidance.
+generated Google Maps location URL field and Colorado DMV report-request
+guidance.
 
 Columns have this fixed order:
 

@@ -23,7 +23,6 @@ interface IncidentItemProps {
   dotiIncidentId?: string | null;
   cdotCuid?: string | null;
   sourceLinks?: CrashSourceLinks;
-  googleMapsUrl?: string | null;
   type: string;
   kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
@@ -60,7 +59,6 @@ export function CrashDetails({
   dotiIncidentId,
   cdotCuid,
   sourceLinks,
-  googleMapsUrl,
   type,
   kabcoSeverityLevel,
   area,
@@ -75,7 +73,6 @@ export function CrashDetails({
   const cdotReportRequestUrl = getSafeHttpsUrl(
     sourceLinks?.cdotReportRequestUrl,
   );
-  const safeGoogleMapsUrl = getSafeHttpsUrl(googleMapsUrl);
   const stopRowClick = (event: React.MouseEvent<HTMLAnchorElement>) =>
     event.stopPropagation();
 
@@ -196,7 +193,7 @@ export function CrashDetails({
           </Group>
         )}
 
-        {(dotiRecordUrl || cdotReportRequestUrl || safeGoogleMapsUrl) && (
+        {(dotiRecordUrl || cdotReportRequestUrl) && (
           <Group gap="md" mt="xs" wrap="wrap">
             {dotiRecordUrl && (
               <Anchor
@@ -222,20 +219,6 @@ export function CrashDetails({
                 onClick={stopRowClick}
               >
                 How to request the official report{" "}
-                <IconExternalLink size={12} aria-hidden />
-              </Anchor>
-            )}
-
-            {safeGoogleMapsUrl && (
-              <Anchor
-                href={safeGoogleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                size="xs"
-                aria-label="View crash location in Google Maps (opens in a new tab)"
-                onClick={stopRowClick}
-              >
-                View location in Google Maps{" "}
                 <IconExternalLink size={12} aria-hidden />
               </Anchor>
             )}

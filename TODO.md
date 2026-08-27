@@ -85,12 +85,13 @@ Priority meanings:
   - [x] Fall back to an official ArcGIS query result rather than a third-party site.
   - [x] Verify links against several current and older incidents.
   - [x] Add the verified authoritative DOTI record link to the CSV export.
+  - [x] Show the same authoritative action in map crash callouts.
 - [x] Implement honest CDOT report guidance.
   - [x] Keep displaying the CDOT CUID.
   - [x] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
   - [x] Link to Colorado DMV's official crash-report request instructions.
   - [x] Label the action **How to request the official report**, not **View report**.
-- [x] Preserve the existing Google Maps location link as a separate action.
+- [x] Keep Google Maps location URLs out of crash-row source actions.
 - [x] Add accessibility text and ensure external links open safely.
 - [x] Add tests for DOTI-only, CDOT-enriched, missing-ID, and missing-link cases.
 

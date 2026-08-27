@@ -63,7 +63,7 @@ const expectSafeExternalLink = (link: HTMLElement) => {
 };
 
 describe("CrashList source actions", () => {
-  it("shows an exact DOTI source record and separate Google Maps action", () => {
+  it("shows an exact DOTI source record without a Google Maps action", () => {
     renderCrashList([feature({}, 304214148)]);
 
     expect(screen.getByText("DP2026473926")).toBeInTheDocument();
@@ -77,14 +77,9 @@ describe("CrashList source actions", () => {
     );
     expectSafeExternalLink(sourceLink);
 
-    const mapsLink = screen.getByRole("link", {
-      name: "View crash location in Google Maps (opens in a new tab)",
-    });
-    expect(mapsLink).toHaveAttribute(
-      "href",
-      "https://www.google.com/maps?q=39.7856,-104.8384",
-    );
-    expectSafeExternalLink(mapsLink);
+    expect(
+      screen.queryByRole("link", { name: /Google Maps/ }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", {
         name: /How to request the official report/,
@@ -133,7 +128,7 @@ describe("CrashList source actions", () => {
     ).toBeInTheDocument();
   });
 
-  it("honors an explicit missing-link model while preserving the separate Maps action", () => {
+  it("honors an explicit missing-link model", () => {
     renderCrashList([
       feature(
         {
@@ -154,18 +149,6 @@ describe("CrashList source actions", () => {
         name: /How to request the official report/,
       }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", {
-        name: "View crash location in Google Maps (opens in a new tab)",
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("omits an unsafe Google Maps URL", () => {
-    renderCrashList([
-      feature({ doti_google_maps_url: "data:text/html,unsafe" }, 1),
-    ]);
-
     expect(
       screen.queryByRole("link", { name: /Google Maps/ }),
     ).not.toBeInTheDocument();
