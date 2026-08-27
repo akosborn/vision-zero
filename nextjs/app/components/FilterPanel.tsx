@@ -42,6 +42,9 @@ type Props = {
     uploadedRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
   ) => Promise<void>;
   onSearchToolChange: (searchTool: SearchTool) => void;
+  hasAppliedRoute: boolean;
+  onStartRouteDrawing: () => void;
+  onClearRoute: () => void;
   isLoading: boolean;
   streets: Street[];
 };
@@ -72,6 +75,9 @@ const FilterPanel: React.FC<Props> = ({
   onApplyRadiusSearch,
   onApplyUploadRoute,
   onSearchToolChange,
+  hasAppliedRoute,
+  onStartRouteDrawing,
+  onClearRoute,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
   streets,
@@ -366,6 +372,16 @@ const FilterPanel: React.FC<Props> = ({
               Apply
             </Button>
           )}
+          {filters.searchTool === "Draw Route" && (
+            <Button
+              disabled={isLoading}
+              variant={hasAppliedRoute ? "default" : "filled"}
+              onClick={hasAppliedRoute ? onClearRoute : onStartRouteDrawing}
+              mt="sm"
+            >
+              {hasAppliedRoute ? "Clear Route" : "Start Drawing"}
+            </Button>
+          )}
         </Flex>
       </>
     );
@@ -571,6 +587,16 @@ const FilterPanel: React.FC<Props> = ({
             disabled={isLoading || !isFormValid}
           >
             Apply
+          </Button>
+        )}
+        {filters.searchTool === "Draw Route" && (
+          <Button
+            disabled={isLoading}
+            variant={hasAppliedRoute ? "default" : "filled"}
+            onClick={hasAppliedRoute ? onClearRoute : onStartRouteDrawing}
+            mt="sm"
+          >
+            {hasAppliedRoute ? "Clear Route" : "Start Drawing"}
           </Button>
         )}
       </Flex>

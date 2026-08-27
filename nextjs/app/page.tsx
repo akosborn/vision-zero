@@ -174,6 +174,11 @@ function HomeContent() {
     closeLocationReport();
   }, [clearSearchGeometryAndResults, closeLocationReport, closeMobileFilters]);
 
+  const clearAppliedRoute = React.useCallback(() => {
+    clearSearchGeometryAndResults();
+    dispatchRouteDrawing({ type: "cancel" });
+  }, [clearSearchGeometryAndResults]);
+
   const [isLoadingStreets, setIsLoadingStreets] = React.useState(true);
   const [streets, setStreets] = React.useState<Street[]>([]);
 
@@ -513,6 +518,9 @@ function HomeContent() {
                   filters={filters}
                   setFilters={setFilters}
                   onSearchToolChange={handleSearchToolChange}
+                  hasAppliedRoute={routeGeometry !== null}
+                  onStartRouteDrawing={startRouteDrawing}
+                  onClearRoute={clearAppliedRoute}
                   setIncidentGeoJson={setIncidentGeoJson}
                   onApplyStreetSearch={() =>
                     fetchCrashDataWithArgs(
@@ -554,6 +562,9 @@ function HomeContent() {
                 filters={filters}
                 setFilters={setFilters}
                 onSearchToolChange={handleSearchToolChange}
+                hasAppliedRoute={routeGeometry !== null}
+                onStartRouteDrawing={startRouteDrawing}
+                onClearRoute={clearAppliedRoute}
                 setIncidentGeoJson={setIncidentGeoJson}
                 onApplyStreetSearch={() =>
                   fetchCrashDataWithArgs(
@@ -587,6 +598,7 @@ function HomeContent() {
         </div>
 
         {filters.searchTool === "Draw Route" &&
+          routeDrawingState.status === "drawing" &&
           (!isMobile || !mobileFiltersAreOpen) && (
             <div
               style={{
@@ -598,11 +610,9 @@ function HomeContent() {
               }}
             >
               <RouteDrawingControls
-                isDrawing={routeDrawingState.status === "drawing"}
                 vertexCount={routeDrawingState.coordinates.length}
                 canApply={finalDrawnRoute !== null}
                 isLoading={isLoading}
-                onStart={startRouteDrawing}
                 onUndo={() => dispatchRouteDrawing({ type: "undo" })}
                 onClear={() => dispatchRouteDrawing({ type: "clear" })}
                 onCancel={() => {

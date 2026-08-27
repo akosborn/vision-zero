@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import type { Filters } from "@/app/page";
 
@@ -46,8 +46,19 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-const renderPanel = (filters: Filters, onSearchToolChange = vi.fn()) => {
+const renderPanel = (
+  filters: Filters,
+  options: {
+    onSearchToolChange?: Mock<(searchTool: Filters["searchTool"]) => void>;
+    hasAppliedRoute?: boolean;
+    onStartRouteDrawing?: Mock<() => void>;
+    onClearRoute?: Mock<() => void>;
+  } = {},
+) => {
   const setFilters = vi.fn() as React.Dispatch<React.SetStateAction<Filters>>;
+  const onSearchToolChange = options.onSearchToolChange || vi.fn();
+  const onStartRouteDrawing = options.onStartRouteDrawing || vi.fn();
+  const onClearRoute = options.onClearRoute || vi.fn();
 
   render(
     <MantineProvider>
@@ -62,13 +73,16 @@ const renderPanel = (filters: Filters, onSearchToolChange = vi.fn()) => {
         onApplyRadiusSearch={vi.fn()}
         onApplyUploadRoute={vi.fn()}
         onSearchToolChange={onSearchToolChange}
+        hasAppliedRoute={options.hasAppliedRoute || false}
+        onStartRouteDrawing={onStartRouteDrawing}
+        onClearRoute={onClearRoute}
         isLoading={false}
         streets={[]}
       />
     </MantineProvider>,
   );
 
-  return onSearchToolChange;
+  return { onSearchToolChange, onStartRouteDrawing, onClearRoute };
 };
 
 describe("FilterPanel route modes", () => {
@@ -97,9 +111,9 @@ describe("FilterPanel route modes", () => {
 
   it("routes mode changes through the parent cleanup boundary", async () => {
     const user = userEvent.setup();
-    const onSearchToolChange = renderPanel(
+    const { onSearchToolChange } = renderPanel(
       { searchTool: "Radius Search", bufferRadiusInFeet: 20 },
-      vi.fn(),
+      { onSearchToolChange: vi.fn() },
     );
 
     await user.click(screen.getByText("Draw Route"));
@@ -116,4 +130,42 @@ describe("FilterPanel route modes", () => {
     expect(screen.getByLabelText("Buffer (ft)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
   });
+
+  it.each([
+    ["desktop", false],
+    ["mobile", true],
+  ])(
+    "shows Start Drawing, then Clear Route after Apply on %s",
+    async (_label, isMobile) => {
+      testHarness.isMobile = isMobile;
+      const user = userEvent.setup();
+      const startDrawing = vi.fn();
+      const clearRoute = vi.fn();
+
+      renderPanel(
+        { searchTool: "Draw Route", bufferRadiusInFeet: 20 },
+        { onStartRouteDrawing: startDrawing, onClearRoute: clearRoute },
+      );
+
+      await user.click(screen.getByRole("button", { name: "Start Drawing" }));
+      expect(startDrawing).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("button", { name: "Clear Route" })).toBeNull();
+
+      cleanup();
+      renderPanel(
+        { searchTool: "Draw Route", bufferRadiusInFeet: 20 },
+        {
+          hasAppliedRoute: true,
+          onStartRouteDrawing: startDrawing,
+          onClearRoute: clearRoute,
+        },
+      );
+
+      expect(
+        screen.queryByRole("button", { name: "Start Drawing" }),
+      ).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Clear Route" }));
+      expect(clearRoute).toHaveBeenCalledOnce();
+    },
+  );
 });

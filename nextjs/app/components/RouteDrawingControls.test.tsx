@@ -20,7 +20,6 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const callbacks = () => ({
-  onStart: vi.fn(),
   onUndo: vi.fn(),
   onClear: vi.fn(),
   onCancel: vi.fn(),
@@ -28,28 +27,6 @@ const callbacks = () => ({
 });
 
 describe("RouteDrawingControls", () => {
-  it("starts drawing explicitly", async () => {
-    const handlers = callbacks();
-    const user = userEvent.setup();
-
-    render(
-      <MantineProvider>
-        <RouteDrawingControls
-          {...handlers}
-          isDrawing={false}
-          vertexCount={0}
-          canApply={false}
-          isLoading={false}
-        />
-      </MantineProvider>,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Start Drawing" }));
-
-    expect(handlers.onStart).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
-  });
-
   it("exposes editing actions and disables invalid operations", async () => {
     const handlers = callbacks();
     const user = userEvent.setup();
@@ -57,7 +34,6 @@ describe("RouteDrawingControls", () => {
       <MantineProvider>
         <RouteDrawingControls
           {...handlers}
-          isDrawing
           vertexCount={0}
           canApply={false}
           isLoading={false}
@@ -74,7 +50,6 @@ describe("RouteDrawingControls", () => {
       <MantineProvider>
         <RouteDrawingControls
           {...handlers}
-          isDrawing
           vertexCount={2}
           canApply
           isLoading={false}
