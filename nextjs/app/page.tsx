@@ -44,6 +44,11 @@ export type Filters = {
   droppedPin?: { lng: number; lat: number };
 };
 
+type ActiveCrashResults = {
+  searchTool: SearchTool;
+  features: Feature<Point, Crash>[];
+};
+
 const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
 
 function HomeContent() {
@@ -82,6 +87,16 @@ function HomeContent() {
   const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<
     AnnualCrashSummary[] | null
   >(null);
+
+  const [activeCrashResults, setActiveCrashResults] =
+    React.useState<ActiveCrashResults | null>(null);
+
+  const clearCrashResults = React.useCallback(() => {
+    setIncidentGeoJson(null);
+    setAreaOfInterestIncidentGeoJson(null);
+    setCrashSummaryHistory(null);
+    setActiveCrashResults(null);
+  }, []);
 
   const [streetCenterlines, setStreetCenterlines] =
     React.useState<FeatureCollection | null>(null);
@@ -127,6 +142,7 @@ function HomeContent() {
     range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -158,6 +174,10 @@ function HomeContent() {
       setBufferedStreet(buffer);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setCrashSummaryHistory(history);
+      setActiveCrashResults({
+        searchTool: "Street Search",
+        features: incidentsInBuffer.features,
+      });
 
       zoomToLayer(incidentsInBuffer);
     }
@@ -236,6 +256,7 @@ function HomeContent() {
     range?: { from?: string; to?: string },
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -250,7 +271,10 @@ function HomeContent() {
       setIncidentGeoJson(crashes);
       setStreetCenterlines(null);
       setBufferedStreet(null);
-      setAreaOfInterestIncidentGeoJson(null);
+      setActiveCrashResults({
+        searchTool: "Radius Search",
+        features: crashes.features,
+      });
 
       zoomToLayer(crashes);
     }
@@ -263,6 +287,7 @@ function HomeContent() {
     range: { from?: string; to?: string } | undefined,
   ) => {
     setIsLoading(true);
+    clearCrashResults();
     closeMobileFilters();
     openLocationReport();
 
@@ -288,11 +313,42 @@ function HomeContent() {
       setBufferedStreet(null);
       setCrashSummaryHistory(null);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+      setActiveCrashResults({
+        searchTool: "Upload Route",
+        features: incidentsInBuffer.features,
+      });
 
       zoomToLayer(route);
     }
     setIsLoading(false);
   };
+
+  const previousSearchTool = React.useRef(filters.searchTool);
+  React.useEffect(() => {
+    if (previousSearchTool.current !== filters.searchTool) {
+      clearCrashResults();
+      previousSearchTool.current = filters.searchTool;
+    }
+  }, [clearCrashResults, filters.searchTool]);
+
+  React.useEffect(() => {
+    if (!incidentGeoJson && !areaOfInterestIncidentGeoJson) {
+      setCrashSummaryHistory(null);
+      setActiveCrashResults(null);
+    }
+  }, [areaOfInterestIncidentGeoJson, incidentGeoJson]);
+
+  const handleMapRadiusResultsChange = React.useCallback(
+    (results: FeatureCollection<Point, Crash> | null) => {
+      setCrashSummaryHistory(null);
+      setActiveCrashResults(
+        results
+          ? { searchTool: "Radius Search", features: results.features }
+          : null,
+      );
+    },
+    [],
+  );
 
   return (
     <Suspense>
@@ -320,11 +376,13 @@ function HomeContent() {
             setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
             incidentGeoJson={incidentGeoJson}
             setIncidentGeoJson={setIncidentGeoJson}
+            isLoading={isLoading}
             setIsLoading={setIsLoading}
             setStreetCenterlines={setStreetCenterlines}
             streetCenterlines={streetCenterlines}
             bufferedStreet={bufferedStreet}
             setBufferedStreet={setBufferedStreet}
+            onRadiusResultsChange={handleMapRadiusResultsChange}
           />
         </div>
 
@@ -477,13 +535,13 @@ function HomeContent() {
                       <LocationReport
                         crashSummaryHistory={crashSummaryHistory}
                         isLoading={isLoading}
+                        searchTool={
+                          activeCrashResults?.searchTool || filters.searchTool
+                        }
+                        crashFeatures={activeCrashResults?.features || []}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
-                        incidentGeoJson={incidentGeoJson}
-                        areaOfInterestIncidentGeoJson={
-                          areaOfInterestIncidentGeoJson
-                        }
                       />
                     </Drawer.Body>
                   </Drawer.Content>
@@ -509,11 +567,13 @@ function HomeContent() {
                 <LocationReport
                   crashSummaryHistory={crashSummaryHistory}
                   isLoading={isLoading}
+                  searchTool={
+                    activeCrashResults?.searchTool || filters.searchTool
+                  }
+                  crashFeatures={activeCrashResults?.features || []}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
-                  incidentGeoJson={incidentGeoJson}
-                  areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
                 />
               </>
             )}

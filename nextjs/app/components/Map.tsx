@@ -75,6 +75,7 @@ type Props = {
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
+  isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
   setStreetCenterlines: React.Dispatch<
     React.SetStateAction<FeatureCollection | null>
@@ -82,6 +83,9 @@ type Props = {
   setBufferedStreet: React.Dispatch<
     React.SetStateAction<FeatureCollection | null>
   >;
+  onRadiusResultsChange: (
+    results: FeatureCollection<Point, Crash> | null,
+  ) => void;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
 };
@@ -96,8 +100,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
     setAreaOfInterestIncidentGeoJson,
     viewport,
     setViewport,
+    isLoading,
+    setIsLoading,
     setStreetCenterlines,
     setBufferedStreet,
+    onRadiusResultsChange,
     streetCenterlines,
     bufferedStreet,
   },
@@ -115,6 +122,12 @@ export default forwardRef<MapRef | null, Props>(function Map(
         droppedPin: undefined,
       }));
     } else {
+      if (isLoading) {
+        return;
+      }
+
+      setIsLoading(true);
+      onRadiusResultsChange(null);
       setAreaOfInterestIncidentGeoJson(null);
       setIncidentGeoJson(null);
       setStreetCenterlines(null);
@@ -122,6 +135,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
       const { lng, lat } = event.lngLat;
       setFilters((prevState) => ({
         ...prevState,
+        searchTool: "Radius Search",
         droppedPin: { lng, lat },
       }));
       setSelectedPoint(null);
@@ -132,9 +146,14 @@ export default forwardRef<MapRef | null, Props>(function Map(
         lat,
         lng,
         radiusInFeet: filters.bufferRadiusInFeet,
-      }).then((data) => {
-        setIncidentGeoJson(data);
-      });
+      })
+        .then((data) => {
+          setIncidentGeoJson(data);
+          onRadiusResultsChange(data);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
   };
 

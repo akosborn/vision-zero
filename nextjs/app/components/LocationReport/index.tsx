@@ -3,6 +3,7 @@ import React from "react";
 import CrashList from "@/app/components/LocationReport/CrashList";
 import {
   Anchor,
+  Button,
   Container,
   Flex,
   Loader,
@@ -14,6 +15,7 @@ import {
   useMantineTheme,
 } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
+import { DateTime } from "luxon";
 import {
   generateLocationReport,
   KABCO_SEVERITY_LEVEL,
@@ -21,12 +23,14 @@ import {
 import { AnnualCrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
 import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
+import { downloadCrashCsv } from "@/app/components/LocationReport/utils/crash-csv";
+import type { SearchTool } from "@/app/page";
 
 type Props = {
   isLoading: boolean;
+  searchTool: SearchTool;
+  crashFeatures: Feature<Point, Crash>[];
   droppedPin?: { lng: number; lat: number };
-  incidentGeoJson: FeatureCollection<Point, Crash> | null;
-  areaOfInterestIncidentGeoJson: FeatureCollection<Point, Crash> | null;
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
@@ -38,21 +42,17 @@ type View = "Summary" | "Crashes" | "History";
 
 const LocationReport: React.FC<Props> = ({
   crashSummaryHistory,
-  incidentGeoJson,
   isLoading,
-  areaOfInterestIncidentGeoJson,
+  searchTool,
+  crashFeatures,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
 
   const theme = useMantineTheme();
 
   const locationReport = React.useMemo(() => {
-    const features =
-      areaOfInterestIncidentGeoJson?.features ||
-      incidentGeoJson?.features ||
-      [];
-    return generateLocationReport(features);
-  }, [incidentGeoJson, areaOfInterestIncidentGeoJson]);
+    return generateLocationReport(crashFeatures);
+  }, [crashFeatures]);
 
   return (
     <div>
@@ -65,6 +65,20 @@ const LocationReport: React.FC<Props> = ({
         radius="md"
         mb="sm"
       />
+      <Flex justify="flex-end" mb="sm">
+        <Button
+          variant="default"
+          disabled={isLoading || crashFeatures.length === 0}
+          onClick={() =>
+            downloadCrashCsv(crashFeatures, {
+              searchTool,
+              date: getCurrentDenverDate(),
+            })
+          }
+        >
+          Export CSV
+        </Button>
+      </Flex>
       {selectedView === "Summary" && (
         <>
           {!isLoading ? (
@@ -154,11 +168,7 @@ const LocationReport: React.FC<Props> = ({
           {!isLoading ? (
             <Container mah="40vh" style={{ overflowY: "auto" }} px={0}>
               <CrashList
-                crashFeatures={
-                  (areaOfInterestIncidentGeoJson?.features ||
-                    incidentGeoJson?.features ||
-                    []) as Feature<Geometry, Crash>[]
-                }
+                crashFeatures={crashFeatures as Feature<Geometry, Crash>[]}
               />
             </Container>
           ) : (
@@ -184,6 +194,14 @@ const LocationReport: React.FC<Props> = ({
       )}
     </div>
   );
+};
+
+const getCurrentDenverDate = (): Date => {
+  const denverDate = DateTime.now().setZone("America/Denver");
+
+  // The filename helper reads local calendar fields. Constructing a local Date
+  // from Denver's fields preserves Denver's date for users in other time zones.
+  return new Date(denverDate.year, denverDate.month - 1, denverDate.day);
 };
 
 const usdFormatter = new Intl.NumberFormat("en-US", {
