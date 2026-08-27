@@ -173,6 +173,55 @@ before annual history can include newly imported CDOT rows.
 
 Uploaded routes currently do not receive annual-history results.
 
+## CSV Export Contract
+
+Version 1 exports one rectangular detail CSV with one row for each crash in the
+last successfully applied search. It does not add summary rows or a second
+summary file because radius and uploaded-route searches do not have the same
+history data as street searches.
+
+The public export excludes age, sex, other demographics, free-text data notes,
+and per-record source/request links. The current age and sex properties are
+ambiguous because the API projects motorist and non-motorist values onto the
+same names. The Google Maps value is a generated location link rather than an
+authoritative crash record. Source links can be added after the application has
+a verified authoritative per-record link model.
+
+Columns have this fixed order:
+
+1. `doti_incident_id`
+2. `cdot_cuid`
+3. `occurred_at`
+4. `address`
+5. `latitude`
+6. `longitude`
+7. `kabco_max_severity`
+8. `fatalities`
+9. `serious_injuries`
+10. `bicyclists_involved`
+11. `pedestrians_involved`
+12. `top_traffic_accident_offense`
+13. `neighborhood_id`
+14. `road_location`
+15. `road_description`
+16. `road_contour`
+17. `road_condition`
+18. `light_condition`
+19. `construction_zone`
+20. `school_zone`
+21. `total_vehicles`
+22. `unit_1_speed_limit_mph`
+23. `unit_1_estimated_speed_mph`
+24. `unit_1_recorded_speed_mph`
+25. `unit_2_speed_limit_mph`
+26. `unit_2_estimated_speed_mph`
+27. `unit_2_recorded_speed_mph`
+
+Severity, fatality, serious-injury, bicyclist, and pedestrian values use the
+same DOTI/CDOT precedence and fallback rules as the Location Report so the CSV
+reconciles with the visible summary. Draft filter changes do not relabel an old
+result: export metadata belongs to the last successfully applied result set.
+
 ### Planned drawn route
 
 The planned drawing tool should produce the same GeoJSON contract as an uploaded
