@@ -187,6 +187,11 @@ same names. The Google Maps value is a generated location link rather than an
 authoritative crash record. Source links can be added after the application has
 a verified authoritative per-record link model.
 
+The maintainer confirmed this version 1 contract on 2026-08-26. After the
+authoritative DOTI record-link phase is complete, the CSV contract should add
+that verified DOTI link as a new column. It must remain distinct from the
+Google Maps location link.
+
 Columns have this fixed order:
 
 1. `doti_incident_id`

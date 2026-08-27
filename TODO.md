@@ -47,7 +47,7 @@ Priority meanings:
 
 ## P1: Export Current Results to CSV
 
-- [ ] Confirm the initial export contract with the maintainer.
+- [x] Confirm the initial export contract with the maintainer.
   - [x] Version 1: one row per crash in the last successfully applied result set.
   - [x] Do not include a second summary CSV or summary header rows in version 1.
   - [x] Exclude age, sex, demographics, and free-text notes from the public export.
@@ -80,6 +80,7 @@ Priority meanings:
   - [ ] Prefer a human-readable filtered record view when stable.
   - [ ] Fall back to an official ArcGIS query result rather than a third-party site.
   - [ ] Verify links against several current and older incidents.
+  - [ ] Add the verified authoritative DOTI record link to the CSV export.
 - [ ] Implement honest CDOT report guidance.
   - [ ] Keep displaying the CDOT CUID.
   - [ ] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
