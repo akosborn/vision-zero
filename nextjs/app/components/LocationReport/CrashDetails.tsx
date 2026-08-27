@@ -222,7 +222,6 @@ export function CrashDetails({
                 <IconExternalLink size={12} aria-hidden />
               </Anchor>
             )}
-
           </Group>
         )}
 

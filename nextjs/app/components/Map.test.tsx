@@ -61,7 +61,7 @@ const feature = (
       cdot_cuid: null,
       ...properties,
     },
-  }) as GeoJSONFeature;
+  }) as unknown as GeoJSONFeature;
 
 const renderMap = () => {
   const filters: Filters = {

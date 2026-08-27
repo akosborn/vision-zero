@@ -165,8 +165,12 @@ export default forwardRef<MapRef | null, Props>(function Map(
       )
     : null;
 
-  const selectedPointDotiRecordUrl = selectedPoint
-    ? getCrashSourceLinks(selectedPoint.properties as Crash, selectedPoint.id)
+  const selectedPointProperties = selectedPoint?.properties as
+    | Crash
+    | null
+    | undefined;
+  const selectedPointDotiRecordUrl = selectedPointProperties
+    ? getCrashSourceLinks(selectedPointProperties, selectedPoint?.id)
         .dotiRecordUrl
     : undefined;
 
@@ -324,7 +328,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
                   href={selectedPointDotiRecordUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`View DOTI source record for ${selectedPoint.properties.doti_incident_id || "this crash"} (opens in a new tab)`}
+                  aria-label={`View DOTI source record for ${selectedPointProperties?.doti_incident_id || "this crash"} (opens in a new tab)`}
                   className="text-xs font-medium text-blue-700 underline"
                 >
                   View DOTI source record
