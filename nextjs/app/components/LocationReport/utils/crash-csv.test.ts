@@ -9,14 +9,17 @@ import {
   escapeCsvField,
   getCrashCsvFilename,
 } from "./crash-csv";
+import { DOTI_FEATURE_LAYER_URL } from "./crash-source-links";
 
 const crash = (properties: Partial<Crash>): Crash => properties as Crash;
 
 const feature = (
   properties: Partial<Crash>,
   coordinates: [number, number] = [-104.9903, 39.7392],
+  id?: string | number,
 ): Feature<Point, Crash> => ({
   type: "Feature",
+  ...(id !== undefined ? { id } : {}),
   geometry: { type: "Point", coordinates },
   properties: crash(properties),
 });
@@ -83,6 +86,7 @@ describe("crashFeaturesToCsv", () => {
       "unit_2_speed_limit_mph",
       "unit_2_estimated_speed_mph",
       "unit_2_recorded_speed_mph",
+      "doti_source_record_url",
     ]);
     expect(lines[0]).toBe(CRASH_CSV_COLUMNS.join(","));
     expect(lines).toHaveLength(2);
@@ -90,6 +94,7 @@ describe("crashFeaturesToCsv", () => {
     expect(CRASH_CSV_COLUMNS).not.toContain("cdot_tu_1_sex");
     expect(CRASH_CSV_COLUMNS).not.toContain("data_notes");
     expect(CRASH_CSV_COLUMNS).not.toContain("doti_google_maps_url");
+    expect(CRASH_CSV_COLUMNS).not.toContain("cdot_report_request_url");
   });
 
   it("preserves coordinates in latitude/longitude order without treating a negative number as a formula", () => {
@@ -179,6 +184,62 @@ describe("crashFeaturesToCsv", () => {
     expect(rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("address")]).toBe(
       "'  =HYPERLINK(A1)",
     );
+  });
+
+  it("appends the exact authoritative DOTI object-record URL", () => {
+    const csv = crashFeaturesToCsv([
+      feature(dotiCrash({ doti_incident_id: "NON-UNIQUE-ID" }), undefined, 325),
+    ]);
+
+    expect(
+      rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
+    ).toBe(`${DOTI_FEATURE_LAYER_URL}/325`);
+  });
+
+  it("uses the safely encoded official incident query when an object ID is unavailable", () => {
+    const csv = crashFeaturesToCsv([
+      feature(dotiCrash({ doti_incident_id: " 2025'123 " })),
+    ]);
+    const sourceUrl = new URL(
+      rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
+    );
+
+    expect(`${sourceUrl.origin}${sourceUrl.pathname}`).toBe(
+      `${DOTI_FEATURE_LAYER_URL}/query`,
+    );
+    expect(sourceUrl.searchParams.get("where")).toBe(
+      "incident_id = '2025''123'",
+    );
+    expect(sourceUrl.searchParams.get("f")).toBe("pjson");
+  });
+
+  it.each([
+    [
+      "a missing DOTI identifier",
+      { doti_incident_id: null, cdot_cuid: "CDOT-ONLY" },
+      undefined,
+    ],
+    [
+      "an explicit missing source link",
+      { doti_incident_id: "DOTI-123", sourceLinks: {} },
+      325,
+    ],
+    [
+      "an explicit unsafe source link",
+      {
+        doti_incident_id: "DOTI-123",
+        sourceLinks: { dotiRecordUrl: "data:text/html,unsafe" },
+      },
+      325,
+    ],
+  ])("leaves the source URL empty for %s", (_description, properties, id) => {
+    const csv = crashFeaturesToCsv([
+      feature(dotiCrash(properties as Partial<Crash>), undefined, id),
+    ]);
+
+    expect(
+      rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
+    ).toBe("");
   });
 });
 
