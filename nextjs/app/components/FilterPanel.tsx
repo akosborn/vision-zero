@@ -24,6 +24,7 @@ import {
 } from "next/dist/client/components/navigation";
 import type { Filters, SearchTool } from "@/app/page";
 import { parseRouteFile } from "@/app/lib/route-file";
+import RouteDrawingControls from "@/app/components/RouteDrawingControls";
 
 type Props = {
   filters: Filters;
@@ -43,7 +44,14 @@ type Props = {
   ) => Promise<void>;
   onSearchToolChange: (searchTool: SearchTool) => void;
   hasAppliedRoute: boolean;
+  isDrawingRoute: boolean;
+  routeDrawingVertexCount: number;
+  canApplyDrawnRoute: boolean;
   onStartRouteDrawing: () => void;
+  onCancelRouteDrawing: () => void;
+  onUndoRouteDrawing: () => void;
+  onClearRouteDrawing: () => void;
+  onApplyDrawnRoute: () => void;
   onClearRoute: () => void;
   isLoading: boolean;
   streets: Street[];
@@ -76,7 +84,14 @@ const FilterPanel: React.FC<Props> = ({
   onApplyUploadRoute,
   onSearchToolChange,
   hasAppliedRoute,
+  isDrawingRoute,
+  routeDrawingVertexCount,
+  canApplyDrawnRoute,
   onStartRouteDrawing,
+  onCancelRouteDrawing,
+  onUndoRouteDrawing,
+  onClearRouteDrawing,
+  onApplyDrawnRoute,
   onClearRoute,
   setIncidentGeoJson,
   setAreaOfInterestIncidentGeoJson,
@@ -176,17 +191,16 @@ const FilterPanel: React.FC<Props> = ({
             </Grid.Col>
           )}
 
-          {filters.searchTool === "Draw Route" && (
+          {filters.searchTool === "Draw Route" && isDrawingRoute && (
             <Grid.Col span={{ base: 12 }}>
-              <Alert
-                variant="light"
-                icon={<IconInfoCircle />}
-                color="cyan"
-                p="xs"
-                my="0"
-              >
-                Start drawing, then tap the map to add route vertices.
-              </Alert>
+              <RouteDrawingControls
+                vertexCount={routeDrawingVertexCount}
+                canApply={canApplyDrawnRoute}
+                isLoading={isLoading}
+                onUndo={onUndoRouteDrawing}
+                onClear={onClearRouteDrawing}
+                onApply={onApplyDrawnRoute}
+              />
             </Grid.Col>
           )}
 
@@ -375,11 +389,21 @@ const FilterPanel: React.FC<Props> = ({
           {filters.searchTool === "Draw Route" && (
             <Button
               disabled={isLoading}
-              variant={hasAppliedRoute ? "default" : "filled"}
-              onClick={hasAppliedRoute ? onClearRoute : onStartRouteDrawing}
+              variant={isDrawingRoute || hasAppliedRoute ? "default" : "filled"}
+              onClick={
+                isDrawingRoute
+                  ? onCancelRouteDrawing
+                  : hasAppliedRoute
+                    ? onClearRoute
+                    : onStartRouteDrawing
+              }
               mt="sm"
             >
-              {hasAppliedRoute ? "Clear Route" : "Start Drawing"}
+              {isDrawingRoute
+                ? "Cancel"
+                : hasAppliedRoute
+                  ? "Clear Route"
+                  : "Start Drawing"}
             </Button>
           )}
         </Flex>
@@ -401,16 +425,15 @@ const FilterPanel: React.FC<Props> = ({
         </Alert>
       )}
 
-      {filters.searchTool === "Draw Route" && (
-        <Alert
-          variant="light"
-          icon={<IconInfoCircle />}
-          color="cyan"
-          p="xs"
-          mb="xs"
-        >
-          Start drawing, then click the map to add route vertices.
-        </Alert>
+      {filters.searchTool === "Draw Route" && isDrawingRoute && (
+        <RouteDrawingControls
+          vertexCount={routeDrawingVertexCount}
+          canApply={canApplyDrawnRoute}
+          isLoading={isLoading}
+          onUndo={onUndoRouteDrawing}
+          onClear={onClearRouteDrawing}
+          onApply={onApplyDrawnRoute}
+        />
       )}
 
       <Flex gap="sm" justify="flex-start" align="flex-end" wrap="wrap">
@@ -592,11 +615,21 @@ const FilterPanel: React.FC<Props> = ({
         {filters.searchTool === "Draw Route" && (
           <Button
             disabled={isLoading}
-            variant={hasAppliedRoute ? "default" : "filled"}
-            onClick={hasAppliedRoute ? onClearRoute : onStartRouteDrawing}
+            variant={isDrawingRoute || hasAppliedRoute ? "default" : "filled"}
+            onClick={
+              isDrawingRoute
+                ? onCancelRouteDrawing
+                : hasAppliedRoute
+                  ? onClearRoute
+                  : onStartRouteDrawing
+            }
             mt="sm"
           >
-            {hasAppliedRoute ? "Clear Route" : "Start Drawing"}
+            {isDrawingRoute
+              ? "Cancel"
+              : hasAppliedRoute
+                ? "Clear Route"
+                : "Start Drawing"}
           </Button>
         )}
       </Flex>

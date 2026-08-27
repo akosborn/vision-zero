@@ -51,13 +51,24 @@ const renderPanel = (
   options: {
     onSearchToolChange?: Mock<(searchTool: Filters["searchTool"]) => void>;
     hasAppliedRoute?: boolean;
+    isDrawingRoute?: boolean;
+    routeDrawingVertexCount?: number;
+    canApplyDrawnRoute?: boolean;
     onStartRouteDrawing?: Mock<() => void>;
+    onCancelRouteDrawing?: Mock<() => void>;
+    onUndoRouteDrawing?: Mock<() => void>;
+    onClearRouteDrawing?: Mock<() => void>;
+    onApplyDrawnRoute?: Mock<() => void>;
     onClearRoute?: Mock<() => void>;
   } = {},
 ) => {
   const setFilters = vi.fn() as React.Dispatch<React.SetStateAction<Filters>>;
   const onSearchToolChange = options.onSearchToolChange || vi.fn();
   const onStartRouteDrawing = options.onStartRouteDrawing || vi.fn();
+  const onCancelRouteDrawing = options.onCancelRouteDrawing || vi.fn();
+  const onUndoRouteDrawing = options.onUndoRouteDrawing || vi.fn();
+  const onClearRouteDrawing = options.onClearRouteDrawing || vi.fn();
+  const onApplyDrawnRoute = options.onApplyDrawnRoute || vi.fn();
   const onClearRoute = options.onClearRoute || vi.fn();
 
   render(
@@ -74,7 +85,14 @@ const renderPanel = (
         onApplyUploadRoute={vi.fn()}
         onSearchToolChange={onSearchToolChange}
         hasAppliedRoute={options.hasAppliedRoute || false}
+        isDrawingRoute={options.isDrawingRoute || false}
+        routeDrawingVertexCount={options.routeDrawingVertexCount || 0}
+        canApplyDrawnRoute={options.canApplyDrawnRoute || false}
         onStartRouteDrawing={onStartRouteDrawing}
+        onCancelRouteDrawing={onCancelRouteDrawing}
+        onUndoRouteDrawing={onUndoRouteDrawing}
+        onClearRouteDrawing={onClearRouteDrawing}
+        onApplyDrawnRoute={onApplyDrawnRoute}
         onClearRoute={onClearRoute}
         isLoading={false}
         streets={[]}
@@ -82,7 +100,15 @@ const renderPanel = (
     </MantineProvider>,
   );
 
-  return { onSearchToolChange, onStartRouteDrawing, onClearRoute };
+  return {
+    onSearchToolChange,
+    onStartRouteDrawing,
+    onCancelRouteDrawing,
+    onUndoRouteDrawing,
+    onClearRouteDrawing,
+    onApplyDrawnRoute,
+    onClearRoute,
+  };
 };
 
 describe("FilterPanel route modes", () => {
@@ -129,17 +155,22 @@ describe("FilterPanel route modes", () => {
 
     expect(screen.getByLabelText("Buffer (ft)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+    expect(screen.queryByText(/start drawing, then/i)).toBeNull();
   });
 
   it.each([
     ["desktop", false],
     ["mobile", true],
   ])(
-    "shows Start Drawing, then Clear Route after Apply on %s",
+    "moves through Start, Cancel, and Clear Route states on %s",
     async (_label, isMobile) => {
       testHarness.isMobile = isMobile;
       const user = userEvent.setup();
       const startDrawing = vi.fn();
+      const cancelDrawing = vi.fn();
+      const undoDrawing = vi.fn();
+      const clearDrawing = vi.fn();
+      const applyDrawing = vi.fn();
       const clearRoute = vi.fn();
 
       renderPanel(
@@ -149,7 +180,37 @@ describe("FilterPanel route modes", () => {
 
       await user.click(screen.getByRole("button", { name: "Start Drawing" }));
       expect(startDrawing).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Clear Route" })).toBeNull();
+
+      cleanup();
+      renderPanel(
+        { searchTool: "Draw Route", bufferRadiusInFeet: 20 },
+        {
+          isDrawingRoute: true,
+          routeDrawingVertexCount: 2,
+          canApplyDrawnRoute: true,
+          onCancelRouteDrawing: cancelDrawing,
+          onUndoRouteDrawing: undoDrawing,
+          onClearRouteDrawing: clearDrawing,
+          onApplyDrawnRoute: applyDrawing,
+        },
+      );
+
+      expect(
+        screen.queryByRole("button", { name: "Start Drawing" }),
+      ).toBeNull();
+      expect(screen.queryByRole("button", { name: "Clear Route" })).toBeNull();
+      expect(screen.queryByText(/start drawing, then/i)).toBeNull();
+      expect(screen.queryByText(/click or tap the map/i)).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Undo" }));
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await user.click(screen.getByRole("button", { name: "Apply" }));
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(undoDrawing).toHaveBeenCalledOnce();
+      expect(clearDrawing).toHaveBeenCalledOnce();
+      expect(applyDrawing).toHaveBeenCalledOnce();
+      expect(cancelDrawing).toHaveBeenCalledOnce();
 
       cleanup();
       renderPanel(
@@ -164,6 +225,8 @@ describe("FilterPanel route modes", () => {
       expect(
         screen.queryByRole("button", { name: "Start Drawing" }),
       ).toBeNull();
+      expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
       await user.click(screen.getByRole("button", { name: "Clear Route" }));
       expect(clearRoute).toHaveBeenCalledOnce();
     },

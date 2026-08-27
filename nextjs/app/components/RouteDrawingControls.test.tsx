@@ -22,7 +22,6 @@ Object.defineProperty(window, "matchMedia", {
 const callbacks = () => ({
   onUndo: vi.fn(),
   onClear: vi.fn(),
-  onCancel: vi.fn(),
   onApply: vi.fn(),
 });
 
@@ -44,7 +43,8 @@ describe("RouteDrawingControls", () => {
     expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.queryByText(/click or tap the map/i)).toBeNull();
 
     rerender(
       <MantineProvider>
@@ -59,12 +59,10 @@ describe("RouteDrawingControls", () => {
 
     await user.click(screen.getByRole("button", { name: "Undo" }));
     await user.click(screen.getByRole("button", { name: "Clear" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(handlers.onUndo).toHaveBeenCalledOnce();
     expect(handlers.onClear).toHaveBeenCalledOnce();
-    expect(handlers.onCancel).toHaveBeenCalledOnce();
     expect(handlers.onApply).toHaveBeenCalledOnce();
   });
 });

@@ -13,7 +13,6 @@ import {
 } from "geojson";
 import { MapRef } from "react-map-gl/mapbox-legacy";
 import FilterPanel, { isEnabledSearchTool } from "@/app/components/FilterPanel";
-import RouteDrawingControls from "@/app/components/RouteDrawingControls";
 import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport, {
   ExportCsvButton,
@@ -170,9 +169,8 @@ function HomeContent() {
   const startRouteDrawing = React.useCallback(() => {
     clearSearchGeometryAndResults();
     dispatchRouteDrawing({ type: "start" });
-    closeMobileFilters();
     closeLocationReport();
-  }, [clearSearchGeometryAndResults, closeLocationReport, closeMobileFilters]);
+  }, [clearSearchGeometryAndResults, closeLocationReport]);
 
   const clearAppliedRoute = React.useCallback(() => {
     clearSearchGeometryAndResults();
@@ -519,7 +517,18 @@ function HomeContent() {
                   setFilters={setFilters}
                   onSearchToolChange={handleSearchToolChange}
                   hasAppliedRoute={routeGeometry !== null}
+                  isDrawingRoute={routeDrawingState.status === "drawing"}
+                  routeDrawingVertexCount={routeDrawingState.coordinates.length}
+                  canApplyDrawnRoute={finalDrawnRoute !== null}
                   onStartRouteDrawing={startRouteDrawing}
+                  onCancelRouteDrawing={clearAppliedRoute}
+                  onUndoRouteDrawing={() =>
+                    dispatchRouteDrawing({ type: "undo" })
+                  }
+                  onClearRouteDrawing={() =>
+                    dispatchRouteDrawing({ type: "clear" })
+                  }
+                  onApplyDrawnRoute={() => void applyDrawnRoute()}
                   onClearRoute={clearAppliedRoute}
                   setIncidentGeoJson={setIncidentGeoJson}
                   onApplyStreetSearch={() =>
@@ -563,7 +572,18 @@ function HomeContent() {
                 setFilters={setFilters}
                 onSearchToolChange={handleSearchToolChange}
                 hasAppliedRoute={routeGeometry !== null}
+                isDrawingRoute={routeDrawingState.status === "drawing"}
+                routeDrawingVertexCount={routeDrawingState.coordinates.length}
+                canApplyDrawnRoute={finalDrawnRoute !== null}
                 onStartRouteDrawing={startRouteDrawing}
+                onCancelRouteDrawing={clearAppliedRoute}
+                onUndoRouteDrawing={() =>
+                  dispatchRouteDrawing({ type: "undo" })
+                }
+                onClearRouteDrawing={() =>
+                  dispatchRouteDrawing({ type: "clear" })
+                }
+                onApplyDrawnRoute={() => void applyDrawnRoute()}
                 onClearRoute={clearAppliedRoute}
                 setIncidentGeoJson={setIncidentGeoJson}
                 onApplyStreetSearch={() =>
@@ -596,34 +616,6 @@ function HomeContent() {
             )}
           </Paper>
         </div>
-
-        {filters.searchTool === "Draw Route" &&
-          routeDrawingState.status === "drawing" &&
-          (!isMobile || !mobileFiltersAreOpen) && (
-            <div
-              style={{
-                position: "absolute",
-                top: isMobile ? "4rem" : undefined,
-                bottom: isMobile ? undefined : "1rem",
-                right: isMobile ? "0.5rem" : "1rem",
-                zIndex: 11,
-              }}
-            >
-              <RouteDrawingControls
-                vertexCount={routeDrawingState.coordinates.length}
-                canApply={finalDrawnRoute !== null}
-                isLoading={isLoading}
-                onUndo={() => dispatchRouteDrawing({ type: "undo" })}
-                onClear={() => dispatchRouteDrawing({ type: "clear" })}
-                onCancel={() => {
-                  dispatchRouteDrawing({ type: "cancel" });
-                  setRouteGeometry(null);
-                  setRouteSearchArea(null);
-                }}
-                onApply={() => void applyDrawnRoute()}
-              />
-            </div>
-          )}
 
         {/* Location Report Overlay */}
         <div
