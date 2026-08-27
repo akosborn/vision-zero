@@ -98,13 +98,27 @@ The repository does not include a complete clean import for this table.
 
 ### DOTI/CDOT matching
 
-The API enriches a DOTI incident with a CDOT crash when the records have the
-same normalized date/time and are within 200 meters. Suspected CDOT duplicates
-are excluded. When both geometries exist, API responses generally prefer the
-CDOT point with `COALESCE(cdot.geo, doti.geo)`.
+The map API uses DOTI incidents as its base population. CDOT data can enrich a
+matched DOTI incident, but an unmatched CDOT crash is omitted from map searches
+and annual street history.
+
+A CDOT row is eligible to enrich a DOTI incident when its normalized timestamp
+exactly equals `doti.first_occurrence_date` and its geography is within 200
+meters of the DOTI geography. Most routes calculate the timestamp as
+`(crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'`;
+annual street history compares the stored `cdot.vz_date` value produced by the
+same expression. Map API enrichment excludes suspected CDOT duplicates. When
+both geometries exist, API responses generally prefer the CDOT point with
+`COALESCE(cdot.geo, doti.geo)`.
 
 The 200-meter tolerance is an analytical assumption, not a guaranteed identity
-match. Changes to it require data review and regression evidence.
+match. There is no time tolerance or nearest-match rule, so more than one CDOT
+row can be eligible for a DOTI incident. Changes to these rules require data
+review and regression evidence.
+
+`data/cdot/schema/4_add_vz_date.sql` backfills `vz_date`, but the current CDOT
+upsert does not maintain that derived value. Import operations must refresh it
+before annual history can include newly imported CDOT rows.
 
 ## Search Flows
 
@@ -179,7 +193,38 @@ summary in the browser. The summary uses the KABCO severity scale:
 - `O`: no apparent injury.
 
 Comprehensive cost is estimated from the most severe outcome assigned to each
-crash. These policy and cost assumptions should remain documented and tested.
+crash.
+
+### Current KABCO and comprehensive-cost behavior
+
+These rules describe the tested implementation. They remain analytical policy
+choices pending maintainer confirmation:
+
+- for a CDOT-enriched incident, the report uses CDOT injury fields `04` through
+  `00` for K through O and does not fall back to DOTI when those fields are empty;
+- for a DOTI-only incident, fatalities count as K and serious injuries count as
+  A; the available projection does not infer B or C, and assigns one O crash
+  unit when neither K nor A is present;
+- the API projection supplies one fatality or serious injury when the numeric
+  field is absent or zero but the DOTI offense description contains `FATAL` or
+  `SBI`; and
+- each crash contributes one cost at its maximum KABCO severity, even when more
+  than one person is injured.
+
+The comprehensive unit costs are the national economic-plus-quality-of-life
+values in 2024 dollars from
+[FHWA-SA-25-021, Table 1](https://highways.dot.gov/sites/fhwa.dot.gov/files/2025-10/CrashCostFactSheet_508_OCT2025.pdf):
+K `$15,988,000`, A `$1,705,100`, B `$384,000`, C `$204,600`, and O `$18,100`.
+They are analytical estimates, not legal damages estimates. The application
+does not apply a Colorado per-capita-income adjustment or an independent
+inflation adjustment.
+
+The proposed update policy is to review the table annually and when FHWA
+publishes a replacement, without independently applying CPI. A cost update
+should change the publication identifier and URL, dollar year, constants,
+tests, UI explanation, and this documentation together. This cadence and the
+choice of national rather than Colorado-adjusted values require maintainer
+approval before the analytical-assumption TODO can be closed.
 
 ## Deployment
 
