@@ -1,48 +1,67 @@
 import dbClient from "@/app/lib/db";
+import {
+  databaseFailureResponse,
+  validateBufferInFeet,
+  validateCrossStreetPair,
+  validateDateRange,
+  validateStreetName,
+} from "@/app/lib/street-route-input";
 import { NextRequest } from "next/server";
 
 const METERS_PER_FEET = 0.3048;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
-  const fullStreetName = searchParams.get("fullStreetName");
-  const bufferInFeet = searchParams.get("bufferInFeet");
-
-  const crossStreet1 = searchParams.get("crossStreet1");
-  const crossStreet2 = searchParams.get("crossStreet2");
-
-  if (!fullStreetName) {
-    return Response.json({
-      error: "fullStreetName is required",
-    });
+  const fullStreetName = validateStreetName(
+    searchParams.get("fullStreetName"),
+    "fullStreetName",
+    true,
+  );
+  if (fullStreetName.error) {
+    return fullStreetName.error;
   }
 
-  if (!bufferInFeet) {
-    return Response.json({
-      error: "bufferInFeet is required",
-    });
+  const bufferInFeet = validateBufferInFeet(searchParams.get("bufferInFeet"));
+  if (bufferInFeet.error) {
+    return bufferInFeet.error;
   }
 
+  const crossStreets = validateCrossStreetPair(
+    searchParams.get("crossStreet1"),
+    searchParams.get("crossStreet2"),
+  );
+  if (crossStreets.error) {
+    return crossStreets.error;
+  }
+
+  const dateRange = validateDateRange(
+    searchParams.get("startDate"),
+    searchParams.get("endDate"),
+  );
+  if (dateRange.error) {
+    return dateRange.error;
+  }
+
+  const bufferInMeters = METERS_PER_FEET * bufferInFeet.value;
+  const queryParams: (string | number)[] = crossStreets.value
+    ? [bufferInMeters, fullStreetName.value, ...crossStreets.value]
+    : [bufferInMeters, fullStreetName.value];
+  let paramIndex = queryParams.length + 1;
   let whereClause = "WHERE 1=1";
-  const queryParams: (string | number)[] = [];
-  let paramIndex = 1;
 
-  if (startDate) {
+  if (dateRange.value.startDate) {
     whereClause += ` AND first_occurrence_date >= $${paramIndex++}`;
-    queryParams.push(startDate);
+    queryParams.push(dateRange.value.startDate);
   }
 
-  if (endDate) {
+  if (dateRange.value.endDate) {
     whereClause += ` AND first_occurrence_date <= $${paramIndex++}`;
-    queryParams.push(endDate);
+    queryParams.push(dateRange.value.endDate);
   }
 
-  const bufferInMeters = METERS_PER_FEET * parseInt(bufferInFeet, 10);
-
-  if (crossStreet1 && crossStreet2) {
-    const query = `
+  try {
+    if (crossStreets.value) {
+      const query = `
         SELECT jsonb_build_object(
                        'type', 'FeatureCollection',
                        'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
@@ -57,9 +76,12 @@ export async function GET(request: NextRequest) {
                  with buffered_line as (
                      SELECT ST_Buffer(
                                  ST_Union(geom)::geography, 
-                                 ${bufferInMeters}
+                                 $1
                              )::geometry AS line
-                     FROM ( select * from get_street_segments_between('${fullStreetName}', '${crossStreet1}', '${crossStreet2}') ) inputs
+                     FROM (
+                       SELECT *
+                       FROM get_street_segments_between($2::varchar, $3::varchar, $4::varchar)
+                     ) inputs
                 )
                       SELECT
                         doti.incident_id as doti_incident_id,
@@ -183,11 +205,11 @@ export async function GET(request: NextRequest) {
                     ${whereClause}) inputs) features;
     `;
 
-    const results = await dbClient.query(query, queryParams);
-    return Response.json(results.rows[0].geojson);
-  }
+      const results = await dbClient.query(query, queryParams);
+      return Response.json(results.rows[0].geojson);
+    }
 
-  const entireStreetQuery = `
+    const entireStreetQuery = `
         SELECT jsonb_build_object(
                        'type', 'FeatureCollection',
                        'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
@@ -202,10 +224,10 @@ export async function GET(request: NextRequest) {
                  with buffered_line as (
                      SELECT ST_Buffer(
                                  ST_Union(geom)::geography, 
-                                 ${bufferInMeters}
+                                 $1
                              )::geometry AS line
                       FROM public.denver_street_centerlines
-                      WHERE fullname = '${fullStreetName}'
+                      WHERE fullname = $2
                 )
                       SELECT
                         doti.incident_id as doti_incident_id,
@@ -329,6 +351,9 @@ export async function GET(request: NextRequest) {
                     ${whereClause}) inputs) features;
     `;
 
-  const results = await dbClient.query(entireStreetQuery, queryParams);
-  return Response.json(results.rows[0].geojson);
+    const results = await dbClient.query(entireStreetQuery, queryParams);
+    return Response.json(results.rows[0].geojson);
+  } catch {
+    return databaseFailureResponse();
+  }
 }
