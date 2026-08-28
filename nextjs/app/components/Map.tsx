@@ -440,7 +440,16 @@ export default forwardRef<MapRef | null, Props>(function Map(
             onClose={() => onCrashSelect(null)}
             maxWidth="none"
           >
-            <div className="p-2 text-black">
+            <div
+              className="p-2 text-black"
+              role="region"
+              aria-label="Crash details"
+              style={{
+                maxHeight: "min(35dvh, 20rem)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+            >
               <h3 className="font-bold">Incident Info</h3>
               {selectedPointDotiRecordUrl && (
                 <a

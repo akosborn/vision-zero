@@ -208,6 +208,11 @@ describe("Map crash popup source action", () => {
       },
     });
     expect(screen.getByTestId("popup")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Crash details" })).toHaveStyle({
+      maxHeight: "min(35dvh, 20rem)",
+      overflowY: "auto",
+      overscrollBehavior: "contain",
+    });
     expect(mapHarness.popupCloseOnClick).toBe(false);
   });
 
