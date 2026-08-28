@@ -81,9 +81,6 @@ const renderPanel = (
         filters={filters}
         setFilters={setFilters}
         closeMobileFilters={vi.fn()}
-        setAreaOfInterestIncidentGeoJson={vi.fn()}
-        incidentGeoJson={null}
-        setIncidentGeoJson={vi.fn()}
         onApplyStreetSearch={vi.fn()}
         onApplyRadiusSearch={vi.fn()}
         onApplyUploadRoute={vi.fn()}
@@ -151,7 +148,7 @@ describe("FilterPanel route modes", () => {
     expect(screen.getByLabelText("Radius (ft)")).toHaveValue("1000");
   });
 
-  it("routes mode changes through the parent cleanup boundary", async () => {
+  it("routes draft mode changes through the parent without changing the URL", async () => {
     const user = userEvent.setup();
     const { onSearchToolChange } = renderPanel(
       { searchTool: "Radius Search", bufferRadiusInFeet: 20 },
@@ -161,9 +158,7 @@ describe("FilterPanel route modes", () => {
     await user.click(screen.getByText("Draw Route"));
 
     expect(onSearchToolChange).toHaveBeenCalledWith("Draw Route");
-    expect(testHarness.replace).toHaveBeenCalledWith("?tool=Draw+Route", {
-      scroll: false,
-    });
+    expect(testHarness.replace).not.toHaveBeenCalled();
   });
 
   it("labels route distance as a buffer and leaves Apply to map controls", () => {

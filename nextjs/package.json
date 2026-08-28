@@ -18,6 +18,7 @@
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-regular-svg-icons": "^7.1.0",
     "@fortawesome/react-fontawesome": "^3.1.1",
+    "@googlemaps/polyline-codec": "^1.0.28",
     "@mantine/carousel": "^8.3.13",
     "@mantine/core": "^8.3.11",
     "@mantine/dates": "^8.3.11",
@@ -54,7 +55,8 @@
     "react-fontawesome": "^1.7.1",
     "react-map-gl": "^8.1.0",
     "recharts": "^3.6.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",

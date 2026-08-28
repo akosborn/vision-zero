@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { Feature, FeatureCollection, Point } from "geojson";
 import { GeoJSONFeature } from "mapbox-gl";
 import React from "react";
@@ -17,14 +17,6 @@ const mapHarness = vi.hoisted(() => ({
   layers: {} as Record<string, unknown>,
   popupOnClose: undefined as (() => void) | undefined,
   popupCloseOnClick: undefined as boolean | undefined,
-}));
-
-const getIncidentsMock = vi.hoisted(() => vi.fn());
-const getAnnualRadiusCrashHistoryMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/app/lib/api-client", () => ({
-  getAnnualRadiusCrashHistory: getAnnualRadiusCrashHistoryMock,
-  getIncidents: getIncidentsMock,
 }));
 
 vi.mock("react-map-gl/mapbox-legacy", async () => {
@@ -117,15 +109,10 @@ const renderMap = (
   const props: React.ComponentProps<typeof Map> = {
     filters,
     setFilters: vi.fn(),
-    setIncidentGeoJson: vi.fn(),
-    setAreaOfInterestIncidentGeoJson: vi.fn(),
     viewport: DEFAULT_VIEWPORT,
     setViewport: vi.fn(),
     isLoading: false,
-    setIsLoading: vi.fn(),
-    setStreetCenterlines: vi.fn(),
-    setBufferedStreet: vi.fn(),
-    onRadiusResultsChange: vi.fn(),
+    onRadiusSearchPoint: vi.fn(),
     isDrawingRoute: false,
     onAddDrawnRouteVertex: vi.fn(),
     selectedCrashFeature: null,
@@ -154,8 +141,6 @@ describe("Map crash popup source action", () => {
     mapHarness.layers = {};
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
-    getIncidentsMock.mockReset();
-    getAnnualRadiusCrashHistoryMock.mockReset();
   });
 
   it("links by semantic DOTI incident ID and makes both crash layers interactive", () => {
@@ -339,8 +324,6 @@ describe("Map drawn route interaction", () => {
     mapHarness.layers = {};
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
-    getIncidentsMock.mockReset();
-    getAnnualRadiusCrashHistoryMock.mockReset();
   });
 
   it.each([
@@ -362,14 +345,8 @@ describe("Map drawn route interaction", () => {
         -104.99, 39.74,
       ]);
       expect(screen.queryByTestId("popup")).not.toBeInTheDocument();
-      expect(getIncidentsMock).not.toHaveBeenCalled();
       expect(props.setFilters).not.toHaveBeenCalled();
-      expect(props.setIsLoading).not.toHaveBeenCalled();
-      expect(props.onRadiusResultsChange).not.toHaveBeenCalled();
-      expect(props.setIncidentGeoJson).not.toHaveBeenCalled();
-      expect(props.setAreaOfInterestIncidentGeoJson).not.toHaveBeenCalled();
-      expect(props.setStreetCenterlines).not.toHaveBeenCalled();
-      expect(props.setBufferedStreet).not.toHaveBeenCalled();
+      expect(props.onRadiusSearchPoint).not.toHaveBeenCalled();
     },
   );
 
@@ -389,21 +366,11 @@ describe("Map drawn route interaction", () => {
     });
 
     expect(props.onAddDrawnRouteVertex).not.toHaveBeenCalled();
-    expect(getIncidentsMock).not.toHaveBeenCalled();
     expect(props.setFilters).not.toHaveBeenCalled();
-    expect(props.setIsLoading).not.toHaveBeenCalled();
-    expect(props.onRadiusResultsChange).not.toHaveBeenCalled();
-    expect(props.setIncidentGeoJson).not.toHaveBeenCalled();
-    expect(props.setAreaOfInterestIncidentGeoJson).not.toHaveBeenCalled();
-    expect(props.setStreetCenterlines).not.toHaveBeenCalled();
-    expect(props.setBufferedStreet).not.toHaveBeenCalled();
+    expect(props.onRadiusSearchPoint).not.toHaveBeenCalled();
   });
 
-  it("loads current crashes and full history for a radius search", async () => {
-    const crashes = { type: "FeatureCollection", features: [] };
-    const history = [{ year: 2024, crashes: 3 }];
-    getIncidentsMock.mockResolvedValue(crashes);
-    getAnnualRadiusCrashHistoryMock.mockResolvedValue(history);
+  it("reports a blank-map radius point to the page-owned query runner", () => {
     const dateRange = { from: "2024-03-01", to: "2025-02-28" };
     const { props } = renderMap({
       filters: {
@@ -420,24 +387,9 @@ describe("Map drawn route interaction", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(props.onRadiusResultsChange).toHaveBeenLastCalledWith(
-        crashes,
-        history,
-        dateRange,
-      );
-    });
-    expect(getIncidentsMock).toHaveBeenCalledWith({
-      startDate: dateRange.from,
-      endDate: dateRange.to,
+    expect(props.onRadiusSearchPoint).toHaveBeenCalledWith({
       lat: 39.74,
       lng: -104.99,
-      radiusInFeet: 35,
-    });
-    expect(getAnnualRadiusCrashHistoryMock).toHaveBeenCalledWith({
-      lat: 39.74,
-      lng: -104.99,
-      radiusInFeet: 35,
     });
   });
 
@@ -454,7 +406,7 @@ describe("Map drawn route interaction", () => {
     expect(props.onCrashSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: 304214148 }),
     );
-    expect(getIncidentsMock).not.toHaveBeenCalled();
+    expect(props.onRadiusSearchPoint).not.toHaveBeenCalled();
   });
 
   it("renders preview, applied route, and search-area data with stable IDs", () => {
