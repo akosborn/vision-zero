@@ -215,10 +215,10 @@ export function CrashDetails({
                 target="_blank"
                 rel="noopener noreferrer"
                 size="xs"
-                aria-label="How to request the official report on the Colorado DMV website (opens in a new tab)"
+                aria-label="How to obtain an official crash report (opens in a new tab)"
                 onClick={stopRowClick}
               >
-                How to request the official report{" "}
+                How to obtain an official crash report{" "}
                 <IconExternalLink size={12} aria-hidden />
               </Anchor>
             )}

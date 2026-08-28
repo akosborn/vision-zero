@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { Crash } from "@/app/lib/api-client";
 
 import {
-  CDOT_REPORT_REQUEST_URL,
   DOTI_OPEN_DATASET_URL,
   getCrashSourceLinks,
   getSafeHttpsUrl,
@@ -59,18 +58,14 @@ describe("getCrashSourceLinks", () => {
     ).toBeUndefined();
   });
 
-  it("adds official report-request guidance only for a nonblank CDOT CUID", () => {
+  it.each([
+    { doti_incident_id: "DOTI-123", cdot_cuid: null },
+    { doti_incident_id: "DOTI-123", cdot_cuid: "CDOT-456" },
+    { doti_incident_id: null, cdot_cuid: "CDOT-ONLY" },
+  ])("does not generate a broken report-request URL for $cdot_cuid", (ids) => {
     expect(
-      getCrashSourceLinks(crash({ cdot_cuid: "  CUID-123  " }))
-        .cdotReportRequestUrl,
-    ).toBe(CDOT_REPORT_REQUEST_URL);
-
-    for (const cdotCuid of [null, "", "   "]) {
-      expect(
-        getCrashSourceLinks(crash({ cdot_cuid: cdotCuid }))
-          .cdotReportRequestUrl,
-      ).toBeUndefined();
-    }
+      getCrashSourceLinks(crash(ids)).cdotReportRequestUrl,
+    ).toBeUndefined();
   });
 
   it("treats an explicit empty source-link model as authoritative", () => {
@@ -85,19 +80,35 @@ describe("getCrashSourceLinks", () => {
     ).toEqual({});
   });
 
-  it("keeps only safe HTTPS URLs from an explicit source-link model", () => {
+  it("keeps a safe explicit report URL for a CDOT-only record", () => {
     expect(
       getCrashSourceLinks(
         crash({
+          cdot_cuid: "CDOT-ONLY",
           sourceLinks: {
             dotiRecordUrl: "data:text/html,unsafe",
-            cdotReportRequestUrl: "https://dmv.colorado.gov/reports",
+            cdotReportRequestUrl: "https://example.com/cdot-report-guidance",
           },
         }),
       ),
     ).toEqual({
-      cdotReportRequestUrl: "https://dmv.colorado.gov/reports",
+      cdotReportRequestUrl: "https://example.com/cdot-report-guidance",
     });
+  });
+
+  it("drops an explicit report URL from a DOTI record enriched by CDOT", () => {
+    expect(
+      getCrashSourceLinks(
+        crash({
+          doti_incident_id: "DOTI-123",
+          cdot_cuid: "CDOT-456",
+          sourceLinks: {
+            dotiRecordUrl: "https://example.gov/doti-record",
+            cdotReportRequestUrl: "https://example.com/cdot-report-guidance",
+          },
+        }),
+      ),
+    ).toEqual({ dotiRecordUrl: "https://example.gov/doti-record" });
   });
 });
 

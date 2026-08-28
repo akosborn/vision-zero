@@ -90,7 +90,7 @@ describe("CrashList source actions", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows both source identifiers and honest report guidance for a CDOT-enriched row", () => {
+  it("shows both source identifiers but no report guidance for a CDOT-enriched DOTI row", () => {
     renderCrashList([feature({ cdot_cuid: "CDOT-456" }, 304214148)]);
 
     expect(screen.getByText("DP2026473926")).toBeInTheDocument();
@@ -100,22 +100,20 @@ describe("CrashList source actions", () => {
       screen.getByRole("link", { name: /View DOTI source record/ }),
     ).toBeInTheDocument();
 
-    const reportGuidanceLink = screen.getByRole("link", {
-      name: "How to request the official report on the Colorado DMV website (opens in a new tab)",
-    });
-    expect(reportGuidanceLink).toHaveAttribute(
-      "href",
-      "https://dmv.colorado.gov/obtaining-crash-reports-or-ticket-information",
-    );
-    expectSafeExternalLink(reportGuidanceLink);
     expect(
-      screen.queryByRole("link", { name: /View report/i }),
+      screen.queryByRole("link", { name: /official crash report/i }),
     ).not.toBeInTheDocument();
   });
 
-  it("omits the DOTI identifier and action when both official identifiers are missing", () => {
+  it("uses a safe explicit report URL only for a CDOT-only record", () => {
     renderCrashList([
-      feature({ doti_incident_id: null, cdot_cuid: "CDOT-456" }),
+      feature({
+        doti_incident_id: null,
+        cdot_cuid: "CDOT-456",
+        sourceLinks: {
+          cdotReportRequestUrl: "https://example.com/cdot-report-guidance",
+        },
+      }),
     ]);
 
     expect(
@@ -126,9 +124,9 @@ describe("CrashList source actions", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", {
-        name: /How to request the official report/,
+        name: "How to obtain an official crash report (opens in a new tab)",
       }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("href", "https://example.com/cdot-report-guidance");
   });
 
   it("honors an explicit missing-link model", () => {

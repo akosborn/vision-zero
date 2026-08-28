@@ -3,9 +3,6 @@ import { Crash, CrashSourceLinks } from "@/app/lib/api-client";
 export const DOTI_OPEN_DATASET_URL =
   "https://opendata-geospatialdenver.hub.arcgis.com/datasets/db00bd99ea534d8987e0913a191ebe19_325/explore";
 
-export const CDOT_REPORT_REQUEST_URL =
-  "https://dmv.colorado.gov/obtaining-crash-reports-or-ticket-information";
-
 /**
  * Returns an HTTPS URL safe to use as an external link, or undefined for
  * malformed URLs, other protocols, and URLs containing credentials.
@@ -32,32 +29,36 @@ export const getSafeHttpsUrl = (
 /**
  * Resolves the external source links for a crash.
  *
- * A supplied sourceLinks object, including an empty object, is authoritative.
- * Otherwise the semantic incident ID produces a filtered Denver Open Data URL.
- * ArcGIS object IDs are intentionally not used because they are system-managed
- * and can change when the official dataset is refreshed.
+ * A supplied sourceLinks object, including an empty object, is authoritative,
+ * but report guidance is accepted only for a CDOT-only record. Otherwise the
+ * semantic incident ID produces a filtered Denver Open Data URL. ArcGIS object
+ * IDs are intentionally not used because they are system-managed and can
+ * change when the official dataset is refreshed.
  */
 export const getCrashSourceLinks = (crash: Crash): CrashSourceLinks => {
+  const dotiIncidentId = crash.doti_incident_id?.trim();
+  const cdotCuid = crash.cdot_cuid?.trim();
+  const isCdotOnly = Boolean(cdotCuid) && !dotiIncidentId;
+
   if (crash.sourceLinks !== undefined) {
-    return sanitizedSourceLinks(crash.sourceLinks);
+    return sanitizedSourceLinks(crash.sourceLinks, isCdotOnly);
   }
 
-  const dotiRecordUrl = getDotiRecordUrl(crash.doti_incident_id);
-  const cdotCuid = crash.cdot_cuid?.trim();
+  const dotiRecordUrl = getDotiRecordUrl(dotiIncidentId);
 
   return {
     ...(dotiRecordUrl ? { dotiRecordUrl } : {}),
-    ...(cdotCuid ? { cdotReportRequestUrl: CDOT_REPORT_REQUEST_URL } : {}),
   };
 };
 
 const sanitizedSourceLinks = (
   sourceLinks: CrashSourceLinks,
+  includeCdotReportRequest: boolean,
 ): CrashSourceLinks => {
   const dotiRecordUrl = getSafeHttpsUrl(sourceLinks.dotiRecordUrl);
-  const cdotReportRequestUrl = getSafeHttpsUrl(
-    sourceLinks.cdotReportRequestUrl,
-  );
+  const cdotReportRequestUrl = includeCdotReportRequest
+    ? getSafeHttpsUrl(sourceLinks.cdotReportRequestUrl)
+    : undefined;
 
   return {
     ...(dotiRecordUrl ? { dotiRecordUrl } : {}),
@@ -66,7 +67,7 @@ const sanitizedSourceLinks = (
 };
 
 const getDotiRecordUrl = (
-  dotiIncidentId: string | null,
+  dotiIncidentId: string | null | undefined,
 ): string | undefined => {
   const incidentId = dotiIncidentId?.trim();
   if (!incidentId) {

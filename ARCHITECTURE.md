@@ -96,7 +96,13 @@ operation. It must not be run with ordinary application credentials.
 CDOT's `link` field is a roadway/link classification value, not a web URL. CDOT
 does not publish direct URLs for individual legal crash reports; those reports
 must be requested from the Colorado Department of Revenue or the responding
-agency.
+agency. A CDOT CUID on an API result indicates analytical enrichment of a DOTI
+incident, not a CDOT-only record, so the UI does not show report-request
+guidance on those rows. The prior statewide DMV guidance link was removed after
+both it and its intended replacement began returning HTTP 403. The app will not
+substitute the Colorado State Patrol portal because a CUID does not prove CSP
+investigated the crash. A verified statewide production destination is still
+needed before automatic CDOT-only guidance can be restored.
 
 ### Street centerlines
 
