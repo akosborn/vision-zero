@@ -25,6 +25,8 @@ type FilterPanelProps = {
   onStartRouteDrawing: () => void;
   onApplyDrawnRoute: () => void;
   onDateRangeChange: (range: DateRange) => void;
+  onApplyStreetSearch: () => Promise<void>;
+  onApplyRadiusSearch: () => Promise<void>;
 };
 
 type LocationReportProps = {
@@ -44,6 +46,7 @@ type MapProps = {
   selectedCrashCalloutIsOpen: boolean;
   onCrashSelect: (feature: Feature<Point> | null) => void;
   onAddDrawnRouteVertex: (coordinate: number[]) => void;
+  onRadiusSearchPoint: (point: { lng: number; lat: number }) => void;
 };
 
 type ExportCsvButtonProps = {
@@ -59,17 +62,22 @@ const harness = vi.hoisted(() => ({
   getIncidentsWithinBufferedRoute: vi.fn(),
   getAnnualRouteCrashHistory: vi.fn(),
   getAnnualRadiusCrashHistory: vi.fn(),
+  getIncidents: vi.fn(),
+  getAnnualCrashHistory: vi.fn(),
+  getBufferedStreetCenterlines: vi.fn(),
+  getIncidentsWithinBufferedStreet: vi.fn(),
+  getStreetCenterlines: vi.fn(),
 }));
 
 vi.mock("@/app/lib/api-client", () => ({
-  getAnnualCrashHistory: vi.fn(),
+  getAnnualCrashHistory: harness.getAnnualCrashHistory,
   getAnnualRadiusCrashHistory: harness.getAnnualRadiusCrashHistory,
   getAnnualRouteCrashHistory: harness.getAnnualRouteCrashHistory,
-  getBufferedStreetCenterlines: vi.fn(),
-  getIncidents: vi.fn(),
+  getBufferedStreetCenterlines: harness.getBufferedStreetCenterlines,
+  getIncidents: harness.getIncidents,
   getIncidentsWithinBufferedRoute: harness.getIncidentsWithinBufferedRoute,
-  getIncidentsWithinBufferedStreet: vi.fn(),
-  getStreetCenterlines: vi.fn(),
+  getIncidentsWithinBufferedStreet: harness.getIncidentsWithinBufferedStreet,
+  getStreetCenterlines: harness.getStreetCenterlines,
   getStreets: harness.getStreets,
 }));
 
@@ -191,7 +199,7 @@ const latestMapProps = (): MapProps => {
   return calls.at(-1)![0];
 };
 
-describe("applied drawn-route date changes", () => {
+describe("page-owned query execution", () => {
   beforeEach(() => {
     harness.filterPanelProps = null;
     harness.locationReportProps = null;
@@ -205,6 +213,13 @@ describe("applied drawn-route date changes", () => {
     harness.getAnnualRadiusCrashHistory
       .mockReset()
       .mockResolvedValue([{ year: 2024 }]);
+    harness.getIncidents.mockReset();
+    harness.getAnnualCrashHistory
+      .mockReset()
+      .mockResolvedValue([{ year: 2024 }]);
+    harness.getBufferedStreetCenterlines.mockReset();
+    harness.getIncidentsWithinBufferedStreet.mockReset();
+    harness.getStreetCenterlines.mockReset();
   });
 
   it("defaults radius searches to 1,000 feet", async () => {
@@ -220,6 +235,88 @@ describe("applied drawn-route date changes", () => {
         bufferRadiusInFeet: 1000,
       });
     });
+  });
+
+  it("runs blank-map radius searches through the page API boundary", async () => {
+    harness.getIncidents.mockResolvedValueOnce(crashResults("radius-result"));
+
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+    act(() => {
+      latestMapProps().onRadiusSearchPoint({ lat: 39.75, lng: -104.96 });
+    });
+
+    await waitFor(() => {
+      expect(harness.getIncidents).toHaveBeenCalledWith({
+        startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        endDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        lat: 39.75,
+        lng: -104.96,
+        radiusInFeet: 1000,
+      });
+      expect(harness.getAnnualRadiusCrashHistory).toHaveBeenCalledWith({
+        lat: 39.75,
+        lng: -104.96,
+        radiusInFeet: 1000,
+      });
+      expect(screen.getByTestId("location-report")).toHaveTextContent(
+        "radius-result",
+      );
+    });
+  });
+
+  it("preserves the street API payload behind the shared runner", async () => {
+    const centerlines = { type: "FeatureCollection", features: [] };
+    const buffer = { type: "FeatureCollection", features: [] };
+    harness.getStreetCenterlines.mockResolvedValueOnce(centerlines);
+    harness.getBufferedStreetCenterlines.mockResolvedValueOnce(buffer);
+    harness.getIncidentsWithinBufferedStreet.mockResolvedValueOnce(
+      crashResults("street-result"),
+    );
+
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+
+    act(() => {
+      latestFilterPanelProps().setFilters((previous) => ({
+        ...previous,
+        searchTool: "Street Search",
+        bufferRadiusInFeet: 250,
+        dateRange: { from: "2025-01-01", to: "2025-12-31" },
+        streetSegment: {
+          fullName: "E COLFAX AVE",
+          crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
+        },
+      }));
+    });
+    await act(async () => {
+      await latestFilterPanelProps().onApplyStreetSearch();
+    });
+
+    expect(harness.getStreetCenterlines).toHaveBeenCalledWith({
+      fullName: "E COLFAX AVE",
+      crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
+    });
+    expect(harness.getIncidentsWithinBufferedStreet).toHaveBeenCalledWith({
+      fullName: "E COLFAX AVE",
+      fullStreetName: "E COLFAX AVE",
+      crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
+      bufferInFeet: 250,
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+    });
+    expect(screen.getByTestId("location-report")).toHaveTextContent(
+      "street-result",
+    );
   });
 
   it("reruns the same route and replaces results for the new dates", async () => {

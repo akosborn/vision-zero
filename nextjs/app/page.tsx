@@ -12,8 +12,8 @@ import {
   Point,
 } from "geojson";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import FilterPanel, { isEnabledSearchTool } from "@/app/components/FilterPanel";
-import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
+import FilterPanel from "@/app/components/FilterPanel";
+import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport, {
   ExportCsvButton,
 } from "@/app/components/LocationReport";
@@ -37,7 +37,6 @@ import {
   getStreets,
 } from "@/app/lib/api-client";
 import { Street } from "@/app/api/streets/route";
-import { useSearchParams } from "next/dist/client/components/navigation";
 import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
 import {
   createFinalRoute,
@@ -46,6 +45,11 @@ import {
   routeDrawingReducer,
 } from "@/app/lib/route-drawing";
 import { prepareRouteSearch } from "@/app/lib/route-search";
+import {
+  type QueryDateRange,
+  type QueryDefinitionV1,
+  validateQueryDefinition,
+} from "@/app/lib/query-definition";
 
 export type SearchTool =
   | "Radius Search"
@@ -65,9 +69,9 @@ export type Filters = {
 };
 
 type ActiveCrashResults = {
-  searchTool: SearchTool;
+  query: QueryDefinitionV1 | null;
+  uploadDateRange?: { from?: string; to?: string };
   features: Feature<Point, Crash>[];
-  dateRange?: { from?: string; to?: string };
 };
 
 const DEFAULT_BUFFER_RADIUS_IN_FEET = 1000;
@@ -75,8 +79,6 @@ const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
-
-  const searchParams = useSearchParams();
 
   const mapRef = React.useRef<MapRef | null>(null);
 
@@ -170,24 +172,19 @@ function HomeContent() {
     { open: openLocationReport, close: closeLocationReport },
   ] = useDisclosure(true);
 
-  const handleSearchToolChange = React.useCallback(
-    (searchTool: SearchTool) => {
-      clearSearchGeometryAndResults();
-      dispatchRouteDrawing({ type: "cancel" });
-      setFilters((previousFilters) => ({
-        ...previousFilters,
-        searchTool,
-        droppedPin: undefined,
-      }));
-    },
-    [clearSearchGeometryAndResults],
-  );
+  const handleSearchToolChange = React.useCallback((searchTool: SearchTool) => {
+    dispatchRouteDrawing({ type: "cancel" });
+    setFilters((previousFilters) => ({
+      ...previousFilters,
+      searchTool,
+      droppedPin: undefined,
+    }));
+  }, []);
 
   const startRouteDrawing = React.useCallback(() => {
-    clearSearchGeometryAndResults();
     dispatchRouteDrawing({ type: "start" });
     closeLocationReport();
-  }, [clearSearchGeometryAndResults, closeLocationReport]);
+  }, [closeLocationReport]);
 
   const clearAppliedRoute = React.useCallback(() => {
     clearSearchGeometryAndResults();
@@ -215,183 +212,240 @@ function HomeContent() {
     [isMobile],
   );
 
-  const fetchCrashDataWithArgs = async (
-    radius: number,
-    streetSegment?: {
-      fullName?: string;
-      crossStreets?: { from?: string; to?: string };
+  const [queryError, setQueryError] = React.useState<string | null>(null);
+
+  const runQuery = React.useCallback(
+    async (unvalidatedQuery: QueryDefinitionV1): Promise<boolean> => {
+      let query: QueryDefinitionV1;
+      try {
+        query = validateQueryDefinition(unvalidatedQuery);
+      } catch {
+        setQueryError("Complete the query before applying it.");
+        return false;
+      }
+
+      setIsLoading(true);
+      setQueryError(null);
+      closeMobileFilters();
+      openLocationReport();
+
+      try {
+        if (query.tool === "radius") {
+          const [crashes, history] = await Promise.all([
+            getIncidents({
+              startDate: query.dateRange.from,
+              endDate: query.dateRange.to,
+              lat: query.center.lat,
+              lng: query.center.lng,
+              radiusInFeet: query.radiusFeet,
+            }),
+            getAnnualRadiusCrashHistory({
+              lat: query.center.lat,
+              lng: query.center.lng,
+              radiusInFeet: query.radiusFeet,
+            }),
+          ]);
+
+          setIncidentGeoJson(crashes);
+          setAreaOfInterestIncidentGeoJson(null);
+          setStreetCenterlines(null);
+          setBufferedStreet(null);
+          setRouteGeometry(null);
+          setRouteSearchArea(null);
+          setCrashSummaryHistory(history);
+          setActiveCrashResults({ query, features: crashes.features });
+          zoomToLayer(crashes);
+        } else if (query.tool === "street") {
+          const streetSegment = {
+            fullName: query.street,
+            crossStreets: query.crossStreets,
+          };
+          const [centerlines, buffer, incidentsInBuffer, history] =
+            await Promise.all([
+              getStreetCenterlines(streetSegment),
+              getBufferedStreetCenterlines({
+                ...streetSegment,
+                fullName: query.street,
+                bufferInFeet: query.bufferFeet,
+              }),
+              getIncidentsWithinBufferedStreet({
+                ...streetSegment,
+                fullStreetName: query.street,
+                bufferInFeet: query.bufferFeet,
+                startDate: query.dateRange.from,
+                endDate: query.dateRange.to,
+              }),
+              getAnnualCrashHistory({
+                ...streetSegment,
+                fullStreetName: query.street,
+                bufferInFeet: query.bufferFeet,
+              }),
+            ]);
+
+          setIncidentGeoJson(null);
+          setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+          setStreetCenterlines(centerlines);
+          setBufferedStreet(buffer);
+          setRouteGeometry(null);
+          setRouteSearchArea(null);
+          setCrashSummaryHistory(history);
+          setActiveCrashResults({
+            query,
+            features: incidentsInBuffer.features,
+          });
+          zoomToLayer(incidentsInBuffer);
+        } else {
+          const preparedSearch = prepareRouteSearch(
+            query.route,
+            query.bufferFeet,
+            query.dateRange,
+          );
+          if (!preparedSearch) {
+            throw new Error("Invalid drawn route");
+          }
+
+          const [incidentsInBuffer, history] = await Promise.all([
+            getIncidentsWithinBufferedRoute(preparedSearch.request),
+            getAnnualRouteCrashHistory({
+              route: preparedSearch.route,
+              bufferInFeet: preparedSearch.request.bufferInFeet,
+            }),
+          ]);
+
+          setIncidentGeoJson(null);
+          setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+          setStreetCenterlines(null);
+          setBufferedStreet(null);
+          setRouteGeometry(preparedSearch.route);
+          setRouteSearchArea(preparedSearch.searchArea);
+          setCrashSummaryHistory(history);
+          setActiveCrashResults({
+            query,
+            features: incidentsInBuffer.features,
+          });
+          zoomToLayer(preparedSearch.route);
+        }
+
+        setSelectedCrashFeature(null);
+        setSelectedCrashCalloutIsOpen(false);
+        return true;
+      } catch {
+        setQueryError(
+          "The query could not be completed. The previous report is unchanged.",
+        );
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
     },
-    range?: { from?: string; to?: string },
-  ) => {
-    setIsLoading(true);
-    clearCrashResults();
-    closeMobileFilters();
-    openLocationReport();
-
-    if (radius >= 0 && streetSegment && streetSegment.fullName) {
-      const fullName = streetSegment.fullName;
-
-      const [centerlines, buffer, incidentsInBuffer, history] =
-        await Promise.all([
-          getStreetCenterlines(streetSegment),
-          getBufferedStreetCenterlines({
-            ...streetSegment,
-            fullName,
-            bufferInFeet: radius,
-          }),
-          getIncidentsWithinBufferedStreet({
-            ...streetSegment,
-            fullStreetName: fullName,
-            bufferInFeet: radius,
-            startDate: range?.from,
-            endDate: range?.to,
-          }),
-          getAnnualCrashHistory({
-            ...streetSegment,
-            fullStreetName: fullName,
-            bufferInFeet: radius,
-          }),
-        ]);
-      setStreetCenterlines(centerlines);
-      setBufferedStreet(buffer);
-      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
-      setCrashSummaryHistory(history);
-      setActiveCrashResults({
-        searchTool: "Street Search",
-        features: incidentsInBuffer.features,
-        dateRange: range,
-      });
-
-      zoomToLayer(incidentsInBuffer);
-    }
-    setIsLoading(false);
-  };
+    [closeMobileFilters, openLocationReport, zoomToLayer],
+  );
 
   React.useEffect(() => {
     setIsLoadingStreets(true);
-
-    (async () => {
-      const streets = await getStreets();
-      setStreets(streets);
-      setIsLoadingStreets(false);
-
-      const searchTool = searchParams.get("tool");
-      const fromDate = searchParams.get("fromDate") || filters.dateRange?.from;
-      const toDate = searchParams.get("toDate") || filters.dateRange?.to;
-      const street = searchParams.get("street");
-      const crossStreet1 = searchParams.get("crossStreet1");
-      const crossStreet2 = searchParams.get("crossStreet2");
-
-      if (searchTool && isEnabledSearchTool(searchTool)) {
-        setFilters((prevState) => ({
-          ...prevState,
-          searchTool,
-        }));
-      }
-
-      if (fromDate && toDate) {
-        setFilters((prevState) => ({
-          ...prevState,
-          dateRange: {
-            from: fromDate,
-            to: toDate,
-          },
-        }));
-      }
-
-      setFilters((prevState) => ({
-        ...prevState,
-        dateRange:
-          fromDate && toDate
-            ? {
-                from: fromDate,
-                to: toDate,
-              }
-            : undefined,
-        streetSegment: {
-          fullName: street || undefined,
-          crossStreets: {
-            from: crossStreet1 || undefined,
-            to: crossStreet2 || undefined,
-          },
-        },
-      }));
-
-      if (fromDate && toDate && street) {
-        await fetchCrashDataWithArgs(
-          filters.bufferRadiusInFeet,
-          {
-            fullName: street,
-            crossStreets: {
-              from: crossStreet1 || undefined,
-              to: crossStreet2 || undefined,
-            },
-          },
-          { from: fromDate, to: toDate },
-        );
-      }
-    })();
+    void getStreets()
+      .then(setStreets)
+      .finally(() => setIsLoadingStreets(false));
   }, []);
 
-  const fetchCrashDataForPinRadius = async (
-    radiusInFeet: number,
-    point?: { lat: number; lng: number },
-    range?: { from?: string; to?: string },
-  ) => {
-    setIsLoading(true);
-    clearCrashResults();
-    closeMobileFilters();
-    openLocationReport();
-
-    if (radiusInFeet >= 0 && point && range) {
-      const [crashes, history] = await Promise.all([
-        getIncidents({
-          startDate: range.from,
-          endDate: range.to,
-          lat: point.lat,
-          lng: point.lng,
-          radiusInFeet,
-        }),
-        getAnnualRadiusCrashHistory({
-          lat: point.lat,
-          lng: point.lng,
-          radiusInFeet,
-        }),
-      ]);
-      setIncidentGeoJson(crashes);
-      setStreetCenterlines(null);
-      setBufferedStreet(null);
-      setCrashSummaryHistory(history);
-      setActiveCrashResults({
-        searchTool: "Radius Search",
-        features: crashes.features,
-        dateRange: range,
-      });
-
-      zoomToLayer(crashes);
-    }
-    setIsLoading(false);
+  const getCompleteDateRange = (): QueryDateRange | null => {
+    const { from, to } = filters.dateRange ?? {};
+    return from && to ? { from, to } : null;
   };
 
-  const getDataForRoute = async (
+  const applyStreetQuery = async () => {
+    const dateRange = getCompleteDateRange();
+    const street = filters.streetSegment?.fullName;
+    if (!dateRange || !street) {
+      setQueryError("Complete the street and date fields before applying.");
+      return;
+    }
+
+    await runQuery({
+      version: 1,
+      tool: "street",
+      dateRange,
+      street,
+      ...(filters.streetSegment?.crossStreets?.from &&
+      filters.streetSegment.crossStreets.to
+        ? {
+            crossStreets: {
+              from: filters.streetSegment.crossStreets.from,
+              to: filters.streetSegment.crossStreets.to,
+            },
+          }
+        : {}),
+      bufferFeet: filters.bufferRadiusInFeet,
+    });
+  };
+
+  const applyRadiusQuery = async (
+    point = filters.droppedPin,
+  ): Promise<void> => {
+    const dateRange = getCompleteDateRange();
+    if (!dateRange || !point) {
+      setQueryError("Choose a map point and complete the date range first.");
+      return;
+    }
+
+    await runQuery({
+      version: 1,
+      tool: "radius",
+      dateRange,
+      center: point,
+      radiusFeet: filters.bufferRadiusInFeet,
+    });
+  };
+
+  const applyDrawnRoute = async () => {
+    const dateRange = getCompleteDateRange();
+    if (!finalDrawnRoute || !dateRange) {
+      setQueryError("Draw a route and complete the date range first.");
+      return;
+    }
+
+    const succeeded = await runQuery({
+      version: 1,
+      tool: "draw",
+      dateRange,
+      route: finalDrawnRoute,
+      bufferFeet: filters.bufferRadiusInFeet,
+    });
+    if (succeeded) {
+      dispatchRouteDrawing({ type: "cancel" });
+    }
+  };
+
+  const refreshAppliedDrawnRoute = async (range: {
+    from?: string;
+    to?: string;
+  }) => {
+    const activeQuery = activeCrashResults?.query;
+    if (activeQuery?.tool !== "draw" || !range.from || !range.to) {
+      return;
+    }
+
+    await runQuery({
+      ...activeQuery,
+      dateRange: { from: range.from, to: range.to },
+    });
+  };
+
+  const getDataForUploadedRoute = async (
     radius: number,
     candidateRoute: FeatureCollection<Geometry | null, GeoJsonProperties>,
     range: { from?: string; to?: string } | undefined,
-    searchTool: "Upload Route" | "Draw Route",
-    options: { preserveExistingResults?: boolean } = {},
   ) => {
     const preparedSearch = prepareRouteSearch(candidateRoute, radius, range);
     if (!preparedSearch) {
+      setQueryError("Choose a valid route file before applying.");
       return;
     }
 
     setIsLoading(true);
-    if (!options.preserveExistingResults) {
-      clearSearchGeometryAndResults();
-    }
+    setQueryError(null);
     closeMobileFilters();
     openLocationReport();
-
     try {
       const [incidentsInBuffer, history] = await Promise.all([
         getIncidentsWithinBufferedRoute(preparedSearch.request),
@@ -400,93 +454,49 @@ function HomeContent() {
           bufferInFeet: preparedSearch.request.bufferInFeet,
         }),
       ]);
-
+      setIncidentGeoJson(null);
+      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
+      setStreetCenterlines(null);
+      setBufferedStreet(null);
       setRouteGeometry(preparedSearch.route);
       setRouteSearchArea(preparedSearch.searchArea);
       setCrashSummaryHistory(history);
-      setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setActiveCrashResults({
-        searchTool,
+        query: null,
+        uploadDateRange: range,
         features: incidentsInBuffer.features,
-        dateRange: range,
       });
-
       zoomToLayer(preparedSearch.route);
+    } catch {
+      setQueryError(
+        "The query could not be completed. The previous report is unchanged.",
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const applyDrawnRoute = async () => {
-    if (!finalDrawnRoute) {
-      return;
-    }
-
-    await getDataForRoute(
-      filters.bufferRadiusInFeet,
-      finalDrawnRoute,
-      filters.dateRange,
-      "Draw Route",
-    );
-    dispatchRouteDrawing({ type: "cancel" });
-  };
-
-  const refreshAppliedDrawnRoute = async (range: {
-    from?: string;
-    to?: string;
-  }) => {
-    if (
-      filters.searchTool !== "Draw Route" ||
-      !routeGeometry ||
-      !range.from ||
-      !range.to
-    ) {
-      return;
-    }
-
-    await getDataForRoute(
-      filters.bufferRadiusInFeet,
-      routeGeometry,
-      range,
-      "Draw Route",
-      { preserveExistingResults: true },
-    );
-  };
-
-  const previousSearchTool = React.useRef(filters.searchTool);
-  React.useEffect(() => {
-    if (previousSearchTool.current !== filters.searchTool) {
-      clearSearchGeometryAndResults();
-      dispatchRouteDrawing({ type: "cancel" });
-      previousSearchTool.current = filters.searchTool;
-    }
-  }, [clearSearchGeometryAndResults, filters.searchTool]);
-
-  React.useEffect(() => {
-    if (!incidentGeoJson && !areaOfInterestIncidentGeoJson) {
-      setCrashSummaryHistory(null);
-      setActiveCrashResults(null);
-    }
-  }, [areaOfInterestIncidentGeoJson, incidentGeoJson]);
-
-  const handleMapRadiusResultsChange = React.useCallback(
-    (
-      results: FeatureCollection<Point, Crash> | null,
-      history: AnnualCrashSummary[] | null,
-      dateRange?: { from?: string; to?: string },
-    ) => {
-      setCrashSummaryHistory(history);
-      setActiveCrashResults(
-        results
-          ? {
-              searchTool: "Radius Search",
-              features: results.features,
-              dateRange,
-            }
-          : null,
-      );
+  const handleMapRadiusSearchPoint = React.useCallback(
+    (point: { lng: number; lat: number }) => {
+      setFilters((previousFilters) => ({
+        ...previousFilters,
+        searchTool: "Radius Search",
+        droppedPin: point,
+      }));
+      const { from, to } = filters.dateRange ?? {};
+      if (!from || !to) {
+        setQueryError("Choose a map point and complete the date range first.");
+        return;
+      }
+      void runQuery({
+        version: 1,
+        tool: "radius",
+        dateRange: { from, to },
+        center: point,
+        radiusFeet: filters.bufferRadiusInFeet,
+      });
     },
-    [],
+    [filters.bufferRadiusInFeet, filters.dateRange, runQuery],
   );
 
   const updateCrashSelection = React.useCallback(
@@ -525,8 +535,17 @@ function HomeContent() {
     [updateCrashSelection],
   );
 
-  const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
-  const reportDateRange = activeCrashResults?.dateRange;
+  const reportSearchTool = activeCrashResults?.query
+    ? activeCrashResults.query.tool === "radius"
+      ? "Radius Search"
+      : activeCrashResults.query.tool === "street"
+        ? "Street Search"
+        : "Draw Route"
+    : activeCrashResults
+      ? "Upload Route"
+      : filters.searchTool;
+  const reportDateRange =
+    activeCrashResults?.query?.dateRange || activeCrashResults?.uploadDateRange;
   const reportCrashFeatures =
     activeCrashResults?.features || EMPTY_CRASH_FEATURES;
   const exportCrashFeatures = React.useMemo(
@@ -557,16 +576,11 @@ function HomeContent() {
             setViewport={setViewport}
             ref={mapRef}
             areaOfInterestIncidentGeoJson={areaOfInterestIncidentGeoJson}
-            setAreaOfInterestIncidentGeoJson={setAreaOfInterestIncidentGeoJson}
             incidentGeoJson={incidentGeoJson}
-            setIncidentGeoJson={setIncidentGeoJson}
             isLoading={isLoading}
-            setIsLoading={setIsLoading}
-            setStreetCenterlines={setStreetCenterlines}
             streetCenterlines={streetCenterlines}
             bufferedStreet={bufferedStreet}
-            setBufferedStreet={setBufferedStreet}
-            onRadiusResultsChange={handleMapRadiusResultsChange}
+            onRadiusSearchPoint={handleMapRadiusSearchPoint}
             isDrawingRoute={routeDrawingState.status === "drawing"}
             drawnRoutePreview={drawnRoutePreview}
             routeGeometry={routeGeometry}
@@ -601,6 +615,11 @@ function HomeContent() {
             p="sm"
             w={isMobile ? "100%" : undefined}
           >
+            {queryError && (
+              <Alert color="red" mb="xs">
+                {queryError}
+              </Alert>
+            )}
             {isMobile && !mobileFiltersAreOpen && (
               <Flex w="100%">
                 <Button
@@ -619,10 +638,6 @@ function HomeContent() {
               <>
                 <FilterPanel
                   closeMobileFilters={closeMobileFilters}
-                  setAreaOfInterestIncidentGeoJson={
-                    setAreaOfInterestIncidentGeoJson
-                  }
-                  incidentGeoJson={incidentGeoJson}
                   filters={filters}
                   setFilters={setFilters}
                   onSearchToolChange={handleSearchToolChange}
@@ -643,29 +658,15 @@ function HomeContent() {
                   onDateRangeChange={(range) =>
                     void refreshAppliedDrawnRoute(range)
                   }
-                  setIncidentGeoJson={setIncidentGeoJson}
-                  onApplyStreetSearch={() =>
-                    fetchCrashDataWithArgs(
-                      filters.bufferRadiusInFeet,
-                      filters.streetSegment,
-                      filters.dateRange,
-                    )
-                  }
-                  onApplyRadiusSearch={() =>
-                    fetchCrashDataForPinRadius(
-                      filters.bufferRadiusInFeet,
-                      filters.droppedPin,
-                      filters.dateRange,
-                    )
-                  }
+                  onApplyStreetSearch={applyStreetQuery}
+                  onApplyRadiusSearch={applyRadiusQuery}
                   onApplyUploadRoute={(
                     uploadedRoute: FeatureCollection<Geometry | null>,
                   ) =>
-                    getDataForRoute(
+                    getDataForUploadedRoute(
                       filters.bufferRadiusInFeet,
                       uploadedRoute,
                       filters.dateRange,
-                      "Upload Route",
                     )
                   }
                   isLoading={isLoading || isLoadingStreets}
@@ -677,10 +678,6 @@ function HomeContent() {
             {!isMobile && (
               <FilterPanel
                 closeMobileFilters={closeMobileFilters}
-                setAreaOfInterestIncidentGeoJson={
-                  setAreaOfInterestIncidentGeoJson
-                }
-                incidentGeoJson={incidentGeoJson}
                 filters={filters}
                 setFilters={setFilters}
                 onSearchToolChange={handleSearchToolChange}
@@ -701,29 +698,15 @@ function HomeContent() {
                 onDateRangeChange={(range) =>
                   void refreshAppliedDrawnRoute(range)
                 }
-                setIncidentGeoJson={setIncidentGeoJson}
-                onApplyStreetSearch={() =>
-                  fetchCrashDataWithArgs(
-                    filters.bufferRadiusInFeet,
-                    filters.streetSegment,
-                    filters.dateRange,
-                  )
-                }
-                onApplyRadiusSearch={() =>
-                  fetchCrashDataForPinRadius(
-                    filters.bufferRadiusInFeet,
-                    filters.droppedPin,
-                    filters.dateRange,
-                  )
-                }
+                onApplyStreetSearch={applyStreetQuery}
+                onApplyRadiusSearch={applyRadiusQuery}
                 onApplyUploadRoute={(
                   uploadedRoute: FeatureCollection<Geometry | null>,
                 ) =>
-                  getDataForRoute(
+                  getDataForUploadedRoute(
                     filters.bufferRadiusInFeet,
                     uploadedRoute,
                     filters.dateRange,
-                    "Upload Route",
                   )
                 }
                 isLoading={isLoading || isLoadingStreets}

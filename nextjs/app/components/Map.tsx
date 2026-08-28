@@ -10,12 +10,7 @@ import {
 } from "react-map-gl/mapbox-legacy";
 import React, { forwardRef } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
-import {
-  AnnualCrashSummary,
-  Crash,
-  getAnnualRadiusCrashHistory,
-  getIncidents,
-} from "@/app/lib/api-client";
+import { Crash } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 import { Filters } from "@/app/page";
@@ -70,30 +65,13 @@ type Props = {
   filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   incidentGeoJson?: FeatureCollection | null;
-  setIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection<Point, Crash> | null>
-  >;
   areaOfInterestIncidentGeoJson?: FeatureCollection | null;
-  setAreaOfInterestIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection<Point, Crash> | null>
-  >;
   viewport: { latitude: number; longitude: number; zoom: number };
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
   isLoading: boolean;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setStreetCenterlines: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
-  >;
-  setBufferedStreet: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
-  >;
-  onRadiusResultsChange: (
-    results: FeatureCollection<Point, Crash> | null,
-    history: AnnualCrashSummary[] | null,
-    dateRange?: { from?: string; to?: string },
-  ) => void;
+  onRadiusSearchPoint: (point: { lng: number; lat: number }) => void;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
   isDrawingRoute: boolean;
@@ -112,15 +90,10 @@ export default forwardRef<MapRef | null, Props>(function Map(
     setFilters,
     areaOfInterestIncidentGeoJson,
     incidentGeoJson,
-    setIncidentGeoJson,
-    setAreaOfInterestIncidentGeoJson,
     viewport,
     setViewport,
     isLoading,
-    setIsLoading,
-    setStreetCenterlines,
-    setBufferedStreet,
-    onRadiusResultsChange,
+    onRadiusSearchPoint,
     streetCenterlines,
     bufferedStreet,
     isDrawingRoute,
@@ -163,42 +136,9 @@ export default forwardRef<MapRef | null, Props>(function Map(
         return;
       }
 
-      setIsLoading(true);
-      onRadiusResultsChange(null, null);
-      setAreaOfInterestIncidentGeoJson(null);
-      setIncidentGeoJson(null);
-      setStreetCenterlines(null);
-      setBufferedStreet(null);
       const { lng, lat } = event.lngLat;
-      setFilters((prevState) => ({
-        ...prevState,
-        searchTool: "Radius Search",
-        droppedPin: { lng, lat },
-      }));
       onCrashSelect(null);
-
-      const dateRange = filters.dateRange;
-      Promise.all([
-        getIncidents({
-          startDate: dateRange?.from,
-          endDate: dateRange?.to,
-          lat,
-          lng,
-          radiusInFeet: filters.bufferRadiusInFeet,
-        }),
-        getAnnualRadiusCrashHistory({
-          lat,
-          lng,
-          radiusInFeet: filters.bufferRadiusInFeet,
-        }),
-      ])
-        .then(([data, history]) => {
-          setIncidentGeoJson(data);
-          onRadiusResultsChange(data, history, dateRange);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+      onRadiusSearchPoint({ lng, lat });
     }
   };
 
