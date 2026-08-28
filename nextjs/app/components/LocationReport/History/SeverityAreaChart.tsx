@@ -40,7 +40,14 @@ const StackedAreaChart = ({
     firstYear !== undefined && lastYear !== undefined
       ? ([Date.UTC(firstYear, 0, 1), Date.UTC(lastYear + 1, 0, 1) - 1] as const)
       : undefined;
-  const selectedPeriod = getSelectedPeriod(selectedDateRange, historyDomain);
+  const selectedPeriod = getSelectedPeriod(selectedDateRange);
+  const chartDomain =
+    historyDomain && selectedPeriod
+      ? ([
+          Math.min(historyDomain[0], selectedPeriod.from),
+          Math.max(historyDomain[1], selectedPeriod.to),
+        ] as const)
+      : historyDomain;
 
   return (
     <>
@@ -73,7 +80,7 @@ const StackedAreaChart = ({
           dataKey="Date"
           type="number"
           scale="time"
-          domain={historyDomain}
+          domain={chartDomain}
           tickFormatter={(timestamp) =>
             new Date(timestamp as number).getUTCFullYear().toString()
           }
@@ -146,24 +153,14 @@ const parseDate = (value: string | undefined, endOfDay = false) => {
 
 const getSelectedPeriod = (
   range: { from?: string; to?: string } | undefined,
-  historyDomain: readonly [number, number] | undefined,
 ) => {
   const from = parseDate(range?.from);
   const to = parseDate(range?.to, true);
-  if (
-    from === null ||
-    to === null ||
-    !historyDomain ||
-    to < historyDomain[0] ||
-    from > historyDomain[1]
-  ) {
+  if (from === null || to === null || from > to) {
     return null;
   }
 
-  return {
-    from: Math.max(from, historyDomain[0]),
-    to: Math.min(to, historyDomain[1]),
-  };
+  return { from, to };
 };
 
 export default StackedAreaChart;

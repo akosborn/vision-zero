@@ -116,4 +116,24 @@ describe("SeverityAreaChart history period", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("extends the timeline when the selected period is newer than the data", () => {
+    render(
+      <MantineProvider>
+        <SeverityAreaChart
+          summaries={[summary(2021), summary(2024)]}
+          selectedDateRange={{ from: "2025-08-28", to: "2026-08-28" }}
+        />
+      </MantineProvider>,
+    );
+
+    expect(chartHarness.xAxisProps?.domain).toEqual([
+      Date.UTC(2021, 0, 1),
+      Date.parse("2026-08-29T00:00:00Z") - 1,
+    ]);
+    expect(chartHarness.referenceAreaProps).toMatchObject({
+      x1: Date.parse("2025-08-28T00:00:00Z"),
+      x2: Date.parse("2026-08-29T00:00:00Z") - 1,
+    });
+  });
 });
