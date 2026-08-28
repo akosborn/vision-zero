@@ -15,9 +15,11 @@ import {
 import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 
 type Props = {
-  crashFeatures: Feature<Geometry, Crash>[];
+  crashFeatures: Feature<Point, Crash>[];
   filters: CrashListFilters;
   onFiltersChange: (filters: CrashListFilters) => void;
+  selectedCrashFeature: Feature<Point, Crash> | null;
+  onCrashSelect: (feature: Feature<Point, Crash>) => void;
 };
 
 export type SeverityFilter = KABCO_SEVERITY_LEVEL | "all";
@@ -51,6 +53,8 @@ const CrashList: React.FC<Props> = ({
   crashFeatures,
   filters,
   onFiltersChange,
+  selectedCrashFeature,
+  onCrashSelect,
 }) => {
   const sortedFeatures = React.useMemo(
     () => getVisibleCrashFeatures(crashFeatures, filters),
@@ -93,17 +97,17 @@ const CrashList: React.FC<Props> = ({
           </Text>
         )}
 
-        {sortedFeatures.map(({ id: featureId, geometry, properties }) => {
+        {sortedFeatures.map((feature) => {
+          const { geometry, properties } = feature;
           const type = getType(properties);
           const severity = getMaxSeverity(properties);
 
-          const [lng, lat] = (geometry as Point).coordinates;
+          const [lng, lat] = geometry.coordinates;
           const sourceLinks = getCrashSourceLinks(properties);
-          const rowKey =
-            featureId ??
-            properties.doti_incident_id ??
-            properties.cdot_cuid ??
-            `${lng},${lat},${properties.doti_first_occurrence_date}`;
+          const rowKey = getCrashFeatureKey(feature);
+          const isSelected = selectedCrashFeature
+            ? getCrashFeatureKey(selectedCrashFeature) === rowKey
+            : false;
 
           return (
             <Container key={rowKey} px={0} mb="sm">
@@ -133,12 +137,27 @@ const CrashList: React.FC<Props> = ({
                       }
                     : null,
                 ].filter((d) => d)}
+                onClick={() => onCrashSelect(feature)}
+                isSelected={isSelected}
               />
             </Container>
           );
         })}
       </Container>
     </>
+  );
+};
+
+export const getCrashFeatureKey = (
+  feature: Feature<Point, Crash>,
+): string | number => {
+  const [lng, lat] = feature.geometry.coordinates;
+
+  return (
+    feature.id ??
+    feature.properties.doti_incident_id ??
+    feature.properties.cdot_cuid ??
+    `${lng},${lat},${feature.properties.doti_first_occurrence_date}`
   );
 };
 

@@ -111,12 +111,18 @@ function HomeContent() {
     React.useState<ActiveCrashResults | null>(null);
   const [crashListFilters, setCrashListFilters] =
     React.useState<CrashListFilters>(DEFAULT_CRASH_LIST_FILTERS);
+  const [selectedCrashFeature, setSelectedCrashFeature] =
+    React.useState<Feature<Point, Crash> | null>(null);
+  const [selectedCrashCalloutIsOpen, setSelectedCrashCalloutIsOpen] =
+    React.useState(false);
 
   const clearCrashResults = React.useCallback(() => {
     setIncidentGeoJson(null);
     setAreaOfInterestIncidentGeoJson(null);
     setCrashSummaryHistory(null);
     setActiveCrashResults(null);
+    setSelectedCrashFeature(null);
+    setSelectedCrashCalloutIsOpen(false);
   }, []);
 
   const [streetCenterlines, setStreetCenterlines] =
@@ -457,6 +463,42 @@ function HomeContent() {
     [],
   );
 
+  const updateCrashSelection = React.useCallback(
+    (feature: Feature<Point, Crash> | null, showCallout: boolean) => {
+      setSelectedCrashFeature(feature);
+      setSelectedCrashCalloutIsOpen(Boolean(feature) && showCallout);
+
+      if (!feature) {
+        return;
+      }
+
+      const [longitude, latitude] = feature.geometry.coordinates;
+      setViewport((previousViewport) => ({
+        ...previousViewport,
+        longitude,
+        latitude,
+      }));
+    },
+    [],
+  );
+
+  const handleCrashListSelect = React.useCallback(
+    (feature: Feature<Point, Crash>) => {
+      updateCrashSelection(feature, false);
+
+      if (isMobile) {
+        closeLocationReport();
+      }
+    },
+    [closeLocationReport, isMobile, updateCrashSelection],
+  );
+
+  const handleMapCrashSelect = React.useCallback(
+    (feature: Feature<Point, Crash> | null) =>
+      updateCrashSelection(feature, Boolean(feature)),
+    [updateCrashSelection],
+  );
+
   const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
   const reportCrashFeatures =
     activeCrashResults?.features || EMPTY_CRASH_FEATURES;
@@ -502,6 +544,9 @@ function HomeContent() {
             drawnRoutePreview={drawnRoutePreview}
             routeGeometry={routeGeometry}
             routeSearchArea={routeSearchArea}
+            selectedCrashFeature={selectedCrashFeature}
+            selectedCrashCalloutIsOpen={selectedCrashCalloutIsOpen}
+            onCrashSelect={handleMapCrashSelect}
             onAddDrawnRouteVertex={(coordinate) =>
               dispatchRouteDrawing({ type: "add-vertex", coordinate })
             }
@@ -709,6 +754,8 @@ function HomeContent() {
                         historyAvailable={reportSearchTool === "Street Search"}
                         crashListFilters={crashListFilters}
                         onCrashListFiltersChange={setCrashListFilters}
+                        selectedCrashFeature={selectedCrashFeature}
+                        onCrashSelect={handleCrashListSelect}
                       />
                     </Drawer.Body>
                   </Drawer.Content>
@@ -748,6 +795,8 @@ function HomeContent() {
                   historyAvailable={reportSearchTool === "Street Search"}
                   crashListFilters={crashListFilters}
                   onCrashListFiltersChange={setCrashListFilters}
+                  selectedCrashFeature={selectedCrashFeature}
+                  onCrashSelect={handleCrashListSelect}
                 />
               </>
             )}

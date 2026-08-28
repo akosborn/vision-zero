@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { FeatureCollection, Point } from "geojson";
+import { Feature, FeatureCollection, Point } from "geojson";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +31,16 @@ type LocationReportProps = {
   crashFeatures: Array<{ id?: string }>;
   crashListFilters: CrashListFilters;
   onCrashListFiltersChange: (filters: CrashListFilters) => void;
+  selectedCrashFeature: Feature<Point> | null;
+  onCrashSelect: (feature: Feature<Point>) => void;
+};
+
+type MapProps = {
+  viewport: { latitude: number; longitude: number; zoom: number };
+  selectedCrashFeature: Feature<Point> | null;
+  selectedCrashCalloutIsOpen: boolean;
+  onCrashSelect: (feature: Feature<Point> | null) => void;
+  onAddDrawnRouteVertex: (coordinate: number[]) => void;
 };
 
 type ExportCsvButtonProps = {
@@ -40,6 +50,7 @@ type ExportCsvButtonProps = {
 const harness = vi.hoisted(() => ({
   filterPanelProps: null as FilterPanelProps | null,
   locationReportProps: null as LocationReportProps | null,
+  captureMapProps: vi.fn(),
   exportCsvButtonProps: null as ExportCsvButtonProps | null,
   getStreets: vi.fn(),
   getIncidentsWithinBufferedRoute: vi.fn(),
@@ -68,31 +79,30 @@ vi.mock("./components/FilterPanel", () => ({
 
 vi.mock("./components/Map", async () => {
   const React = await import("react");
-  const MockMap = React.forwardRef(
-    (props: { onAddDrawnRouteVertex: (coordinate: number[]) => void }, ref) => {
-      React.useImperativeHandle(ref, () => ({ getMap: () => ({}) }));
-      return React.createElement(
-        "div",
-        { "data-testid": "map" },
-        React.createElement(
-          "button",
-          {
-            type: "button",
-            onClick: () => props.onAddDrawnRouteVertex([-104.99, 39.74]),
-          },
-          "Add first vertex",
-        ),
-        React.createElement(
-          "button",
-          {
-            type: "button",
-            onClick: () => props.onAddDrawnRouteVertex([-104.98, 39.75]),
-          },
-          "Add second vertex",
-        ),
-      );
-    },
-  );
+  const MockMap = React.forwardRef((props: MapProps, ref) => {
+    harness.captureMapProps(props);
+    React.useImperativeHandle(ref, () => ({ getMap: () => ({}) }));
+    return React.createElement(
+      "div",
+      { "data-testid": "map" },
+      React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: () => props.onAddDrawnRouteVertex([-104.99, 39.74]),
+        },
+        "Add first vertex",
+      ),
+      React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: () => props.onAddDrawnRouteVertex([-104.98, 39.75]),
+        },
+        "Add second vertex",
+      ),
+    );
+  });
   MockMap.displayName = "MockMap";
 
   return {
@@ -168,10 +178,17 @@ const latestFilterPanelProps = (): FilterPanelProps => {
   return harness.filterPanelProps!;
 };
 
+const latestMapProps = (): MapProps => {
+  const calls = harness.captureMapProps.mock.calls;
+  expect(calls.length).toBeGreaterThan(0);
+  return calls.at(-1)![0];
+};
+
 describe("applied drawn-route date changes", () => {
   beforeEach(() => {
     harness.filterPanelProps = null;
     harness.locationReportProps = null;
+    harness.captureMapProps.mockReset();
     harness.exportCsvButtonProps = null;
     harness.getStreets.mockReset().mockResolvedValue([]);
     harness.getIncidentsWithinBufferedRoute.mockReset();
@@ -291,6 +308,61 @@ describe("applied drawn-route date changes", () => {
         severity: "K",
         roadUser: "bicycle",
       });
+    });
+  });
+
+  it("centers the map and shares the crash selected by the list", async () => {
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+
+    const selectedCrash = crashResults("selected-crash").features[0];
+    act(() => {
+      harness.locationReportProps?.onCrashSelect(selectedCrash);
+    });
+
+    await waitFor(() => {
+      expect(latestMapProps().selectedCrashFeature).toBe(selectedCrash);
+      expect(latestMapProps().selectedCrashCalloutIsOpen).toBe(false);
+      expect(latestMapProps().viewport).toEqual({
+        latitude: 39.745,
+        longitude: -104.985,
+        zoom: 13,
+      });
+    });
+  });
+
+  it("shows, dismisses, and reopens a callout for map selections", async () => {
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+
+    const selectedCrash = crashResults("selected-crash").features[0];
+    act(() => latestMapProps().onCrashSelect(selectedCrash));
+
+    await waitFor(() => {
+      expect(latestMapProps().selectedCrashFeature).toBe(selectedCrash);
+      expect(latestMapProps().selectedCrashCalloutIsOpen).toBe(true);
+    });
+
+    act(() => latestMapProps().onCrashSelect(null));
+    await waitFor(() => {
+      expect(latestMapProps().selectedCrashFeature).toBeNull();
+      expect(latestMapProps().selectedCrashCalloutIsOpen).toBe(false);
+    });
+
+    act(() => latestMapProps().onCrashSelect(selectedCrash));
+    await waitFor(() => {
+      expect(latestMapProps().selectedCrashFeature).toBe(selectedCrash);
+      expect(latestMapProps().selectedCrashCalloutIsOpen).toBe(true);
     });
   });
 });

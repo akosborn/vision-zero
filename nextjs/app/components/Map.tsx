@@ -1,6 +1,6 @@
 "use client";
 
-import { GeoJSONFeature, MapMouseEvent } from "mapbox-gl";
+import { MapMouseEvent } from "mapbox-gl";
 import {
   Layer,
   Map as ReactMap,
@@ -9,7 +9,7 @@ import {
   Source,
 } from "react-map-gl/mapbox-legacy";
 import React, { forwardRef } from "react";
-import { FeatureCollection, GeoJSON, Point } from "geojson";
+import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
 import { Crash, getIncidents } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
@@ -94,6 +94,9 @@ type Props = {
   routeGeometry?: FeatureCollection | null;
   routeSearchArea?: FeatureCollection | null;
   onAddDrawnRouteVertex: (coordinate: [number, number]) => void;
+  selectedCrashFeature: Feature<Point, Crash> | null;
+  selectedCrashCalloutIsOpen: boolean;
+  onCrashSelect: (feature: Feature<Point, Crash> | null) => void;
 };
 
 export default forwardRef<MapRef | null, Props>(function Map(
@@ -118,23 +121,28 @@ export default forwardRef<MapRef | null, Props>(function Map(
     routeGeometry,
     routeSearchArea,
     onAddDrawnRouteVertex,
+    selectedCrashFeature,
+    selectedCrashCalloutIsOpen,
+    onCrashSelect,
   },
   mapRef,
 ) {
-  const [selectedPoint, setSelectedPoint] =
-    React.useState<GeoJSONFeature | null>(null);
-
   const onClick = (event: MapMouseEvent) => {
     if (isDrawingRoute) {
       const { lng, lat } = event.lngLat;
-      setSelectedPoint(null);
+      onCrashSelect(null);
       onAddDrawnRouteVertex([lng, lat]);
       return;
     }
 
     const feature = event.features && event.features[0];
-    if (feature) {
-      setSelectedPoint(feature);
+    if (feature?.geometry.type === "Point" && feature.properties) {
+      onCrashSelect({
+        type: "Feature",
+        id: feature.id,
+        geometry: feature.geometry,
+        properties: feature.properties as Crash,
+      });
       setFilters((prevState) => ({
         ...prevState,
         droppedPin: undefined,
@@ -160,7 +168,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
         searchTool: "Radius Search",
         droppedPin: { lng, lat },
       }));
-      setSelectedPoint(null);
+      onCrashSelect(null);
 
       getIncidents({
         startDate: filters.dateRange?.from,
@@ -186,7 +194,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
       )
     : null;
 
-  const selectedPointProperties = selectedPoint?.properties as
+  const selectedPointProperties = selectedCrashFeature?.properties as
     | Crash
     | null
     | undefined;
@@ -403,12 +411,33 @@ export default forwardRef<MapRef | null, Props>(function Map(
           </Source>
         )}
 
-        {selectedPoint && (
+        {selectedCrashFeature && (
+          <Source
+            id="selected-crash-source"
+            type="geojson"
+            data={selectedCrashFeature}
+          >
+            <Layer
+              id="selected-crash-layer"
+              type="circle"
+              paint={{
+                "circle-radius": 12,
+                "circle-color": "#60a5fa",
+                "circle-opacity": 0.3,
+                "circle-stroke-width": 3,
+                "circle-stroke-color": "#1d4ed8",
+              }}
+            />
+          </Source>
+        )}
+
+        {selectedCrashFeature && selectedCrashCalloutIsOpen && (
           <Popup
-            longitude={(selectedPoint.geometry as Point).coordinates[0]}
-            latitude={(selectedPoint.geometry as Point).coordinates[1]}
+            longitude={selectedCrashFeature.geometry.coordinates[0]}
+            latitude={selectedCrashFeature.geometry.coordinates[1]}
             anchor="bottom"
-            onClose={() => setSelectedPoint(null)}
+            closeOnClick={false}
+            onClose={() => onCrashSelect(null)}
             maxWidth="none"
           >
             <div className="p-2 text-black">
@@ -425,7 +454,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 </a>
               )}
               <pre className="text-xs">
-                {JSON.stringify(selectedPoint.properties, null, 2)}
+                {JSON.stringify(selectedCrashFeature.properties, null, 2)}
               </pre>
             </div>
           </Popup>

@@ -100,6 +100,8 @@ describe("LocationReport history availability", () => {
           historyAvailable={historyAvailable}
           crashListFilters={DEFAULT_CRASH_LIST_FILTERS}
           onCrashListFiltersChange={vi.fn()}
+          selectedCrashFeature={null}
+          onCrashSelect={vi.fn()}
         />
       </MantineProvider>,
     );
@@ -128,6 +130,8 @@ describe("LocationReport history availability", () => {
           historyAvailable={false}
           crashListFilters={DEFAULT_CRASH_LIST_FILTERS}
           onCrashListFiltersChange={vi.fn()}
+          selectedCrashFeature={null}
+          onCrashSelect={vi.fn()}
         />
       </MantineProvider>,
     );

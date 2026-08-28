@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { FeatureCollection } from "geojson";
+import { Feature, FeatureCollection, Point } from "geojson";
 import { GeoJSONFeature } from "mapbox-gl";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,8 @@ const mapHarness = vi.hoisted(() => ({
   doubleClickZoom: undefined as boolean | undefined,
   sourceData: {} as Record<string, unknown>,
   layers: {} as Record<string, unknown>,
+  popupOnClose: undefined as (() => void) | undefined,
+  popupCloseOnClick: undefined as boolean | undefined,
 }));
 
 const getIncidentsMock = vi.hoisted(() => vi.fn());
@@ -54,8 +56,19 @@ vi.mock("react-map-gl/mapbox-legacy", async () => {
       return null;
     },
     Map: MockMap,
-    Popup: ({ children }: { children: React.ReactNode }) =>
-      React.createElement("div", { "data-testid": "popup" }, children),
+    Popup: ({
+      children,
+      closeOnClick,
+      onClose,
+    }: {
+      children: React.ReactNode;
+      closeOnClick: boolean;
+      onClose: () => void;
+    }) => {
+      mapHarness.popupOnClose = onClose;
+      mapHarness.popupCloseOnClick = closeOnClick;
+      return React.createElement("div", { "data-testid": "popup" }, children);
+    },
     Source: ({
       children,
       data,
@@ -113,6 +126,9 @@ const renderMap = (
     onRadiusResultsChange: vi.fn(),
     isDrawingRoute: false,
     onAddDrawnRouteVertex: vi.fn(),
+    selectedCrashFeature: null,
+    selectedCrashCalloutIsOpen: false,
+    onCrashSelect: vi.fn(),
     ...overrides,
   };
 
@@ -134,18 +150,22 @@ describe("Map crash popup source action", () => {
     mapHarness.doubleClickZoom = undefined;
     mapHarness.sourceData = {};
     mapHarness.layers = {};
+    mapHarness.popupOnClose = undefined;
+    mapHarness.popupCloseOnClick = undefined;
     getIncidentsMock.mockReset();
   });
 
   it("links by semantic DOTI incident ID and makes both crash layers interactive", () => {
-    renderMap();
+    const selectedCrashFeature = feature({}, 304214148) as unknown as Feature<
+      Point,
+      Crash
+    >;
+    renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: true });
 
     expect(mapHarness.interactiveLayerIds).toEqual([
       "incident-layer",
       "area-of-interest-incident-layer",
     ]);
-
-    selectFeature(feature({}, 304214148));
 
     const sourceLink = screen.getByRole("link", {
       name: "View DOTI source record for DP2026473926 (opens in a new tab)",
@@ -168,9 +188,107 @@ describe("Map crash popup source action", () => {
     ).toBe(true);
   });
 
+  it("renders a dedicated highlight and popup for a selected crash", () => {
+    const selectedCrashFeature = feature(
+      { doti_incident_id: "DP2026462495" },
+      302740735,
+    ) as unknown as Feature<Point, Crash>;
+
+    renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: true });
+
+    expect(mapHarness.sourceData["selected-crash-source"]).toBe(
+      selectedCrashFeature,
+    );
+    expect(mapHarness.layers["selected-crash-layer"]).toMatchObject({
+      type: "circle",
+      paint: {
+        "circle-radius": 12,
+        "circle-stroke-width": 3,
+        "circle-stroke-color": "#1d4ed8",
+      },
+    });
+    expect(screen.getByTestId("popup")).toBeInTheDocument();
+    expect(mapHarness.popupCloseOnClick).toBe(false);
+  });
+
+  it("highlights a list-selected crash without showing its popup", () => {
+    const selectedCrashFeature = feature({}, 304214148) as unknown as Feature<
+      Point,
+      Crash
+    >;
+
+    renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: false });
+
+    expect(mapHarness.sourceData["selected-crash-source"]).toBe(
+      selectedCrashFeature,
+    );
+    expect(mapHarness.layers["selected-crash-layer"]).toBeDefined();
+    expect(screen.queryByTestId("popup")).not.toBeInTheDocument();
+  });
+
+  it("reports a map-selected crash to the shared selection owner", () => {
+    const onCrashSelect = vi.fn();
+    renderMap({ onCrashSelect });
+
+    selectFeature(feature({}, 304214148));
+
+    expect(onCrashSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 304214148,
+        geometry: expect.objectContaining({ type: "Point" }),
+        properties: expect.objectContaining({
+          doti_incident_id: "DP2026473926",
+        }),
+      }),
+    );
+  });
+
+  it("can dismiss and reopen the callout by tapping the crash again", () => {
+    const onCrashSelect = vi.fn();
+    const selectedCrashFeature = feature({}, 304214148) as unknown as Feature<
+      Point,
+      Crash
+    >;
+    const { props, rerender } = renderMap({
+      selectedCrashFeature,
+      selectedCrashCalloutIsOpen: true,
+      onCrashSelect,
+    });
+
+    expect(screen.getByTestId("popup")).toBeInTheDocument();
+
+    act(() => mapHarness.popupOnClose?.());
+    expect(onCrashSelect).toHaveBeenLastCalledWith(null);
+
+    rerender(
+      <Map
+        {...props}
+        selectedCrashFeature={null}
+        selectedCrashCalloutIsOpen={false}
+      />,
+    );
+    expect(screen.queryByTestId("popup")).not.toBeInTheDocument();
+
+    selectFeature(feature({}, 304214148));
+    const reopenedFeature = onCrashSelect.mock.calls.at(-1)?.[0];
+    expect(reopenedFeature).toMatchObject({ id: 304214148 });
+
+    rerender(
+      <Map
+        {...props}
+        selectedCrashFeature={reopenedFeature}
+        selectedCrashCalloutIsOpen
+      />,
+    );
+    expect(screen.getByTestId("popup")).toBeInTheDocument();
+  });
+
   it("does not use a stale selected feature object ID", () => {
-    renderMap();
-    selectFeature(feature({ doti_incident_id: "DP2026462495" }, 302740735));
+    const selectedCrashFeature = feature(
+      { doti_incident_id: "DP2026462495" },
+      302740735,
+    ) as unknown as Feature<Point, Crash>;
+    renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: true });
 
     const sourceLink = screen.getByRole("link", {
       name: "View DOTI source record for DP2026462495 (opens in a new tab)",
@@ -191,8 +309,11 @@ describe("Map crash popup source action", () => {
   ] as Partial<Crash>[])(
     "omits the DOTI action when the source link is missing or unsafe",
     (properties) => {
-      renderMap();
-      selectFeature(feature(properties));
+      const selectedCrashFeature = feature(properties) as unknown as Feature<
+        Point,
+        Crash
+      >;
+      renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: true });
 
       expect(
         screen.queryByRole("link", { name: /View DOTI source record/ }),
@@ -208,6 +329,8 @@ describe("Map drawn route interaction", () => {
     mapHarness.doubleClickZoom = undefined;
     mapHarness.sourceData = {};
     mapHarness.layers = {};
+    mapHarness.popupOnClose = undefined;
+    mapHarness.popupCloseOnClick = undefined;
     getIncidentsMock.mockReset();
   });
 
@@ -267,8 +390,8 @@ describe("Map drawn route interaction", () => {
     expect(props.setBufferedStreet).not.toHaveBeenCalled();
   });
 
-  it("still opens a crash popup in idle Draw Route mode", () => {
-    renderMap({
+  it("still requests a crash popup in idle Draw Route mode", () => {
+    const { props } = renderMap({
       filters: {
         searchTool: "Draw Route" as Filters["searchTool"],
         bufferRadiusInFeet: 20,
@@ -277,7 +400,9 @@ describe("Map drawn route interaction", () => {
 
     selectFeature(feature({}, 304214148));
 
-    expect(screen.getByTestId("popup")).toBeInTheDocument();
+    expect(props.onCrashSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 304214148 }),
+    );
     expect(getIncidentsMock).not.toHaveBeenCalled();
   });
 

@@ -1,5 +1,6 @@
 import {
   Anchor,
+  Button,
   Paper,
   Text,
   Group,
@@ -33,6 +34,7 @@ interface IncidentItemProps {
     lng?: number | null;
   };
   onClick?: () => void;
+  isSelected?: boolean;
 }
 
 export const SEVERITY_LABELS: Record<
@@ -65,6 +67,7 @@ export function CrashDetails({
   date,
   coordinates,
   onClick,
+  isSelected = false,
 }: IncidentItemProps) {
   const { color, dotColor } = severityConfig[kabcoSeverityLevel];
   const normalizedDotiIncidentId = dotiIncidentId?.trim();
@@ -75,13 +78,22 @@ export function CrashDetails({
   );
   const stopRowClick = (event: React.MouseEvent<HTMLAnchorElement>) =>
     event.stopPropagation();
+  const selectionLabel =
+    normalizedDotiIncidentId ||
+    normalizedCdotCuid ||
+    area ||
+    "at these coordinates";
 
   return (
     <Paper
       p="md"
       radius="md"
       withBorder
-      style={{ cursor: onClick ? "pointer" : "default" }}
+      style={{
+        cursor: onClick ? "pointer" : "default",
+        borderColor: isSelected ? "#2563eb" : undefined,
+        boxShadow: isSelected ? "0 0 0 2px #2563eb" : undefined,
+      }}
       onClick={onClick}
       className="hover:shadow-md transition-shadow"
     >
@@ -101,9 +113,25 @@ export function CrashDetails({
           </Text>
         </Group>
 
-        <Badge color={color} variant="light" size="sm">
-          {SEVERITY_LABELS[kabcoSeverityLevel]}
-        </Badge>
+        <Group gap="xs" wrap="nowrap">
+          {onClick && (
+            <Button
+              size="compact-xs"
+              variant={isSelected ? "filled" : "light"}
+              aria-label={`Select crash ${selectionLabel} on map`}
+              aria-pressed={isSelected}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+              }}
+            >
+              {isSelected ? "Selected" : "Show on map"}
+            </Button>
+          )}
+          <Badge color={color} variant="light" size="sm">
+            {SEVERITY_LABELS[kabcoSeverityLevel]}
+          </Badge>
+        </Group>
       </Group>
 
       <Stack gap={2}>

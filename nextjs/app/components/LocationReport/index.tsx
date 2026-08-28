@@ -1,4 +1,4 @@
-import { Feature, FeatureCollection, Geometry, Point } from "geojson";
+import { Feature, FeatureCollection, Point } from "geojson";
 import React from "react";
 import CrashList, {
   CrashListFilters,
@@ -40,6 +40,8 @@ type Props = {
   historyAvailable: boolean;
   crashListFilters: CrashListFilters;
   onCrashListFiltersChange: (filters: CrashListFilters) => void;
+  selectedCrashFeature: Feature<Point, Crash> | null;
+  onCrashSelect: (feature: Feature<Point, Crash>) => void;
 };
 
 type View = "Summary" | "Crashes" | "History";
@@ -51,6 +53,8 @@ const LocationReport: React.FC<Props> = ({
   historyAvailable,
   crashListFilters,
   onCrashListFiltersChange,
+  selectedCrashFeature,
+  onCrashSelect,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
 
@@ -169,9 +173,11 @@ const LocationReport: React.FC<Props> = ({
         <>
           {!isLoading ? (
             <CrashList
-              crashFeatures={crashFeatures as Feature<Geometry, Crash>[]}
+              crashFeatures={crashFeatures}
               filters={crashListFilters}
               onFiltersChange={onCrashListFiltersChange}
+              selectedCrashFeature={selectedCrashFeature}
+              onCrashSelect={onCrashSelect}
             />
           ) : (
             <Loader />

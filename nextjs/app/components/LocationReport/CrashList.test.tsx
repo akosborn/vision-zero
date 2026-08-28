@@ -56,24 +56,39 @@ const feature = (
 
 const TestCrashList = ({
   crashFeatures,
+  onCrashSelect = vi.fn(),
 }: {
   crashFeatures: Feature<Point, Crash>[];
+  onCrashSelect?: (feature: Feature<Point, Crash>) => void;
 }) => {
   const [filters, setFilters] = React.useState(DEFAULT_CRASH_LIST_FILTERS);
+  const [selectedCrashFeature, setSelectedCrashFeature] =
+    React.useState<Feature<Point, Crash> | null>(null);
 
   return (
     <CrashList
       crashFeatures={crashFeatures}
       filters={filters}
       onFiltersChange={setFilters}
+      selectedCrashFeature={selectedCrashFeature}
+      onCrashSelect={(selectedFeature) => {
+        setSelectedCrashFeature(selectedFeature);
+        onCrashSelect(selectedFeature);
+      }}
     />
   );
 };
 
-const renderCrashList = (crashFeatures: Feature<Point, Crash>[]) =>
+const renderCrashList = (
+  crashFeatures: Feature<Point, Crash>[],
+  onCrashSelect?: (feature: Feature<Point, Crash>) => void,
+) =>
   render(
     <MantineProvider env="test">
-      <TestCrashList crashFeatures={crashFeatures} />
+      <TestCrashList
+        crashFeatures={crashFeatures}
+        onCrashSelect={onCrashSelect}
+      />
     </MantineProvider>,
   );
 
@@ -101,6 +116,26 @@ const expectSafeExternalLink = (link: HTMLElement) => {
 };
 
 describe("CrashList source actions", () => {
+  it("selects a crash row by pointer or keyboard and shows its selected state", async () => {
+    const user = userEvent.setup();
+    const onCrashSelect = vi.fn();
+    const selectedFeature = feature({}, 304214148);
+    renderCrashList([selectedFeature], onCrashSelect);
+
+    const selectionButton = screen.getByRole("button", {
+      name: "Select crash DP2026473926 on map",
+    });
+
+    await user.click(screen.getByText("Vehicle"));
+
+    expect(onCrashSelect).toHaveBeenLastCalledWith(selectedFeature);
+    expect(selectionButton).toHaveAttribute("aria-pressed", "true");
+
+    selectionButton.focus();
+    await user.keyboard("{Enter}");
+    expect(onCrashSelect).toHaveBeenCalledTimes(2);
+  });
+
   it("shows a stable DOTI source record without a Google Maps action", () => {
     renderCrashList([feature({}, 304214148)]);
 
