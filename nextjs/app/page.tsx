@@ -12,7 +12,9 @@ import {
   Point,
 } from "geojson";
 import { MapRef } from "react-map-gl/mapbox-legacy";
-import FilterPanel from "@/app/components/FilterPanel";
+import FilterPanel, {
+  ENABLED_SEARCH_TOOLS,
+} from "@/app/components/FilterPanel";
 import { Alert, Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport, {
   ExportCsvButton,
@@ -50,6 +52,15 @@ import {
   type QueryDefinitionV1,
   validateQueryDefinition,
 } from "@/app/lib/query-definition";
+import {
+  isCanonicalQueryUrlShareable,
+  parseQueryUrl,
+  serializeQueryUrl,
+} from "@/app/lib/query-url";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/dist/client/components/navigation";
 
 export type SearchTool =
   | "Radius Search"
@@ -79,6 +90,8 @@ const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const mapRef = React.useRef<MapRef | null>(null);
 
@@ -214,6 +227,20 @@ function HomeContent() {
 
   const [queryError, setQueryError] = React.useState<string | null>(null);
 
+  const replaceUrlForSuccessfulQuery = React.useCallback(
+    (query: QueryDefinitionV1) => {
+      const pathname = window.location.pathname || "/map";
+      if (!isCanonicalQueryUrlShareable(query, pathname)) {
+        router.replace(pathname, { scroll: false });
+        return;
+      }
+      router.replace(`?${serializeQueryUrl(query).toString()}`, {
+        scroll: false,
+      });
+    },
+    [router],
+  );
+
   const runQuery = React.useCallback(
     async (unvalidatedQuery: QueryDefinitionV1): Promise<boolean> => {
       let query: QueryDefinitionV1;
@@ -328,6 +355,7 @@ function HomeContent() {
 
         setSelectedCrashFeature(null);
         setSelectedCrashCalloutIsOpen(false);
+        replaceUrlForSuccessfulQuery(query);
         return true;
       } catch {
         setQueryError(
@@ -338,8 +366,73 @@ function HomeContent() {
         setIsLoading(false);
       }
     },
-    [closeMobileFilters, openLocationReport, zoomToLayer],
+    [
+      closeMobileFilters,
+      openLocationReport,
+      replaceUrlForSuccessfulQuery,
+      zoomToLayer,
+    ],
   );
+
+  const initialQueryWasHandled = React.useRef(false);
+  React.useEffect(() => {
+    if (initialQueryWasHandled.current) {
+      return;
+    }
+    initialQueryWasHandled.current = true;
+
+    const enabledTools = [
+      "radius" as const,
+      "street" as const,
+      ...(ENABLED_SEARCH_TOOLS.includes("Draw Route")
+        ? (["draw"] as const)
+        : []),
+    ];
+    const parsed = parseQueryUrl(searchParams, { enabledTools });
+    if (parsed.status === "empty") {
+      return;
+    }
+    if (parsed.status === "error") {
+      setQueryError(parsed.message);
+      return;
+    }
+
+    const { query } = parsed;
+    if (query.tool === "radius") {
+      setFilters((previous) => ({
+        ...previous,
+        searchTool: "Radius Search",
+        dateRange: query.dateRange,
+        bufferRadiusInFeet: query.radiusFeet,
+        droppedPin: query.center,
+        streetSegment: undefined,
+      }));
+    } else if (query.tool === "street") {
+      setFilters((previous) => ({
+        ...previous,
+        searchTool: "Street Search",
+        dateRange: query.dateRange,
+        bufferRadiusInFeet: query.bufferFeet,
+        droppedPin: undefined,
+        streetSegment: {
+          fullName: query.street,
+          crossStreets: query.crossStreets,
+        },
+      }));
+    } else {
+      setFilters((previous) => ({
+        ...previous,
+        searchTool: "Draw Route",
+        dateRange: query.dateRange,
+        bufferRadiusInFeet: query.bufferFeet,
+        droppedPin: undefined,
+        streetSegment: undefined,
+      }));
+      setRouteGeometry(query.route);
+    }
+
+    void runQuery(query);
+  }, [runQuery, searchParams]);
 
   React.useEffect(() => {
     setIsLoadingStreets(true);
@@ -467,6 +560,7 @@ function HomeContent() {
         features: incidentsInBuffer.features,
       });
       zoomToLayer(preparedSearch.route);
+      router.replace(window.location.pathname || "/map", { scroll: false });
     } catch {
       setQueryError(
         "The query could not be completed. The previous report is unchanged.",
