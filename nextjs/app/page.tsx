@@ -17,6 +17,11 @@ import { Button, Drawer, em, Flex, Paper, Text } from "@mantine/core";
 import LocationReport, {
   ExportCsvButton,
 } from "@/app/components/LocationReport";
+import {
+  CrashListFilters,
+  DEFAULT_CRASH_LIST_FILTERS,
+  getVisibleCrashFeatures,
+} from "@/app/components/LocationReport/CrashList";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AnnualCrashSummary,
@@ -63,6 +68,7 @@ type ActiveCrashResults = {
 };
 
 const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
+const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {
   const isMobile = useMediaQuery(`(max-width: ${em(750)})`);
@@ -103,6 +109,8 @@ function HomeContent() {
 
   const [activeCrashResults, setActiveCrashResults] =
     React.useState<ActiveCrashResults | null>(null);
+  const [crashListFilters, setCrashListFilters] =
+    React.useState<CrashListFilters>(DEFAULT_CRASH_LIST_FILTERS);
 
   const clearCrashResults = React.useCallback(() => {
     setIncidentGeoJson(null);
@@ -450,7 +458,12 @@ function HomeContent() {
   );
 
   const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
-  const reportCrashFeatures = activeCrashResults?.features || [];
+  const reportCrashFeatures =
+    activeCrashResults?.features || EMPTY_CRASH_FEATURES;
+  const exportCrashFeatures = React.useMemo(
+    () => getVisibleCrashFeatures(reportCrashFeatures, crashListFilters),
+    [crashListFilters, reportCrashFeatures],
+  );
 
   return (
     <Suspense>
@@ -680,7 +693,7 @@ function HomeContent() {
                         <ExportCsvButton
                           isLoading={isLoading}
                           searchTool={reportSearchTool}
-                          crashFeatures={reportCrashFeatures}
+                          crashFeatures={exportCrashFeatures}
                         />
                         <Drawer.CloseButton />
                       </Flex>
@@ -694,6 +707,8 @@ function HomeContent() {
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
                         historyAvailable={reportSearchTool === "Street Search"}
+                        crashListFilters={crashListFilters}
+                        onCrashListFiltersChange={setCrashListFilters}
                       />
                     </Drawer.Body>
                   </Drawer.Content>
@@ -720,7 +735,7 @@ function HomeContent() {
                   <ExportCsvButton
                     isLoading={isLoading}
                     searchTool={reportSearchTool}
-                    crashFeatures={reportCrashFeatures}
+                    crashFeatures={exportCrashFeatures}
                   />
                 </Flex>
                 <LocationReport
@@ -731,6 +746,8 @@ function HomeContent() {
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
                   historyAvailable={reportSearchTool === "Street Search"}
+                  crashListFilters={crashListFilters}
+                  onCrashListFiltersChange={setCrashListFilters}
                 />
               </>
             )}

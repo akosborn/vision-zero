@@ -1,6 +1,8 @@
 import { Feature, FeatureCollection, Geometry, Point } from "geojson";
 import React from "react";
-import CrashList from "@/app/components/LocationReport/CrashList";
+import CrashList, {
+  CrashListFilters,
+} from "@/app/components/LocationReport/CrashList";
 import {
   Anchor,
   Button,
@@ -36,6 +38,8 @@ type Props = {
   zoomToLayer: (geojson: FeatureCollection) => void;
   crashSummaryHistory: AnnualCrashSummary[] | null;
   historyAvailable: boolean;
+  crashListFilters: CrashListFilters;
+  onCrashListFiltersChange: (filters: CrashListFilters) => void;
 };
 
 type View = "Summary" | "Crashes" | "History";
@@ -45,6 +49,8 @@ const LocationReport: React.FC<Props> = ({
   isLoading,
   crashFeatures,
   historyAvailable,
+  crashListFilters,
+  onCrashListFiltersChange,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
 
@@ -162,11 +168,11 @@ const LocationReport: React.FC<Props> = ({
       {selectedView === "Crashes" && (
         <>
           {!isLoading ? (
-            <Container mah="40vh" style={{ overflowY: "auto" }} px={0}>
-              <CrashList
-                crashFeatures={crashFeatures as Feature<Geometry, Crash>[]}
-              />
-            </Container>
+            <CrashList
+              crashFeatures={crashFeatures as Feature<Geometry, Crash>[]}
+              filters={crashListFilters}
+              onFiltersChange={onCrashListFiltersChange}
+            />
           ) : (
             <Loader />
           )}

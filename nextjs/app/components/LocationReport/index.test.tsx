@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Crash } from "@/app/lib/api-client";
 
 import LocationReport, { ExportCsvButton } from ".";
+import { DEFAULT_CRASH_LIST_FILTERS } from "./CrashList";
 import { downloadCrashCsv } from "./utils/crash-csv";
 
 Object.defineProperty(window, "matchMedia", {
@@ -97,6 +98,8 @@ describe("LocationReport history availability", () => {
           zoomToLayer={vi.fn()}
           crashSummaryHistory={[]}
           historyAvailable={historyAvailable}
+          crashListFilters={DEFAULT_CRASH_LIST_FILTERS}
+          onCrashListFiltersChange={vi.fn()}
         />
       </MantineProvider>,
     );
@@ -123,6 +126,8 @@ describe("LocationReport history availability", () => {
           zoomToLayer={vi.fn()}
           crashSummaryHistory={[]}
           historyAvailable={false}
+          crashListFilters={DEFAULT_CRASH_LIST_FILTERS}
+          onCrashListFiltersChange={vi.fn()}
         />
       </MantineProvider>,
     );

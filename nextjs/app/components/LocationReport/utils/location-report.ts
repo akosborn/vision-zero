@@ -131,7 +131,9 @@ type Mode = "bicycle" | "pedestrian";
  * Assumes that crashes won't involve both bicycles and pedestrians.
  * @param crash
  */
-const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
+export const getVulnerableRoadUserCounts = (
+  crash: Crash,
+): Record<Mode, number> => {
   if (crash.cdot_cuid) {
     const BIKE_INDICATORS = [
       "bicycle",

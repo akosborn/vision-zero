@@ -11,6 +11,7 @@ import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home, { type Filters, type SearchTool } from "./page";
+import type { CrashListFilters } from "./components/LocationReport/CrashList";
 
 type DateRange = { from?: string; to?: string };
 
@@ -26,8 +27,20 @@ type FilterPanelProps = {
   onDateRangeChange: (range: DateRange) => void;
 };
 
+type LocationReportProps = {
+  crashFeatures: Array<{ id?: string }>;
+  crashListFilters: CrashListFilters;
+  onCrashListFiltersChange: (filters: CrashListFilters) => void;
+};
+
+type ExportCsvButtonProps = {
+  crashFeatures: Array<{ id?: string }>;
+};
+
 const harness = vi.hoisted(() => ({
   filterPanelProps: null as FilterPanelProps | null,
+  locationReportProps: null as LocationReportProps | null,
+  exportCsvButtonProps: null as ExportCsvButtonProps | null,
   getStreets: vi.fn(),
   getIncidentsWithinBufferedRoute: vi.fn(),
 }));
@@ -89,13 +102,18 @@ vi.mock("./components/Map", async () => {
 });
 
 vi.mock("@/app/components/LocationReport", () => ({
-  default: ({ crashFeatures }: { crashFeatures: Array<{ id?: string }> }) =>
-    React.createElement(
+  default: (props: LocationReportProps) => {
+    harness.locationReportProps = props;
+    return React.createElement(
       "div",
       { "data-testid": "location-report" },
-      crashFeatures.map(({ id }) => id).join(","),
-    ),
-  ExportCsvButton: () => null,
+      props.crashFeatures.map(({ id }) => id).join(","),
+    );
+  },
+  ExportCsvButton: (props: ExportCsvButtonProps) => {
+    harness.exportCsvButtonProps = props;
+    return null;
+  },
 }));
 
 vi.mock("@/app/utils/map/zoom-to-layer", () => ({ default: vi.fn() }));
@@ -129,7 +147,17 @@ const crashResults = (id: string): FeatureCollection<Point> => ({
     {
       type: "Feature",
       id,
-      properties: {},
+      properties: {
+        doti_incident_id: id,
+        doti_first_occurrence_date: "2026-08-25T13:34:00-06:00",
+        doti_fatalities: 0,
+        doti_serious_injuries: 0,
+        doti_bicycle_involved: false,
+        doti_pedestrian_involved: false,
+        doti_bicycle_count: 0,
+        doti_pedestrian_count: 0,
+        cdot_cuid: null,
+      },
       geometry: { type: "Point", coordinates: [-104.985, 39.745] },
     },
   ],
@@ -143,6 +171,8 @@ const latestFilterPanelProps = (): FilterPanelProps => {
 describe("applied drawn-route date changes", () => {
   beforeEach(() => {
     harness.filterPanelProps = null;
+    harness.locationReportProps = null;
+    harness.exportCsvButtonProps = null;
     harness.getStreets.mockReset().mockResolvedValue([]);
     harness.getIncidentsWithinBufferedRoute.mockReset();
   });
@@ -214,5 +244,53 @@ describe("applied drawn-route date changes", () => {
     expect(screen.getByTestId("location-report")).not.toHaveTextContent(
       "old-result",
     );
+  });
+
+  it("passes only crash-list matches to CSV export", async () => {
+    harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce(
+      crashResults("property-damage-vehicle"),
+    );
+
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+
+    act(() => {
+      latestFilterPanelProps().onSearchToolChange("Draw Route");
+    });
+    act(() => {
+      latestFilterPanelProps().onStartRouteDrawing();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add first vertex" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add second vertex" }));
+
+    await waitFor(() => {
+      expect(latestFilterPanelProps().canApplyDrawnRoute).toBe(true);
+    });
+    act(() => latestFilterPanelProps().onApplyDrawnRoute());
+
+    await waitFor(() => {
+      expect(harness.exportCsvButtonProps?.crashFeatures).toHaveLength(1);
+    });
+
+    act(() => {
+      harness.locationReportProps?.onCrashListFiltersChange({
+        severity: "K",
+        roadUser: "bicycle",
+      });
+    });
+
+    await waitFor(() => {
+      expect(harness.exportCsvButtonProps?.crashFeatures).toEqual([]);
+      expect(harness.locationReportProps?.crashFeatures).toHaveLength(1);
+      expect(harness.locationReportProps?.crashListFilters).toEqual({
+        severity: "K",
+        roadUser: "bicycle",
+      });
+    });
   });
 });
