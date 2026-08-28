@@ -87,15 +87,6 @@ Priority meanings:
   - [x] Verify links against several current and older incidents.
   - [x] Add the verified authoritative DOTI record link to the CSV export.
   - [x] Show the same authoritative action in map crash callouts.
-- [ ] Implement honest CDOT-only report guidance.
-  - [x] Keep displaying the CDOT CUID.
-  - [x] Do not treat the CDOT `link` database column as a URL; it is a roadway value.
-  - [x] Do not show report-request guidance on DOTI rows enriched with CDOT data.
-  - [x] Remove the Colorado DMV link while its production pages return HTTP 403.
-  - [ ] Add a statewide official request URL after Colorado publishes a working
-        production destination.
-  - [x] Reserve the label **How to obtain an official crash report** for a
-        verified CDOT-only destination, not a direct **View report** action.
 - [x] Keep Google Maps location URLs out of crash-row source actions.
 - [x] Add accessibility text and ensure external links open safely.
 - [x] Add tests for DOTI-only, CDOT-enriched, CDOT-only, missing-ID, and
@@ -109,9 +100,6 @@ Official references:
   <https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/ArcGIS/rest/services/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325>
 - CDOT crash data guidance:
   <https://www.codot.gov/safety/traffic-safety/data-analysis/crash-data>
-- Colorado DMV's intended replacement crash-record page (currently returns
-  HTTP 403 and is not linked from the app):
-  <https://dmv.colorado.gov/crash-records>
 
 ## P1: Draw a Route or Road Corridor on the Map
 
