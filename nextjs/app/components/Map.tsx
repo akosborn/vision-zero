@@ -10,7 +10,12 @@ import {
 } from "react-map-gl/mapbox-legacy";
 import React, { forwardRef } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
-import { Crash, getIncidents } from "@/app/lib/api-client";
+import {
+  AnnualCrashSummary,
+  Crash,
+  getAnnualRadiusCrashHistory,
+  getIncidents,
+} from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 import { Filters } from "@/app/page";
@@ -86,6 +91,8 @@ type Props = {
   >;
   onRadiusResultsChange: (
     results: FeatureCollection<Point, Crash> | null,
+    history: AnnualCrashSummary[] | null,
+    dateRange?: { from?: string; to?: string },
   ) => void;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
@@ -157,7 +164,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
       }
 
       setIsLoading(true);
-      onRadiusResultsChange(null);
+      onRadiusResultsChange(null, null);
       setAreaOfInterestIncidentGeoJson(null);
       setIncidentGeoJson(null);
       setStreetCenterlines(null);
@@ -170,16 +177,24 @@ export default forwardRef<MapRef | null, Props>(function Map(
       }));
       onCrashSelect(null);
 
-      getIncidents({
-        startDate: filters.dateRange?.from,
-        endDate: filters.dateRange?.to,
-        lat,
-        lng,
-        radiusInFeet: filters.bufferRadiusInFeet,
-      })
-        .then((data) => {
+      const dateRange = filters.dateRange;
+      Promise.all([
+        getIncidents({
+          startDate: dateRange?.from,
+          endDate: dateRange?.to,
+          lat,
+          lng,
+          radiusInFeet: filters.bufferRadiusInFeet,
+        }),
+        getAnnualRadiusCrashHistory({
+          lat,
+          lng,
+          radiusInFeet: filters.bufferRadiusInFeet,
+        }),
+      ])
+        .then(([data, history]) => {
           setIncidentGeoJson(data);
-          onRadiusResultsChange(data);
+          onRadiusResultsChange(data, history, dateRange);
         })
         .finally(() => {
           setIsLoading(false);

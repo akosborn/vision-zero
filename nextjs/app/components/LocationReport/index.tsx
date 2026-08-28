@@ -38,6 +38,7 @@ type Props = {
   zoomToLayer: (geojson: FeatureCollection) => void;
   crashSummaryHistory: AnnualCrashSummary[] | null;
   historyAvailable: boolean;
+  selectedDateRange?: { from?: string; to?: string };
   crashListFilters: CrashListFilters;
   onCrashListFiltersChange: (filters: CrashListFilters) => void;
   selectedCrashFeature: Feature<Point, Crash> | null;
@@ -51,6 +52,7 @@ const LocationReport: React.FC<Props> = ({
   isLoading,
   crashFeatures,
   historyAvailable,
+  selectedDateRange,
   crashListFilters,
   onCrashListFiltersChange,
   selectedCrashFeature,
@@ -191,7 +193,10 @@ const LocationReport: React.FC<Props> = ({
             <>
               <Container w="100%" h="100%" px={0}>
                 {crashSummaryHistory && crashSummaryHistory.length > 0 && (
-                  <BarChart summaries={crashSummaryHistory} />
+                  <BarChart
+                    summaries={crashSummaryHistory}
+                    selectedDateRange={selectedDateRange}
+                  />
                 )}
               </Container>
             </>

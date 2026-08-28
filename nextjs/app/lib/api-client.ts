@@ -128,6 +128,29 @@ export const getAnnualCrashHistory = async (params: {
   return response.data;
 };
 
+export const getAnnualRadiusCrashHistory = async (params: {
+  lat: number;
+  lng: number;
+  radiusInFeet: number;
+}) => {
+  const response = await axios.get<AnnualCrashSummary[]>(
+    `${API_PATH_BASE}/incidents/history`,
+    { params },
+  );
+  return response.data;
+};
+
+export const getAnnualRouteCrashHistory = async (params: {
+  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
+  bufferInFeet: number;
+}) => {
+  const response = await axios.post<AnnualCrashSummary[]>(
+    `${API_PATH_BASE}/incidents/buffered-route/history`,
+    params,
+  );
+  return response.data;
+};
+
 export interface CrashSourceLinks {
   dotiRecordUrl?: string;
   cdotReportRequestUrl?: string;

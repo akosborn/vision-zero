@@ -121,8 +121,10 @@ Official references:
 - [x] Reuse the existing date-range and buffer-distance controls.
 - [x] Draw both the selected line and its search area clearly on the map.
 - [x] Define what the **History** tab shows for drawn and uploaded routes.
-  - [x] Confirm that current uploaded-route behavior provides no annual history.
-  - [x] Either add route-history support or hide/disable the unavailable view.
+  - [x] Confirm that the previous uploaded-route behavior provided no annual
+        history.
+  - [x] Add annual history for uploaded and drawn route buffers.
+  - [x] Show the full annual timeline and highlight the selected report period.
 - [x] Make route upload and route drawing feature flags consistent across desktop
       and mobile.
 - [x] Add tests for route creation, undo, clear, apply, empty geometry, mobile
