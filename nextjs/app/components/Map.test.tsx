@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { Feature, FeatureCollection, Point } from "geojson";
 import { GeoJSONFeature } from "mapbox-gl";
 import React from "react";
@@ -20,8 +20,10 @@ const mapHarness = vi.hoisted(() => ({
 }));
 
 const getIncidentsMock = vi.hoisted(() => vi.fn());
+const getAnnualRadiusCrashHistoryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/app/lib/api-client", () => ({
+  getAnnualRadiusCrashHistory: getAnnualRadiusCrashHistoryMock,
   getIncidents: getIncidentsMock,
 }));
 
@@ -153,6 +155,7 @@ describe("Map crash popup source action", () => {
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
     getIncidentsMock.mockReset();
+    getAnnualRadiusCrashHistoryMock.mockReset();
   });
 
   it("links by semantic DOTI incident ID and makes both crash layers interactive", () => {
@@ -337,6 +340,7 @@ describe("Map drawn route interaction", () => {
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
     getIncidentsMock.mockReset();
+    getAnnualRadiusCrashHistoryMock.mockReset();
   });
 
   it.each([
@@ -393,6 +397,48 @@ describe("Map drawn route interaction", () => {
     expect(props.setAreaOfInterestIncidentGeoJson).not.toHaveBeenCalled();
     expect(props.setStreetCenterlines).not.toHaveBeenCalled();
     expect(props.setBufferedStreet).not.toHaveBeenCalled();
+  });
+
+  it("loads current crashes and full history for a radius search", async () => {
+    const crashes = { type: "FeatureCollection", features: [] };
+    const history = [{ year: 2024, crashes: 3 }];
+    getIncidentsMock.mockResolvedValue(crashes);
+    getAnnualRadiusCrashHistoryMock.mockResolvedValue(history);
+    const dateRange = { from: "2024-03-01", to: "2025-02-28" };
+    const { props } = renderMap({
+      filters: {
+        searchTool: "Radius Search",
+        bufferRadiusInFeet: 35,
+        dateRange,
+      },
+    });
+
+    act(() => {
+      mapHarness.onClick?.({
+        features: [],
+        lngLat: { lng: -104.99, lat: 39.74 },
+      });
+    });
+
+    await waitFor(() => {
+      expect(props.onRadiusResultsChange).toHaveBeenLastCalledWith(
+        crashes,
+        history,
+        dateRange,
+      );
+    });
+    expect(getIncidentsMock).toHaveBeenCalledWith({
+      startDate: dateRange.from,
+      endDate: dateRange.to,
+      lat: 39.74,
+      lng: -104.99,
+      radiusInFeet: 35,
+    });
+    expect(getAnnualRadiusCrashHistoryMock).toHaveBeenCalledWith({
+      lat: 39.74,
+      lng: -104.99,
+      radiusInFeet: 35,
+    });
   });
 
   it("still requests a crash popup in idle Draw Route mode", () => {

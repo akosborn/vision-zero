@@ -29,6 +29,9 @@ type FilterPanelProps = {
 
 type LocationReportProps = {
   crashFeatures: Array<{ id?: string }>;
+  crashSummaryHistory: Array<{ year: number }> | null;
+  historyAvailable: boolean;
+  selectedDateRange?: DateRange;
   crashListFilters: CrashListFilters;
   onCrashListFiltersChange: (filters: CrashListFilters) => void;
   selectedCrashFeature: Feature<Point> | null;
@@ -54,10 +57,14 @@ const harness = vi.hoisted(() => ({
   exportCsvButtonProps: null as ExportCsvButtonProps | null,
   getStreets: vi.fn(),
   getIncidentsWithinBufferedRoute: vi.fn(),
+  getAnnualRouteCrashHistory: vi.fn(),
+  getAnnualRadiusCrashHistory: vi.fn(),
 }));
 
 vi.mock("@/app/lib/api-client", () => ({
   getAnnualCrashHistory: vi.fn(),
+  getAnnualRadiusCrashHistory: harness.getAnnualRadiusCrashHistory,
+  getAnnualRouteCrashHistory: harness.getAnnualRouteCrashHistory,
   getBufferedStreetCenterlines: vi.fn(),
   getIncidents: vi.fn(),
   getIncidentsWithinBufferedRoute: harness.getIncidentsWithinBufferedRoute,
@@ -192,6 +199,12 @@ describe("applied drawn-route date changes", () => {
     harness.exportCsvButtonProps = null;
     harness.getStreets.mockReset().mockResolvedValue([]);
     harness.getIncidentsWithinBufferedRoute.mockReset();
+    harness.getAnnualRouteCrashHistory
+      .mockReset()
+      .mockResolvedValue([{ year: 2024 }]);
+    harness.getAnnualRadiusCrashHistory
+      .mockReset()
+      .mockResolvedValue([{ year: 2024 }]);
   });
 
   it("reruns the same route and replaces results for the new dates", async () => {
@@ -229,6 +242,10 @@ describe("applied drawn-route date changes", () => {
     await waitFor(() => {
       expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
       expect(latestFilterPanelProps().hasAppliedRoute).toBe(true);
+      expect(harness.locationReportProps?.historyAvailable).toBe(true);
+      expect(harness.locationReportProps?.crashSummaryHistory).toEqual([
+        { year: 2024 },
+      ]);
       expect(screen.getByTestId("location-report")).toHaveTextContent(
         "old-result",
       );
@@ -246,6 +263,9 @@ describe("applied drawn-route date changes", () => {
       expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledTimes(2);
       expect(screen.getByTestId("location-report")).toHaveTextContent(
         "new-result",
+      );
+      expect(harness.locationReportProps?.selectedDateRange).toEqual(
+        newDateRange,
       );
     });
 

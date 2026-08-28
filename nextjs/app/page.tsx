@@ -27,6 +27,8 @@ import {
   AnnualCrashSummary,
   Crash,
   getAnnualCrashHistory,
+  getAnnualRadiusCrashHistory,
+  getAnnualRouteCrashHistory,
   getBufferedStreetCenterlines,
   getIncidents,
   getIncidentsWithinBufferedRoute,
@@ -65,6 +67,7 @@ export type Filters = {
 type ActiveCrashResults = {
   searchTool: SearchTool;
   features: Feature<Point, Crash>[];
+  dateRange?: { from?: string; to?: string };
 };
 
 const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
@@ -256,6 +259,7 @@ function HomeContent() {
       setActiveCrashResults({
         searchTool: "Street Search",
         features: incidentsInBuffer.features,
+        dateRange: range,
       });
 
       zoomToLayer(incidentsInBuffer);
@@ -340,19 +344,28 @@ function HomeContent() {
     openLocationReport();
 
     if (radiusInFeet >= 0 && point && range) {
-      const crashes = await getIncidents({
-        startDate: range.from,
-        endDate: range.to,
-        lat: point.lat,
-        lng: point.lng,
-        radiusInFeet,
-      });
+      const [crashes, history] = await Promise.all([
+        getIncidents({
+          startDate: range.from,
+          endDate: range.to,
+          lat: point.lat,
+          lng: point.lng,
+          radiusInFeet,
+        }),
+        getAnnualRadiusCrashHistory({
+          lat: point.lat,
+          lng: point.lng,
+          radiusInFeet,
+        }),
+      ]);
       setIncidentGeoJson(crashes);
       setStreetCenterlines(null);
       setBufferedStreet(null);
+      setCrashSummaryHistory(history);
       setActiveCrashResults({
         searchTool: "Radius Search",
         features: crashes.features,
+        dateRange: range,
       });
 
       zoomToLayer(crashes);
@@ -380,17 +393,22 @@ function HomeContent() {
     openLocationReport();
 
     try {
-      const incidentsInBuffer = await getIncidentsWithinBufferedRoute(
-        preparedSearch.request,
-      );
+      const [incidentsInBuffer, history] = await Promise.all([
+        getIncidentsWithinBufferedRoute(preparedSearch.request),
+        getAnnualRouteCrashHistory({
+          route: preparedSearch.route,
+          bufferInFeet: preparedSearch.request.bufferInFeet,
+        }),
+      ]);
 
       setRouteGeometry(preparedSearch.route);
       setRouteSearchArea(preparedSearch.searchArea);
-      setCrashSummaryHistory(null);
+      setCrashSummaryHistory(history);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setActiveCrashResults({
         searchTool,
         features: incidentsInBuffer.features,
+        dateRange: range,
       });
 
       zoomToLayer(preparedSearch.route);
@@ -452,11 +470,19 @@ function HomeContent() {
   }, [areaOfInterestIncidentGeoJson, incidentGeoJson]);
 
   const handleMapRadiusResultsChange = React.useCallback(
-    (results: FeatureCollection<Point, Crash> | null) => {
-      setCrashSummaryHistory(null);
+    (
+      results: FeatureCollection<Point, Crash> | null,
+      history: AnnualCrashSummary[] | null,
+      dateRange?: { from?: string; to?: string },
+    ) => {
+      setCrashSummaryHistory(history);
       setActiveCrashResults(
         results
-          ? { searchTool: "Radius Search", features: results.features }
+          ? {
+              searchTool: "Radius Search",
+              features: results.features,
+              dateRange,
+            }
           : null,
       );
     },
@@ -500,6 +526,7 @@ function HomeContent() {
   );
 
   const reportSearchTool = activeCrashResults?.searchTool || filters.searchTool;
+  const reportDateRange = activeCrashResults?.dateRange;
   const reportCrashFeatures =
     activeCrashResults?.features || EMPTY_CRASH_FEATURES;
   const exportCrashFeatures = React.useMemo(
@@ -751,7 +778,8 @@ function HomeContent() {
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
-                        historyAvailable={reportSearchTool === "Street Search"}
+                        historyAvailable={crashSummaryHistory !== null}
+                        selectedDateRange={reportDateRange}
                         crashListFilters={crashListFilters}
                         onCrashListFiltersChange={setCrashListFilters}
                         selectedCrashFeature={selectedCrashFeature}
@@ -792,7 +820,8 @@ function HomeContent() {
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
-                  historyAvailable={reportSearchTool === "Street Search"}
+                  historyAvailable={crashSummaryHistory !== null}
+                  selectedDateRange={reportDateRange}
                   crashListFilters={crashListFilters}
                   onCrashListFiltersChange={setCrashListFilters}
                   selectedCrashFeature={selectedCrashFeature}
