@@ -312,6 +312,73 @@ describe("page-owned query execution", () => {
     expect(harness.replace).toHaveBeenCalledOnce();
   });
 
+  it("enables copying after a successful zero-result query", async () => {
+    harness.getIncidents.mockResolvedValueOnce({
+      type: "FeatureCollection",
+      features: [],
+    });
+
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+    act(() => {
+      latestMapProps().onRadiusSearchPoint({ lat: 39.75, lng: -104.96 });
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Copy query link" }),
+    ).toBeEnabled();
+    expect(harness.replace).toHaveBeenCalledOnce();
+  });
+
+  it("runs an oversized drawn route but disables its link", async () => {
+    harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce({
+      type: "FeatureCollection",
+      features: [],
+    });
+
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+    await waitFor(() => expect(harness.getStreets).toHaveBeenCalledOnce());
+    act(() => {
+      latestFilterPanelProps().onSearchToolChange("Draw Route");
+      latestFilterPanelProps().onStartRouteDrawing();
+    });
+    act(() => {
+      for (let index = 0; index < 1001; index += 1) {
+        latestMapProps().onAddDrawnRouteVertex([
+          -104.99 + index / 1_000_000,
+          39.74,
+        ]);
+      }
+    });
+    await waitFor(() => {
+      expect(latestFilterPanelProps().canApplyDrawnRoute).toBe(true);
+    });
+    await act(async () => {
+      latestFilterPanelProps().onApplyDrawnRoute();
+    });
+
+    await waitFor(() => {
+      expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
+      expect(
+        screen.getByRole("button", { name: "Copy query link" }),
+      ).toBeDisabled();
+    });
+    expect(
+      screen.getByTitle(
+        "This route has too many points to fit safely in a link.",
+      ),
+    ).toBeInTheDocument();
+    expect(harness.replace).toHaveBeenCalledWith("/", { scroll: false });
+  });
+
   it("restores decoded drawn-route geometry and its original API semantics", async () => {
     const route: FeatureCollection<LineString> = {
       type: "FeatureCollection",

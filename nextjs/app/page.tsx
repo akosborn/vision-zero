@@ -61,6 +61,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/dist/client/components/navigation";
+import CopyQueryLinkButton from "@/app/components/CopyQueryLinkButton";
 
 export type SearchTool =
   | "Radius Search"
@@ -839,6 +840,9 @@ function HomeContent() {
                     <Drawer.Header>
                       <Drawer.Title fw={700}>Location Report</Drawer.Title>
                       <Flex align="center" gap="xs" ml="auto">
+                        <CopyQueryLinkButton
+                          query={activeCrashResults?.query ?? null}
+                        />
                         <ExportCsvButton
                           isLoading={isLoading}
                           searchTool={reportSearchTool}
@@ -884,11 +888,16 @@ function HomeContent() {
                   <Text size="md" fw={700}>
                     Location Report
                   </Text>
-                  <ExportCsvButton
-                    isLoading={isLoading}
-                    searchTool={reportSearchTool}
-                    crashFeatures={exportCrashFeatures}
-                  />
+                  <Flex gap="xs">
+                    <CopyQueryLinkButton
+                      query={activeCrashResults?.query ?? null}
+                    />
+                    <ExportCsvButton
+                      isLoading={isLoading}
+                      searchTool={reportSearchTool}
+                      crashFeatures={exportCrashFeatures}
+                    />
+                  </Flex>
                 </Flex>
                 <LocationReport
                   crashSummaryHistory={crashSummaryHistory}
