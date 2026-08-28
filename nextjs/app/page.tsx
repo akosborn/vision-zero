@@ -86,7 +86,8 @@ type ActiveCrashResults = {
   features: Feature<Point, Crash>[];
 };
 
-const DEFAULT_BUFFER_RADIUS_IN_FEET = 1000;
+const DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET = 1000;
+const DEFAULT_DRAW_ROUTE_BUFFER_IN_FEET = 20;
 const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {
@@ -109,7 +110,7 @@ function HomeContent() {
         .toFormat("yyyy-MM-dd"),
       to: DateTime.now().setZone("America/Denver").toFormat("yyyy-MM-dd"),
     },
-    bufferRadiusInFeet: DEFAULT_BUFFER_RADIUS_IN_FEET,
+    bufferRadiusInFeet: DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET,
     droppedPin: {
       lng: DEFAULT_VIEWPORT.longitude,
       lat: DEFAULT_VIEWPORT.latitude,
@@ -191,6 +192,12 @@ function HomeContent() {
     setFilters((previousFilters) => ({
       ...previousFilters,
       searchTool,
+      bufferRadiusInFeet:
+        searchTool === "Radius Search"
+          ? DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET
+          : searchTool === "Draw Route"
+            ? DEFAULT_DRAW_ROUTE_BUFFER_IN_FEET
+            : previousFilters.bufferRadiusInFeet,
       droppedPin: undefined,
     }));
   }, []);
