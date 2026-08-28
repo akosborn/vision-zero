@@ -75,7 +75,8 @@ export const buildAnnualCrashHistoryQuery = ({
 
 type AnnualCrashSummaryRow = Record<string, unknown>;
 
-const parseInteger = (value: unknown) => Number.parseInt(String(value ?? 0), 10);
+const parseInteger = (value: unknown) =>
+  Number.parseInt(String(value ?? 0), 10);
 
 export const mapAnnualCrashSummaryRows = (
   rows: AnnualCrashSummaryRow[],

@@ -232,10 +232,7 @@ describe("radius annual-history route", () => {
   });
 
   it.each([
-    [
-      "/api/incidents/history",
-      "lat, lng, and radiusInFeet are required",
-    ],
+    ["/api/incidents/history", "lat, lng, and radiusInFeet are required"],
     [
       "/api/incidents/history?lat=39.74&lng=-104.99",
       "lat, lng, and radiusInFeet must be provided together",
