@@ -132,6 +132,34 @@ Official references:
 - [x] Verify a drawn route and an equivalent uploaded GPX/KML route return the
       same crash set for the same buffer and dates.
 
+## P1: Bookmarkable Query URLs
+
+- [ ] Ship the version-1 bookmarkable-query contract. Keep this parent and the
+      later product-decision item unchecked until the feature branch is merged.
+  - [x] Define validated radius, street, street-segment, and manually drawn
+        route query types independently of UI labels.
+  - [x] Encode drawn routes as Google polylines at precision 6 behind a tested
+        GeoJSON coordinate-order boundary.
+  - [x] Parse complete version-1 URLs and complete legacy street URLs without
+        applying partial state.
+  - [x] Centralize radius, street, and drawn-route execution in `page.tsx` while
+        preserving the existing API payloads.
+  - [x] Update the URL only after success and retain the previous URL and report
+        after a failed replacement.
+  - [x] Add **Copy query link** for successful queries, including zero-result
+        queries.
+  - [x] Let oversized routes run without simplification while disabling link
+        copying with an explanation.
+  - [x] Keep GPX/KML uploads outside version 1 until a canonical multi-geometry
+        route contract is defined.
+  - [ ] Manually verify desktop and mobile apply/copy/open/refresh/bookmark flows
+        for radius, full-street, street-segment, and drawn-route queries.
+  - [ ] Verify browser back/forward behavior after repeated successful queries.
+  - [ ] Verify the deployed `/map` route accepts the 2,000-character policy and
+        that the canonical-host redirect preserves the complete query string.
+  - [ ] Confirm in a browser network trace that polyline handling makes no
+        Google request and that query restoration performs no database write.
+
 ## P2: Backend Maintainability
 
 - [ ] Extract the repeated DOTI/CDOT crash projection into a shared, reviewed SQL
@@ -181,8 +209,8 @@ keep query-result parity visible in each pull request.
 - [ ] Consider multi-segment route selection and editing.
 - [ ] Consider annual history for arbitrary polygons and routes.
 - [ ] Consider exporting summary metrics and chart-ready annual history separately.
-- [ ] Decide whether filters and drawn geometry should be shareable through the
-      URL.
+- [ ] Mark the bookmarkable-query URL product decision complete after the P1
+      feature branch is merged and its release checks are recorded.
 - [ ] Review accessibility, keyboard drawing alternatives, and non-map workflows.
 
 ## Definition of Done for Feature Pull Requests
