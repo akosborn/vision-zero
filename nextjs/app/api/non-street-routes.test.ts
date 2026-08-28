@@ -12,6 +12,8 @@ const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/app/lib/db", () => ({ default: { query } }));
 
 import { POST as postBufferedRoute } from "./incidents/buffered-route/route";
+import { POST as postBufferedRouteHistory } from "./incidents/buffered-route/history/route";
+import { GET as getRadiusHistory } from "./incidents/history/route";
 import { GET as getIncidents } from "./incidents/route";
 import { GET as getStreets } from "./streets/route";
 
@@ -87,6 +89,34 @@ const equivalentDrawnRoute = () => {
 
 const successfulGeojsonQuery = () =>
   query.mockResolvedValue({ rows: [{ geojson }] });
+
+const annualRows = [
+  {
+    year: "2024",
+    crashes: "7",
+    fatalities: "1",
+    seriousInjuries: "2",
+    bicycleInvolvedCrashes: "3",
+    pedestrianInvolvedCrashes: "4",
+    maxSpeedMph: "42.5",
+    crashesOverSpeedLimit: "1",
+    crashesWithSpeedData: "5",
+  },
+];
+
+const annualSummaries = [
+  {
+    year: 2024,
+    crashes: 7,
+    fatalities: 1,
+    seriousInjuries: 2,
+    bicycleInvolvedCrashes: 3,
+    pedestrianInvolvedCrashes: 4,
+    maxSpeedMph: 42.5,
+    crashesOverSpeedLimit: 1,
+    crashesWithSpeedData: 5,
+  },
+];
 
 const expectError = async (
   response: Response,
@@ -176,6 +206,55 @@ describe("incidents route", () => {
     query.mockRejectedValue(new Error("connection details"));
 
     const response = await getIncidents(getRequest("/api/incidents"));
+
+    await expectError(response, 500, "Database query failed");
+  });
+});
+
+describe("radius annual-history route", () => {
+  beforeEach(() => {
+    query.mockReset();
+  });
+
+  it("binds the radius search without applying the report date range", async () => {
+    query.mockResolvedValue({ rows: annualRows });
+
+    const response = await getRadiusHistory(
+      getRequest(
+        "/api/incidents/history?lat=39.74&lng=-104.99&radiusInFeet=20",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(query.mock.calls[0][1]).toEqual([-104.99, 39.74, 6.096]);
+    expect(query.mock.calls[0][0]).not.toContain("startDate");
+    await expect(response.json()).resolves.toEqual(annualSummaries);
+  });
+
+  it.each([
+    [
+      "/api/incidents/history",
+      "lat, lng, and radiusInFeet are required",
+    ],
+    [
+      "/api/incidents/history?lat=39.74&lng=-104.99",
+      "lat, lng, and radiusInFeet must be provided together",
+    ],
+  ])("rejects incomplete radius history input", async (path, error) => {
+    const response = await getRadiusHistory(getRequest(path));
+
+    await expectError(response, 400, error);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe 500 when the database query fails", async () => {
+    query.mockRejectedValue(new Error("connection details"));
+
+    const response = await getRadiusHistory(
+      getRequest(
+        "/api/incidents/history?lat=39.74&lng=-104.99&radiusInFeet=20",
+      ),
+    );
 
     await expectError(response, 500, "Database query failed");
   });
@@ -306,6 +385,59 @@ describe("buffered-route incidents route", () => {
     query.mockRejectedValue(new Error("connection details"));
 
     const response = await postBufferedRoute(
+      postRequest({ route, bufferInFeet: 20 }),
+    );
+
+    await expectError(response, 500, "Database query failed");
+  });
+});
+
+describe("buffered-route annual-history route", () => {
+  beforeEach(() => {
+    query.mockReset();
+  });
+
+  it("binds route geometry and buffer without applying report dates", async () => {
+    query.mockResolvedValue({ rows: annualRows });
+
+    const response = await postBufferedRouteHistory(
+      postRequest({ route, bufferInFeet: 20 }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(query.mock.calls[0][1]).toEqual([
+      JSON.stringify(route.features.map((feature) => feature.geometry)),
+      6.096,
+    ]);
+    await expect(response.json()).resolves.toEqual(annualSummaries);
+  });
+
+  it.each([
+    [null, "a JSON object body is required"],
+    [{ bufferInFeet: 20 }, "route is required"],
+    [
+      { route: { type: "FeatureCollection", features: [] }, bufferInFeet: 20 },
+      "route must contain at least one feature with a geometry",
+    ],
+    [{ route }, "bufferInFeet is required"],
+  ])("rejects invalid route history input", async (body, error) => {
+    const response = await postBufferedRouteHistory(postRequest(body));
+
+    await expectError(response, 400, error);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("preserves the invalid-JSON response", async () => {
+    const response = await postBufferedRouteHistory(invalidJsonRequest());
+
+    await expectError(response, 400, "a JSON body is required");
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe 500 when the database query fails", async () => {
+    query.mockRejectedValue(new Error("connection details"));
+
+    const response = await postBufferedRouteHistory(
       postRequest({ route, bufferInFeet: 20 }),
     );
 
