@@ -63,7 +63,7 @@ const expectSafeExternalLink = (link: HTMLElement) => {
 };
 
 describe("CrashList source actions", () => {
-  it("shows an exact DOTI source record without a Google Maps action", () => {
+  it("shows a stable DOTI source record without a Google Maps action", () => {
     renderCrashList([feature({}, 304214148)]);
 
     expect(screen.getByText("DP2026473926")).toBeInTheDocument();
@@ -71,10 +71,13 @@ describe("CrashList source actions", () => {
     const sourceLink = screen.getByRole("link", {
       name: "View DOTI source record for DP2026473926 (opens in a new tab)",
     });
-    expect(sourceLink).toHaveAttribute(
-      "href",
-      "https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/ArcGIS/rest/services/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325/304214148",
+    const sourceUrl = new URL(sourceLink.getAttribute("href")!);
+    expect(`${sourceUrl.origin}${sourceUrl.pathname}`).toBe(
+      "https://opendata-geospatialdenver.hub.arcgis.com/datasets/db00bd99ea534d8987e0913a191ebe19_325/explore",
     );
+    expect(JSON.parse(atob(sourceUrl.searchParams.get("filters")!))).toEqual({
+      incident_id: ["DP2026473926"],
+    });
     expectSafeExternalLink(sourceLink);
 
     expect(

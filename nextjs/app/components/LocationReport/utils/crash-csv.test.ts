@@ -9,9 +9,14 @@ import {
   escapeCsvField,
   getCrashCsvFilename,
 } from "./crash-csv";
-import { DOTI_FEATURE_LAYER_URL } from "./crash-source-links";
+import { DOTI_OPEN_DATASET_URL } from "./crash-source-links";
 
 const crash = (properties: Partial<Crash>): Crash => properties as Crash;
+
+const decodeBase64Utf8 = (value: string): string =>
+  new TextDecoder().decode(
+    Uint8Array.from(atob(value), (character) => character.charCodeAt(0)),
+  );
 
 const feature = (
   properties: Partial<Crash>,
@@ -186,31 +191,37 @@ describe("crashFeaturesToCsv", () => {
     );
   });
 
-  it("appends the exact authoritative DOTI object-record URL", () => {
+  it("appends the stable semantic DOTI source URL and ignores the feature object ID", () => {
     const csv = crashFeaturesToCsv([
       feature(dotiCrash({ doti_incident_id: "NON-UNIQUE-ID" }), undefined, 325),
-    ]);
-
-    expect(
-      rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
-    ).toBe(`${DOTI_FEATURE_LAYER_URL}/325`);
-  });
-
-  it("uses the safely encoded official incident query when an object ID is unavailable", () => {
-    const csv = crashFeaturesToCsv([
-      feature(dotiCrash({ doti_incident_id: " 2025'123 " })),
     ]);
     const sourceUrl = new URL(
       rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
     );
 
     expect(`${sourceUrl.origin}${sourceUrl.pathname}`).toBe(
-      `${DOTI_FEATURE_LAYER_URL}/query`,
+      DOTI_OPEN_DATASET_URL,
     );
-    expect(sourceUrl.searchParams.get("where")).toBe(
-      "incident_id = '2025''123'",
+    expect(sourceUrl.href).not.toContain("/325");
+    expect(
+      JSON.parse(decodeBase64Utf8(sourceUrl.searchParams.get("filters")!)),
+    ).toEqual({ incident_id: ["NON-UNIQUE-ID"] });
+  });
+
+  it("safely encodes the semantic incident ID in the exported source URL", () => {
+    const csv = crashFeaturesToCsv([
+      feature(dotiCrash({ doti_incident_id: " 2025-事故'123 " })),
+    ]);
+    const sourceUrl = new URL(
+      rowValues(csv)[CRASH_CSV_COLUMNS.indexOf("doti_source_record_url")],
     );
-    expect(sourceUrl.searchParams.get("f")).toBe("pjson");
+
+    expect(`${sourceUrl.origin}${sourceUrl.pathname}`).toBe(
+      DOTI_OPEN_DATASET_URL,
+    );
+    expect(
+      JSON.parse(decodeBase64Utf8(sourceUrl.searchParams.get("filters")!)),
+    ).toEqual({ incident_id: ["2025-事故'123"] });
   });
 
   it.each([

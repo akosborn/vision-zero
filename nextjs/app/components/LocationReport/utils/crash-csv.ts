@@ -152,7 +152,7 @@ const crashFeatureToCsvRow = (feature: Feature<Point, Crash>): CsvValue[] => {
     properties.cdot_tu_2_speed_limit,
     properties.cdot_tu_2_estimated_speed,
     properties.cdot_tu_2_speed,
-    getCrashSourceLinks(properties, feature.id).dotiRecordUrl,
+    getCrashSourceLinks(properties).dotiRecordUrl,
   ];
 };
 

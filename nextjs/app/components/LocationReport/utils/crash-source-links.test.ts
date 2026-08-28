@@ -4,7 +4,7 @@ import { Crash } from "@/app/lib/api-client";
 
 import {
   CDOT_REPORT_REQUEST_URL,
-  DOTI_FEATURE_LAYER_URL,
+  DOTI_OPEN_DATASET_URL,
   getCrashSourceLinks,
   getSafeHttpsUrl,
 } from "./crash-source-links";
@@ -16,69 +16,48 @@ const crash = (properties: Partial<Crash> = {}): Crash =>
     ...properties,
   }) as Crash;
 
+const decodeBase64Utf8 = (value: string): string =>
+  new TextDecoder().decode(
+    Uint8Array.from(atob(value), (character) => character.charCodeAt(0)),
+  );
+
+const expectFilteredOpenDataUrl = (
+  recordUrl: string | undefined,
+  incidentId: string,
+) => {
+  const url = new URL(recordUrl!);
+  expect(`${url.origin}${url.pathname}`).toBe(DOTI_OPEN_DATASET_URL);
+  expect(url.searchParams.get("showTable")).toBe("true");
+  expect(
+    JSON.parse(decodeBase64Utf8(url.searchParams.get("filters")!)),
+  ).toEqual({ incident_id: [incidentId] });
+};
+
 describe("getCrashSourceLinks", () => {
-  it.each([
-    [304214148, "304214148", "DP2026473926"],
-    [" 304298515 ", "304298515", "2018323"],
-    [304348170, "304348170", "20133"],
-  ])(
-    "prefers an exact ArcGIS feature URL for verified object ID %j",
-    (id, expected, incidentId) => {
-      expect(
-        getCrashSourceLinks(crash({ doti_incident_id: incidentId }), id)
-          .dotiRecordUrl,
-      ).toBe(`${DOTI_FEATURE_LAYER_URL}/${expected}`);
-    },
-  );
-
-  it.each(["20256000001", "20196000002"])(
-    "falls back to an official incident query for current or older ID %s",
+  it.each(["DP2026462495", "DP2026473926", "2018323", "20133"])(
+    "uses a stable filtered Denver Open Data URL for incident ID %s",
     (incidentId) => {
-      const recordUrl = getCrashSourceLinks(
-        crash({ doti_incident_id: incidentId }),
-      ).dotiRecordUrl;
-      const url = new URL(recordUrl!);
-
-      expect(`${url.origin}${url.pathname}`).toBe(
-        `${DOTI_FEATURE_LAYER_URL}/query`,
-      );
-      expect(url.searchParams.get("where")).toBe(
-        `incident_id = '${incidentId}'`,
-      );
-      expect(url.searchParams.get("outFields")).toBe("*");
-      expect(url.searchParams.get("returnGeometry")).toBe("true");
-      expect(url.searchParams.get("f")).toBe("pjson");
-    },
-  );
-
-  it("trims and safely SQL-escapes the incident-ID query fallback", () => {
-    const recordUrl = getCrashSourceLinks(
-      crash({ doti_incident_id: " 2025'123 " }),
-    ).dotiRecordUrl;
-    const url = new URL(recordUrl!);
-
-    expect(url.searchParams.get("where")).toBe("incident_id = '2025''123'");
-  });
-
-  it("uses a semantic query fallback that does not claim a non-unique incident ID is an exact record", () => {
-    const recordUrl = getCrashSourceLinks(
-      crash({ doti_incident_id: "DUPLICATED-INCIDENT-ID" }),
-      "not-an-object-id",
-    ).dotiRecordUrl;
-
-    expect(recordUrl).toContain("/query?");
-    expect(recordUrl).not.toContain("/DUPLICATED-INCIDENT-ID");
-  });
-
-  it.each([undefined, null, 0, -1, 1.5, "", "  ", "0", "12x"])(
-    "omits the DOTI link when both object and incident identifiers are invalid: %j",
-    (objectId) => {
-      expect(
-        getCrashSourceLinks(crash({ doti_incident_id: "   " }), objectId)
+      expectFilteredOpenDataUrl(
+        getCrashSourceLinks(crash({ doti_incident_id: incidentId }))
           .dotiRecordUrl,
-      ).toBeUndefined();
+        incidentId,
+      );
     },
   );
+
+  it("trims and safely encodes the semantic incident ID", () => {
+    const recordUrl = getCrashSourceLinks(
+      crash({ doti_incident_id: " 2025-事故'123 " }),
+    ).dotiRecordUrl;
+
+    expectFilteredOpenDataUrl(recordUrl, "2025-事故'123");
+  });
+
+  it("omits the DOTI link when the semantic incident ID is missing", () => {
+    expect(
+      getCrashSourceLinks(crash({ doti_incident_id: "   " })).dotiRecordUrl,
+    ).toBeUndefined();
+  });
 
   it("adds official report-request guidance only for a nonblank CDOT CUID", () => {
     expect(
@@ -102,7 +81,6 @@ describe("getCrashSourceLinks", () => {
           cdot_cuid: "CUID-123",
           sourceLinks: {},
         }),
-        325,
       ),
     ).toEqual({});
   });

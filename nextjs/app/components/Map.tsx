@@ -191,8 +191,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
     | null
     | undefined;
   const selectedPointDotiRecordUrl = selectedPointProperties
-    ? getCrashSourceLinks(selectedPointProperties, selectedPoint?.id)
-        .dotiRecordUrl
+    ? getCrashSourceLinks(selectedPointProperties).dotiRecordUrl
     : undefined;
 
   return (

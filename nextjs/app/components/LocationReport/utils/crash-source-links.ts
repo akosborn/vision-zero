@@ -1,12 +1,10 @@
 import { Crash, CrashSourceLinks } from "@/app/lib/api-client";
 
-export const DOTI_FEATURE_LAYER_URL =
-  "https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/ArcGIS/rest/services/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325";
+export const DOTI_OPEN_DATASET_URL =
+  "https://opendata-geospatialdenver.hub.arcgis.com/datasets/db00bd99ea534d8987e0913a191ebe19_325/explore";
 
 export const CDOT_REPORT_REQUEST_URL =
   "https://dmv.colorado.gov/obtaining-crash-reports-or-ticket-information";
-
-type DotiObjectId = string | number | null | undefined;
 
 /**
  * Returns an HTTPS URL safe to use as an external link, or undefined for
@@ -35,19 +33,16 @@ export const getSafeHttpsUrl = (
  * Resolves the external source links for a crash.
  *
  * A supplied sourceLinks object, including an empty object, is authoritative.
- * Otherwise the ArcGIS object ID produces an exact feature URL. Incident IDs
- * are not unique, so the incident-ID fallback intentionally opens an official
- * query that may contain more than one matching record.
+ * Otherwise the semantic incident ID produces a filtered Denver Open Data URL.
+ * ArcGIS object IDs are intentionally not used because they are system-managed
+ * and can change when the official dataset is refreshed.
  */
-export const getCrashSourceLinks = (
-  crash: Crash,
-  dotiObjectId?: DotiObjectId,
-): CrashSourceLinks => {
+export const getCrashSourceLinks = (crash: Crash): CrashSourceLinks => {
   if (crash.sourceLinks !== undefined) {
     return sanitizedSourceLinks(crash.sourceLinks);
   }
 
-  const dotiRecordUrl = getDotiRecordUrl(dotiObjectId, crash.doti_incident_id);
+  const dotiRecordUrl = getDotiRecordUrl(crash.doti_incident_id);
   const cdotCuid = crash.cdot_cuid?.trim();
 
   return {
@@ -71,38 +66,31 @@ const sanitizedSourceLinks = (
 };
 
 const getDotiRecordUrl = (
-  dotiObjectId: DotiObjectId,
   dotiIncidentId: string | null,
 ): string | undefined => {
-  const objectId = normalizedObjectId(dotiObjectId);
-  if (objectId) {
-    return `${DOTI_FEATURE_LAYER_URL}/${objectId}`;
-  }
-
   const incidentId = dotiIncidentId?.trim();
   if (!incidentId) {
     return undefined;
   }
 
   const searchParams = new URLSearchParams({
-    where: `incident_id = '${incidentId.replaceAll("'", "''")}'`,
-    outFields: "*",
-    returnGeometry: "true",
-    f: "pjson",
+    filters: encodeBase64Utf8(
+      JSON.stringify({
+        incident_id: [incidentId],
+      }),
+    ),
+    showTable: "true",
   });
 
-  return `${DOTI_FEATURE_LAYER_URL}/query?${searchParams.toString()}`;
+  return `${DOTI_OPEN_DATASET_URL}?${searchParams.toString()}`;
 };
 
-const normalizedObjectId = (value: DotiObjectId): string | undefined => {
-  if (typeof value === "number") {
-    return Number.isSafeInteger(value) && value > 0 ? String(value) : undefined;
+const encodeBase64Utf8 = (value: string): string => {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
 
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-  return /^[1-9]\d*$/.test(trimmedValue) ? trimmedValue : undefined;
+  return btoa(binary);
 };

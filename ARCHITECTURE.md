@@ -75,12 +75,14 @@ The database setup and refresh process for this table is not fully represented
 in this repository.
 
 Crash rows and map crash callouts link back to the same official ArcGIS layer.
-The API already emits Denver's `object_id` as the GeoJSON feature ID, so the UI
-and CSV use that ID for an exact, human-readable FeatureServer record page. If
-the object ID is missing, they fall back to an official ArcGIS query for
-`incident_id`. That fallback may return more than one row because `incident_id`
-is not globally unique in the live source. The generated Google Maps URL is not
-shown as a crash source action because it is not an authoritative crash record.
+The UI and CSV use the semantic `incident_id` to open a filtered Denver Open
+Data page. They intentionally do not build links from the GeoJSON feature ID:
+ArcGIS marks `object_id` as system-maintained, and Denver's frequent dataset
+refreshes can assign a new object ID to the same incident, leaving a previously
+valid direct feature URL with a **Feature not found** error. An incident ID is
+not globally unique, so the filtered official page may show more than one row.
+The generated Google Maps URL is not shown as a crash source action because it
+is not an authoritative crash record.
 
 ### Colorado CDOT crashes
 

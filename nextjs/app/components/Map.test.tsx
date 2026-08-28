@@ -137,7 +137,7 @@ describe("Map crash popup source action", () => {
     getIncidentsMock.mockReset();
   });
 
-  it("links an exact DOTI object ID and makes both crash layers interactive", () => {
+  it("links by semantic DOTI incident ID and makes both crash layers interactive", () => {
     renderMap();
 
     expect(mapHarness.interactiveLayerIds).toEqual([
@@ -150,10 +150,13 @@ describe("Map crash popup source action", () => {
     const sourceLink = screen.getByRole("link", {
       name: "View DOTI source record for DP2026473926 (opens in a new tab)",
     });
-    expect(sourceLink).toHaveAttribute(
-      "href",
-      "https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/ArcGIS/rest/services/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325/304214148",
+    const sourceUrl = new URL(sourceLink.getAttribute("href")!);
+    expect(`${sourceUrl.origin}${sourceUrl.pathname}`).toBe(
+      "https://opendata-geospatialdenver.hub.arcgis.com/datasets/db00bd99ea534d8987e0913a191ebe19_325/explore",
     );
+    expect(JSON.parse(atob(sourceUrl.searchParams.get("filters")!))).toEqual({
+      incident_id: ["DP2026473926"],
+    });
     expect(sourceLink).toHaveAttribute("target", "_blank");
     expect(sourceLink).toHaveAttribute("rel", "noopener noreferrer");
     const rawJson = screen.getByTestId("popup").querySelector("pre");
@@ -165,22 +168,19 @@ describe("Map crash popup source action", () => {
     ).toBe(true);
   });
 
-  it("uses the official incident query when the selected feature has no object ID", () => {
+  it("does not use a stale selected feature object ID", () => {
     renderMap();
-    selectFeature(feature({ doti_incident_id: "2018323" }));
+    selectFeature(feature({ doti_incident_id: "DP2026462495" }, 302740735));
 
     const sourceLink = screen.getByRole("link", {
-      name: "View DOTI source record for 2018323 (opens in a new tab)",
+      name: "View DOTI source record for DP2026462495 (opens in a new tab)",
     });
     const url = new URL(sourceLink.getAttribute("href")!);
 
-    expect(
-      url.pathname.endsWith(
-        "/ODC_CRIME_TRAFFICACCIDENTS5YR_P/FeatureServer/325/query",
-      ),
-    ).toBe(true);
-    expect(url.searchParams.get("where")).toBe("incident_id = '2018323'");
-    expect(url.searchParams.get("f")).toBe("pjson");
+    expect(url.href).not.toContain("302740735");
+    expect(JSON.parse(atob(url.searchParams.get("filters")!))).toEqual({
+      incident_id: ["DP2026462495"],
+    });
   });
 
   it.each([

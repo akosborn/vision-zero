@@ -29,7 +29,7 @@ const CrashList: React.FC<Props> = ({ crashFeatures }) => {
         const severity = getMaxSeverity(properties);
 
         const [lng, lat] = (geometry as Point).coordinates;
-        const sourceLinks = getCrashSourceLinks(properties, featureId);
+        const sourceLinks = getCrashSourceLinks(properties);
         const rowKey =
           featureId ??
           properties.doti_incident_id ??

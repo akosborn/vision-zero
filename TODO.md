@@ -80,9 +80,10 @@ Priority meanings:
 - [x] Add an optional source-link model to the `Crash` interface and crash-row UI.
 - [x] Implement **View DOTI source record**.
   - [x] Build the link from an official Denver Open Data/ArcGIS identifier.
-  - [x] Prefer an exact human-readable ArcGIS feature page when the object ID is
-        available.
-  - [x] Fall back to an official ArcGIS query result rather than a third-party site.
+  - [x] Use the semantic incident ID in a filtered Denver Open Data page.
+  - [x] Do not persist direct links based on ArcGIS's system-maintained object ID.
+  - [x] Verify semantic links against official ArcGIS query results rather than
+        third-party sites.
   - [x] Verify links against several current and older incidents.
   - [x] Add the verified authoritative DOTI record link to the CSV export.
   - [x] Show the same authoritative action in map crash callouts.
