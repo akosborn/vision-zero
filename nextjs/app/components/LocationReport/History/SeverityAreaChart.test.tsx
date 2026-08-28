@@ -22,8 +22,8 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const chartHarness = vi.hoisted(() => ({
+  areaProps: [] as Record<string, unknown>[],
   data: null as unknown,
-  referenceAreaProps: null as Record<string, unknown> | null,
   xAxisProps: null as Record<string, unknown> | null,
 }));
 
@@ -32,7 +32,10 @@ vi.mock("recharts", async () => {
   const NullComponent = () => null;
 
   return {
-    Area: NullComponent,
+    Area: (props: Record<string, unknown>) => {
+      chartHarness.areaProps.push(props);
+      return null;
+    },
     AreaChart: ({
       children,
       data,
@@ -41,13 +44,9 @@ vi.mock("recharts", async () => {
       data: unknown;
     }) => {
       chartHarness.data = data;
-      return React.createElement("div", { "data-testid": "chart" }, children);
+      return React.createElement("svg", { "data-testid": "chart" }, children);
     },
     Legend: NullComponent,
-    ReferenceArea: (props: Record<string, unknown>) => {
-      chartHarness.referenceAreaProps = props;
-      return null;
-    },
     Tooltip: NullComponent,
     XAxis: (props: Record<string, unknown>) => {
       chartHarness.xAxisProps = props;
@@ -75,17 +74,17 @@ const summary = (year: number): AnnualCrashSummary => ({
 
 describe("SeverityAreaChart history period", () => {
   beforeEach(() => {
+    chartHarness.areaProps = [];
     chartHarness.data = null;
-    chartHarness.referenceAreaProps = null;
     chartHarness.xAxisProps = null;
   });
 
-  it("plots every available year and shades the exact selected dates", () => {
+  it("plots every available year and confines highlighting to the area curves", () => {
     const summaries = Array.from({ length: 12 }, (_, index) =>
       summary(2013 + index),
     );
 
-    render(
+    const { container } = render(
       <MantineProvider>
         <SeverityAreaChart
           summaries={summaries}
@@ -105,20 +104,47 @@ describe("SeverityAreaChart history period", () => {
       Date.UTC(2013, 0, 1),
       Date.UTC(2025, 0, 1) - 1,
     ]);
-    expect(chartHarness.referenceAreaProps).toMatchObject({
-      x1: Date.parse("2020-03-15T00:00:00Z"),
-      x2: Date.parse("2022-08-21T00:00:00Z") - 1,
-      fill: "#228be6",
-    });
+
+    const gradients = container.querySelectorAll("linearGradient");
+    expect(gradients).toHaveLength(3);
+    expect(chartHarness.areaProps).toHaveLength(3);
+    for (const area of chartHarness.areaProps) {
+      expect(area.fill).toMatch(/^url\(#selected-period-.+\)$/);
+    }
+
+    const stops = gradients[0].querySelectorAll("stop");
+    const dataStart = Date.UTC(2013, 6, 1);
+    const dataEnd = Date.UTC(2024, 6, 1);
+    const duration = dataEnd - dataStart;
+    const expectedFrom =
+      ((Date.parse("2020-03-15T00:00:00Z") - dataStart) / duration) * 100;
+    const expectedTo =
+      ((Date.parse("2022-08-21T00:00:00Z") - 1 - dataStart) / duration) * 100;
+
+    expect(stops).toHaveLength(6);
+    expect(
+      Number.parseFloat(stops[1].getAttribute("offset") ?? ""),
+    ).toBeCloseTo(expectedFrom);
+    expect(
+      Number.parseFloat(stops[2].getAttribute("offset") ?? ""),
+    ).toBeCloseTo(expectedFrom);
+    expect(
+      Number.parseFloat(stops[3].getAttribute("offset") ?? ""),
+    ).toBeCloseTo(expectedTo);
+    expect(
+      Number.parseFloat(stops[4].getAttribute("offset") ?? ""),
+    ).toBeCloseTo(expectedTo);
+    expect(stops[2]).toHaveAttribute("stop-color", "#74c0fc");
+    expect(stops[3]).toHaveAttribute("stop-color", "#74c0fc");
     expect(
       screen.getByText(
-        /Full-calendar-year crash outcomes; blue shading marks the selected report period/,
+        /blue highlighting marks where the selected report period overlaps available history/,
       ),
     ).toBeInTheDocument();
   });
 
   it("extends the timeline when the selected period is newer than the data", () => {
-    render(
+    const { container } = render(
       <MantineProvider>
         <SeverityAreaChart
           summaries={[summary(2021), summary(2024)]}
@@ -131,9 +157,11 @@ describe("SeverityAreaChart history period", () => {
       Date.UTC(2021, 0, 1),
       Date.parse("2026-08-29T00:00:00Z") - 1,
     ]);
-    expect(chartHarness.referenceAreaProps).toMatchObject({
-      x1: Date.parse("2025-08-28T00:00:00Z"),
-      x2: Date.parse("2026-08-29T00:00:00Z") - 1,
-    });
+    expect(container.querySelectorAll("linearGradient")).toHaveLength(0);
+    expect(chartHarness.areaProps.map((area) => area.fill)).toEqual([
+      "#145480",
+      "#eab308",
+      "#ef4444",
+    ]);
   });
 });

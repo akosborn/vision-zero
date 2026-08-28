@@ -1,16 +1,9 @@
-import {
-  Area,
-  AreaChart,
-  Legend,
-  ReferenceArea,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { RechartsDevtools } from "@recharts/devtools";
 import { AnnualCrashSummary } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 import { Text } from "@mantine/core";
+import { useId } from "react";
 
 type AreaData = {
   Date: number;
@@ -19,6 +12,25 @@ type AreaData = {
   "Minor Injury or Property Damage": number;
 };
 
+const HIGHLIGHT_COLOR = "#74c0fc";
+const AREA_SERIES = [
+  {
+    id: "minor-or-property-damage",
+    dataKey: "Minor Injury or Property Damage",
+    color: severityConfig.O.dotColor,
+  },
+  {
+    id: "serious-injuries",
+    dataKey: "Serious Injuries",
+    color: severityConfig.A.dotColor,
+  },
+  {
+    id: "fatalities",
+    dataKey: "Fatalities",
+    color: severityConfig.K.dotColor,
+  },
+] as const;
+
 const StackedAreaChart = ({
   summaries,
   selectedDateRange,
@@ -26,6 +38,7 @@ const StackedAreaChart = ({
   summaries: AnnualCrashSummary[];
   selectedDateRange?: { from?: string; to?: string };
 }) => {
+  const gradientIdPrefix = `selected-period-${useId().replaceAll(":", "")}`;
   const data = summaries.map<AreaData>((summary) => ({
     Date: Date.UTC(summary.year, 6, 1),
     Fatalities: summary.fatalities,
@@ -41,6 +54,11 @@ const StackedAreaChart = ({
       ? ([Date.UTC(firstYear, 0, 1), Date.UTC(lastYear + 1, 0, 1) - 1] as const)
       : undefined;
   const selectedPeriod = getSelectedPeriod(selectedDateRange);
+  const highlightedRange = getHighlightedRange(
+    selectedPeriod,
+    data.at(0)?.Date,
+    data.at(-1)?.Date,
+  );
   const chartDomain =
     historyDomain && selectedPeriod
       ? ([
@@ -57,7 +75,7 @@ const StackedAreaChart = ({
       <Text size="xs" mt="0" mb="0" c="dimmed">
         Full-calendar-year crash outcomes
         {selectedPeriod
-          ? "; blue shading marks the selected report period"
+          ? "; blue highlighting marks where the selected report period overlaps available history"
           : ""}
       </Text>
       <AreaChart
@@ -101,37 +119,53 @@ const StackedAreaChart = ({
           labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
         />
         <Legend />
-        {selectedPeriod && (
-          <ReferenceArea
-            x1={selectedPeriod.from}
-            x2={selectedPeriod.to}
-            fill="#228be6"
-            fillOpacity={0.16}
-            strokeOpacity={0}
-            ifOverflow="hidden"
-          />
+        {highlightedRange && (
+          <defs>
+            {AREA_SERIES.map((series) => (
+              <linearGradient
+                key={series.id}
+                id={`${gradientIdPrefix}-${series.id}`}
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <stop offset="0%" stopColor={series.color} />
+                <stop
+                  offset={`${highlightedRange.fromPercent}%`}
+                  stopColor={series.color}
+                />
+                <stop
+                  offset={`${highlightedRange.fromPercent}%`}
+                  stopColor={HIGHLIGHT_COLOR}
+                />
+                <stop
+                  offset={`${highlightedRange.toPercent}%`}
+                  stopColor={HIGHLIGHT_COLOR}
+                />
+                <stop
+                  offset={`${highlightedRange.toPercent}%`}
+                  stopColor={series.color}
+                />
+                <stop offset="100%" stopColor={series.color} />
+              </linearGradient>
+            ))}
+          </defs>
         )}
-        <Area
-          type="monotone"
-          dataKey="Minor Injury or Property Damage"
-          stackId="1"
-          stroke={severityConfig.O.dotColor}
-          fill={severityConfig.O.dotColor}
-        />
-        <Area
-          type="monotone"
-          dataKey="Serious Injuries"
-          stackId="1"
-          stroke={severityConfig.A.dotColor}
-          fill={severityConfig.A.dotColor}
-        />
-        <Area
-          type="monotone"
-          dataKey="Fatalities"
-          stackId="1"
-          stroke={severityConfig.K.dotColor}
-          fill={severityConfig.K.dotColor}
-        />
+        {AREA_SERIES.map((series) => (
+          <Area
+            key={series.id}
+            type="monotone"
+            dataKey={series.dataKey}
+            stackId="1"
+            stroke={series.color}
+            fill={
+              highlightedRange
+                ? `url(#${gradientIdPrefix}-${series.id})`
+                : series.color
+            }
+          />
+        ))}
         <RechartsDevtools />
       </AreaChart>
     </>
@@ -161,6 +195,31 @@ const getSelectedPeriod = (
   }
 
   return { from, to };
+};
+
+const getHighlightedRange = (
+  selectedPeriod: { from: number; to: number } | null,
+  dataStart: number | undefined,
+  dataEnd: number | undefined,
+) => {
+  if (
+    !selectedPeriod ||
+    dataStart === undefined ||
+    dataEnd === undefined ||
+    dataStart >= dataEnd ||
+    selectedPeriod.to < dataStart ||
+    selectedPeriod.from > dataEnd
+  ) {
+    return null;
+  }
+
+  const duration = dataEnd - dataStart;
+  return {
+    fromPercent:
+      ((Math.max(selectedPeriod.from, dataStart) - dataStart) / duration) * 100,
+    toPercent:
+      ((Math.min(selectedPeriod.to, dataEnd) - dataStart) / duration) * 100,
+  };
 };
 
 export default StackedAreaChart;
