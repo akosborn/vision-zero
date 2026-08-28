@@ -249,6 +249,34 @@ describe("page-owned query execution", () => {
     });
   });
 
+  it("uses separate defaults for radius searches and drawn routes", async () => {
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => {
+      expect(latestFilterPanelProps().filters.bufferRadiusInFeet).toBe(1000);
+    });
+
+    act(() => {
+      latestFilterPanelProps().onSearchToolChange("Draw Route");
+    });
+    expect(latestFilterPanelProps().filters).toMatchObject({
+      searchTool: "Draw Route",
+      bufferRadiusInFeet: 20,
+    });
+
+    act(() => {
+      latestFilterPanelProps().onSearchToolChange("Radius Search");
+    });
+    expect(latestFilterPanelProps().filters).toMatchObject({
+      searchTool: "Radius Search",
+      bufferRadiusInFeet: 1000,
+    });
+  });
+
   it("runs blank-map radius searches through the page API boundary", async () => {
     harness.getIncidents.mockResolvedValueOnce(crashResults("radius-result"));
 
