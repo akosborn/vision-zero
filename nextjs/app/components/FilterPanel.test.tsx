@@ -141,6 +141,16 @@ describe("FilterPanel route modes", () => {
     expect(mobileTools).toContain("Draw Route");
   });
 
+  it.each([
+    ["desktop", false],
+    ["mobile", true],
+  ])("accepts the 1,000-foot radius default on %s", (_label, isMobile) => {
+    testHarness.isMobile = isMobile;
+    renderPanel({ searchTool: "Radius Search", bufferRadiusInFeet: 1000 });
+
+    expect(screen.getByLabelText("Radius (ft)")).toHaveValue("1000");
+  });
+
   it("routes mode changes through the parent cleanup boundary", async () => {
     const user = userEvent.setup();
     const { onSearchToolChange } = renderPanel(

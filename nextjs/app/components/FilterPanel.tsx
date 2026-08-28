@@ -256,7 +256,7 @@ const FilterPanel: React.FC<Props> = ({
                 router.replace(`?${params.toString()}`, { scroll: false });
               }}
               min={5}
-              max={500}
+              max={1000}
               step={50}
             />
           </Grid.Col>
@@ -501,7 +501,7 @@ const FilterPanel: React.FC<Props> = ({
             router.replace(`?${params.toString()}`, { scroll: false });
           }}
           min={5}
-          max={500}
+          max={1000}
           step={10}
           style={{ width: 100 }}
         />
