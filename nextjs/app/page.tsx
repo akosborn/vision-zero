@@ -70,7 +70,7 @@ type ActiveCrashResults = {
   dateRange?: { from?: string; to?: string };
 };
 
-const DEFAULT_BUFFER_RADIUS_IN_FEET = 20;
+const DEFAULT_BUFFER_RADIUS_IN_FEET = 1000;
 const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {

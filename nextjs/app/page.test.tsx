@@ -207,6 +207,21 @@ describe("applied drawn-route date changes", () => {
       .mockResolvedValue([{ year: 2024 }]);
   });
 
+  it("defaults radius searches to 1,000 feet", async () => {
+    render(
+      <MantineProvider>
+        <Home />
+      </MantineProvider>,
+    );
+
+    await waitFor(() => {
+      expect(latestFilterPanelProps().filters).toMatchObject({
+        searchTool: "Radius Search",
+        bufferRadiusInFeet: 1000,
+      });
+    });
+  });
+
   it("reruns the same route and replaces results for the new dates", async () => {
     harness.getIncidentsWithinBufferedRoute
       .mockResolvedValueOnce(crashResults("old-result"))
