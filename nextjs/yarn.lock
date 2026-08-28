@@ -410,6 +410,11 @@
   resolved "https://registry.npmjs.org/@fortawesome/react-fontawesome/-/react-fontawesome-3.1.1.tgz"
   integrity sha512-EDllr9hpodc21odmUywHS1alXNiCd4E8sp5GJ5s7wYINz8vSmMiNWpALTiuYODb865YyQ/NlyiN4mbXp7HCNqg==
 
+"@googlemaps/polyline-codec@^1.0.28":
+  version "1.0.28"
+  resolved "https://registry.yarnpkg.com/@googlemaps/polyline-codec/-/polyline-codec-1.0.28.tgz#8e41aaa117fac31811dcd1c238aaa42d139fba89"
+  integrity sha512-m7rh8sbxlrHvebXEweBHX8r1uPtToPRYxWDD6p6k2YG8hyhBe0Wi6xRUVFpxpEseMNgF+OBotFQC5senj8K7TQ==
+
 "@humanfs/core@^0.19.1":
   version "0.19.1"
   resolved "https://registry.npmjs.org/@humanfs/core/-/core-0.19.1.tgz"
@@ -5664,3 +5669,8 @@ yocto-queue@^0.1.0:
   version "4.3.4"
   resolved "https://registry.npmjs.org/zod/-/zod-4.3.4.tgz"
   integrity sha512-Zw/uYiiyF6pUT1qmKbZziChgNPRu+ZRneAsMUDU6IwmXdWt5JwcUfy2bvLOCUtz5UniaN/Zx5aFttZYbYc7O/A==
+
+zod@^4.4.3:
+  version "4.4.3"
+  resolved "https://registry.yarnpkg.com/zod/-/zod-4.4.3.tgz#b680f172885d18bbebf21a834ea25e55a1bbf356"
+  integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==
