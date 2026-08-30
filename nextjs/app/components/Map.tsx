@@ -1,6 +1,6 @@
 "use client";
 
-import { GeoJSONFeature, MapMouseEvent } from "mapbox-gl";
+import { MapMouseEvent } from "mapbox-gl";
 import {
   Layer,
   Map as ReactMap,
@@ -9,9 +9,10 @@ import {
   Source,
 } from "react-map-gl/mapbox-legacy";
 import React, { forwardRef } from "react";
-import { FeatureCollection, GeoJSON, Point } from "geojson";
-import { Crash, getIncidents } from "@/app/lib/api-client";
+import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
+import { Crash } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
+import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 import { Filters } from "@/app/page";
 
 const FEET_TO_METERS = 0.3048;
@@ -64,26 +65,23 @@ type Props = {
   filters: Filters;
   setFilters: React.Dispatch<React.SetStateAction<Filters>>;
   incidentGeoJson?: FeatureCollection | null;
-  setIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection<Point, Crash> | null>
-  >;
   areaOfInterestIncidentGeoJson?: FeatureCollection | null;
-  setAreaOfInterestIncidentGeoJson: React.Dispatch<
-    React.SetStateAction<FeatureCollection<Point, Crash> | null>
-  >;
   viewport: { latitude: number; longitude: number; zoom: number };
   setViewport: React.Dispatch<
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setStreetCenterlines: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
-  >;
-  setBufferedStreet: React.Dispatch<
-    React.SetStateAction<FeatureCollection | null>
-  >;
+  isLoading: boolean;
+  onRadiusSearchPoint: (point: { lng: number; lat: number }) => void;
   streetCenterlines?: FeatureCollection | null;
   bufferedStreet?: FeatureCollection | null;
+  isDrawingRoute: boolean;
+  drawnRoutePreview?: FeatureCollection | null;
+  routeGeometry?: FeatureCollection | null;
+  routeSearchArea?: FeatureCollection | null;
+  onAddDrawnRouteVertex: (coordinate: [number, number]) => void;
+  selectedCrashFeature: Feature<Point, Crash> | null;
+  selectedCrashCalloutIsOpen: boolean;
+  onCrashSelect: (feature: Feature<Point, Crash> | null) => void;
 };
 
 export default forwardRef<MapRef | null, Props>(function Map(
@@ -92,49 +90,55 @@ export default forwardRef<MapRef | null, Props>(function Map(
     setFilters,
     areaOfInterestIncidentGeoJson,
     incidentGeoJson,
-    setIncidentGeoJson,
-    setAreaOfInterestIncidentGeoJson,
     viewport,
     setViewport,
-    setStreetCenterlines,
-    setBufferedStreet,
+    isLoading,
+    onRadiusSearchPoint,
     streetCenterlines,
     bufferedStreet,
+    isDrawingRoute,
+    drawnRoutePreview,
+    routeGeometry,
+    routeSearchArea,
+    onAddDrawnRouteVertex,
+    selectedCrashFeature,
+    selectedCrashCalloutIsOpen,
+    onCrashSelect,
   },
   mapRef,
 ) {
-  const [selectedPoint, setSelectedPoint] =
-    React.useState<GeoJSONFeature | null>(null);
-
   const onClick = (event: MapMouseEvent) => {
+    if (isDrawingRoute) {
+      const { lng, lat } = event.lngLat;
+      onCrashSelect(null);
+      onAddDrawnRouteVertex([lng, lat]);
+      return;
+    }
+
     const feature = event.features && event.features[0];
-    if (feature) {
-      setSelectedPoint(feature);
+    if (feature?.geometry.type === "Point" && feature.properties) {
+      onCrashSelect({
+        type: "Feature",
+        id: feature.id,
+        geometry: feature.geometry,
+        properties: feature.properties as Crash,
+      });
       setFilters((prevState) => ({
         ...prevState,
         droppedPin: undefined,
       }));
     } else {
-      setAreaOfInterestIncidentGeoJson(null);
-      setIncidentGeoJson(null);
-      setStreetCenterlines(null);
-      setBufferedStreet(null);
-      const { lng, lat } = event.lngLat;
-      setFilters((prevState) => ({
-        ...prevState,
-        droppedPin: { lng, lat },
-      }));
-      setSelectedPoint(null);
+      if (filters.searchTool === "Draw Route") {
+        return;
+      }
 
-      getIncidents({
-        startDate: filters.dateRange?.from,
-        endDate: filters.dateRange?.to,
-        lat,
-        lng,
-        radiusInFeet: filters.bufferRadiusInFeet,
-      }).then((data) => {
-        setIncidentGeoJson(data);
-      });
+      if (isLoading) {
+        return;
+      }
+
+      const { lng, lat } = event.lngLat;
+      onCrashSelect(null);
+      onRadiusSearchPoint({ lng, lat });
     }
   };
 
@@ -145,6 +149,14 @@ export default forwardRef<MapRef | null, Props>(function Map(
       )
     : null;
 
+  const selectedPointProperties = selectedCrashFeature?.properties as
+    | Crash
+    | null
+    | undefined;
+  const selectedPointDotiRecordUrl = selectedPointProperties
+    ? getCrashSourceLinks(selectedPointProperties).dotiRecordUrl
+    : undefined;
+
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
@@ -152,7 +164,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
         ref={mapRef}
         onMove={(evt) => setViewport(evt.viewState)}
         onClick={onClick}
-        interactiveLayerIds={["incident-layer"]}
+        doubleClickZoom={!isDrawingRoute}
+        interactiveLayerIds={[
+          "incident-layer",
+          "area-of-interest-incident-layer",
+        ]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
@@ -207,6 +223,75 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 ],
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
+              }}
+            />
+          </Source>
+        )}
+
+        {routeSearchArea && (
+          <Source
+            id="drawn-route-search-area-source"
+            type="geojson"
+            data={routeSearchArea}
+          >
+            <Layer
+              id="drawn-route-search-area-fill"
+              type="fill"
+              paint={{
+                "fill-color": "#7c3aed",
+                "fill-opacity": 0.14,
+              }}
+            />
+            <Layer
+              id="drawn-route-search-area-outline"
+              type="line"
+              paint={{
+                "line-color": "#6d28d9",
+                "line-width": 2,
+                "line-dasharray": [2, 2],
+              }}
+            />
+          </Source>
+        )}
+
+        {routeGeometry && (
+          <Source id="drawn-route-source" type="geojson" data={routeGeometry}>
+            <Layer
+              id="drawn-route-line"
+              type="line"
+              paint={{
+                "line-color": "#5b21b6",
+                "line-width": 4,
+              }}
+            />
+          </Source>
+        )}
+
+        {drawnRoutePreview && (
+          <Source
+            id="drawn-route-preview-source"
+            type="geojson"
+            data={drawnRoutePreview}
+          >
+            <Layer
+              id="drawn-route-preview-line"
+              type="line"
+              filter={["==", ["geometry-type"], "LineString"]}
+              paint={{
+                "line-color": "#f59e0b",
+                "line-width": 3,
+                "line-dasharray": [2, 1],
+              }}
+            />
+            <Layer
+              id="drawn-route-preview-vertices"
+              type="circle"
+              filter={["==", ["geometry-type"], "Point"]}
+              paint={{
+                "circle-color": "#f59e0b",
+                "circle-radius": 5,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 2,
               }}
             />
           </Source>
@@ -281,18 +366,59 @@ export default forwardRef<MapRef | null, Props>(function Map(
           </Source>
         )}
 
-        {selectedPoint && (
+        {selectedCrashFeature && (
+          <Source
+            id="selected-crash-source"
+            type="geojson"
+            data={selectedCrashFeature}
+          >
+            <Layer
+              id="selected-crash-layer"
+              type="circle"
+              paint={{
+                "circle-radius": 12,
+                "circle-color": "#60a5fa",
+                "circle-opacity": 0.3,
+                "circle-stroke-width": 3,
+                "circle-stroke-color": "#1d4ed8",
+              }}
+            />
+          </Source>
+        )}
+
+        {selectedCrashFeature && selectedCrashCalloutIsOpen && (
           <Popup
-            longitude={(selectedPoint.geometry as Point).coordinates[0]}
-            latitude={(selectedPoint.geometry as Point).coordinates[1]}
+            longitude={selectedCrashFeature.geometry.coordinates[0]}
+            latitude={selectedCrashFeature.geometry.coordinates[1]}
             anchor="bottom"
-            onClose={() => setSelectedPoint(null)}
+            closeOnClick={false}
+            onClose={() => onCrashSelect(null)}
             maxWidth="none"
           >
-            <div className="p-2 text-black">
+            <div
+              className="p-2 text-black"
+              role="region"
+              aria-label="Crash details"
+              style={{
+                maxHeight: "min(35dvh, 20rem)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+            >
               <h3 className="font-bold">Incident Info</h3>
+              {selectedPointDotiRecordUrl && (
+                <a
+                  href={selectedPointDotiRecordUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`View DOTI source record for ${selectedPointProperties?.doti_incident_id || "this crash"} (opens in a new tab)`}
+                  className="text-xs font-medium text-blue-700 underline"
+                >
+                  View DOTI source record
+                </a>
+              )}
               <pre className="text-xs">
-                {JSON.stringify(selectedPoint.properties, null, 2)}
+                {JSON.stringify(selectedCrashFeature.properties, null, 2)}
               </pre>
             </div>
           </Popup>

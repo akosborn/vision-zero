@@ -1,65 +1,78 @@
 import dbClient from "@/app/lib/db";
+import {
+  databaseFailureResponse,
+  invalidInputResponse,
+} from "@/app/lib/api-responses";
+import {
+  validateBufferInFeet,
+  validateDateRange,
+} from "@/app/lib/street-route-input";
 import { NextRequest } from "next/server";
 import { FeatureCollection } from "geojson";
 
 const METERS_PER_FEET = 0.3048;
 
 type Body = {
-  route?: FeatureCollection;
-  bufferInFeet?: number | string;
-  startDate?: string;
-  endDate?: string;
+  route?: unknown;
+  bufferInFeet?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
 };
 
 export async function POST(request: NextRequest) {
   let body: Body;
 
   try {
-    body = await request.json();
+    const parsedBody: unknown = await request.json();
+    if (
+      parsedBody === null ||
+      typeof parsedBody !== "object" ||
+      Array.isArray(parsedBody)
+    ) {
+      return invalidInputResponse("a JSON object body is required");
+    }
+    body = parsedBody as Body;
   } catch {
-    return Response.json({ error: "a JSON body is required" }, { status: 400 });
+    return invalidInputResponse("a JSON body is required");
   }
 
   const { route, bufferInFeet, startDate, endDate } = body;
 
   if (!route) {
-    return Response.json({ error: "route is required" }, { status: 400 });
+    return invalidInputResponse("route is required");
   }
 
-  if (route.type !== "FeatureCollection" || !Array.isArray(route.features)) {
-    return Response.json(
-      { error: "route must be a GeoJSON FeatureCollection" },
-      { status: 400 },
-    );
+  const candidateRoute = route as Partial<FeatureCollection>;
+  if (
+    typeof route !== "object" ||
+    Array.isArray(route) ||
+    candidateRoute.type !== "FeatureCollection" ||
+    !Array.isArray(candidateRoute.features)
+  ) {
+    return invalidInputResponse("route must be a GeoJSON FeatureCollection");
   }
 
-  const features = route.features.filter((feature) => feature?.geometry);
+  const features = candidateRoute.features.filter(
+    (feature) => feature?.geometry,
+  );
 
   if (features.length === 0) {
-    return Response.json(
-      { error: "route must contain at least one feature with a geometry" },
-      { status: 400 },
+    return invalidInputResponse(
+      "route must contain at least one feature with a geometry",
     );
   }
 
-  if (bufferInFeet === undefined || bufferInFeet === null) {
-    return Response.json(
-      { error: "bufferInFeet is required" },
-      { status: 400 },
-    );
+  const validatedBufferInFeet = validateBufferInFeet(bufferInFeet);
+  if (validatedBufferInFeet.error) {
+    return validatedBufferInFeet.error;
   }
 
-  const parsedBufferInFeet =
-    typeof bufferInFeet === "number" ? bufferInFeet : parseFloat(bufferInFeet);
-
-  if (!Number.isFinite(parsedBufferInFeet) || parsedBufferInFeet < 0) {
-    return Response.json(
-      { error: "bufferInFeet must be a non-negative number" },
-      { status: 400 },
-    );
+  const dateRange = validateDateRange(startDate, endDate);
+  if (dateRange.error) {
+    return dateRange.error;
   }
 
-  const bufferInMeters = METERS_PER_FEET * parsedBufferInFeet;
+  const bufferInMeters = METERS_PER_FEET * validatedBufferInFeet.value;
 
   const queryParams: (string | number)[] = [
     JSON.stringify(features.map((feature) => feature.geometry)),
@@ -69,14 +82,14 @@ export async function POST(request: NextRequest) {
 
   let whereClause = "WHERE 1=1";
 
-  if (startDate) {
+  if (dateRange.value.startDate) {
     whereClause += ` AND first_occurrence_date >= $${paramIndex++}`;
-    queryParams.push(startDate);
+    queryParams.push(dateRange.value.startDate);
   }
 
-  if (endDate) {
+  if (dateRange.value.endDate) {
     whereClause += ` AND first_occurrence_date <= $${paramIndex++}`;
-    queryParams.push(endDate);
+    queryParams.push(dateRange.value.endDate);
   }
 
   const query = `
@@ -222,6 +235,10 @@ export async function POST(request: NextRequest) {
                     ${whereClause}) inputs) features;
     `;
 
-  const results = await dbClient.query(query, queryParams);
-  return Response.json(results.rows[0].geojson);
+  try {
+    const results = await dbClient.query(query, queryParams);
+    return Response.json(results.rows[0].geojson);
+  } catch {
+    return databaseFailureResponse();
+  }
 }

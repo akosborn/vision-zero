@@ -131,7 +131,9 @@ type Mode = "bicycle" | "pedestrian";
  * Assumes that crashes won't involve both bicycles and pedestrians.
  * @param crash
  */
-const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
+export const getVulnerableRoadUserCounts = (
+  crash: Crash,
+): Record<Mode, number> => {
   if (crash.cdot_cuid) {
     const BIKE_INDICATORS = [
       "bicycle",
@@ -149,7 +151,7 @@ const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
       ),
     );
 
-    let bikesInvolved = 0;
+    let bikesInvolved = bikeIndicatedTypes.length;
 
     if (bikeIndicatedTypes.length === 0) {
       // Sometimes the `mhe` column is populated with an indicator, but the `tu_1_nm_type` and `tu_2_nm_type` columns are empty
@@ -160,7 +162,7 @@ const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
         bikesInvolved = 1;
       }
     }
-    if (bikeIndicatedTypes.length > 0) {
+    if (bikesInvolved > 0) {
       return {
         bicycle: bikesInvolved,
         pedestrian: 0,
@@ -176,12 +178,12 @@ const getVulnerableRoadUserCounts = (crash: Crash): Record<Mode, number> => {
       crash.cdot_tu_1_nm_type,
       crash.cdot_tu_2_nm_type,
     ].filter((value) =>
-      BIKE_INDICATORS.some((indicator) =>
+      PEDESTRIAN_INDICATORS.some((indicator) =>
         value?.toLowerCase().includes(indicator),
       ),
     );
 
-    let pedestriansInvolved = 0;
+    let pedestriansInvolved = pedestrianIndicatedTypes.length;
 
     if (pedestrianIndicatedTypes.length === 0) {
       // Sometimes the `mhe` column is populated with an indicator, but the `tu_1_nm_type` and `tu_2_nm_type` columns are empty

@@ -128,9 +128,37 @@ export const getAnnualCrashHistory = async (params: {
   return response.data;
 };
 
+export const getAnnualRadiusCrashHistory = async (params: {
+  lat: number;
+  lng: number;
+  radiusInFeet: number;
+}) => {
+  const response = await axios.get<AnnualCrashSummary[]>(
+    `${API_PATH_BASE}/incidents/history`,
+    { params },
+  );
+  return response.data;
+};
+
+export const getAnnualRouteCrashHistory = async (params: {
+  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
+  bufferInFeet: number;
+}) => {
+  const response = await axios.post<AnnualCrashSummary[]>(
+    `${API_PATH_BASE}/incidents/buffered-route/history`,
+    params,
+  );
+  return response.data;
+};
+
+export interface CrashSourceLinks {
+  dotiRecordUrl?: string;
+  cdotReportRequestUrl?: string;
+}
+
 export interface Crash {
   // DOTI (Denver) Data
-  doti_incident_id: string;
+  doti_incident_id: string | null;
   doti_first_occurrence_date: string;
   doti_address: string;
   doti_google_maps_url: string | null;
@@ -167,6 +195,7 @@ export interface Crash {
   doti_seriously_injured_mode_1: string;
   doti_seriously_injured_mode_2: string;
   data_notes: string | null;
+  sourceLinks?: CrashSourceLinks;
 
   // CDOT (State) Data
   cdot_cuid: string | null;

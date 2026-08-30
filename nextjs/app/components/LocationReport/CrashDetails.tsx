@@ -1,16 +1,29 @@
-import { Paper, Text, Group, Badge, Stack, ThemeIcon } from "@mantine/core";
+import {
+  Anchor,
+  Button,
+  Paper,
+  Text,
+  Group,
+  Badge,
+  Stack,
+  ThemeIcon,
+} from "@mantine/core";
 import {
   IconMapPin,
   IconCalendar,
   IconDatabase,
+  IconExternalLink,
   IconUser,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
 import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/location-report";
+import { getSafeHttpsUrl } from "@/app/components/LocationReport/utils/crash-source-links";
+import { CrashSourceLinks } from "@/app/lib/api-client";
 
 interface IncidentItemProps {
-  id: string | number;
-  dataSource: "DOTI" | "CDOT";
+  dotiIncidentId?: string | null;
+  cdotCuid?: string | null;
+  sourceLinks?: CrashSourceLinks;
   type: string;
   kabcoSeverityLevel: KABCO_SEVERITY_LEVEL;
   area: string;
@@ -21,6 +34,7 @@ interface IncidentItemProps {
     lng?: number | null;
   };
   onClick?: () => void;
+  isSelected?: boolean;
 }
 
 export const SEVERITY_LABELS: Record<
@@ -44,24 +58,42 @@ export const severityConfig = {
 
 export function CrashDetails({
   demographics,
-  id,
-  dataSource,
+  dotiIncidentId,
+  cdotCuid,
+  sourceLinks,
   type,
   kabcoSeverityLevel,
   area,
   date,
   coordinates,
   onClick,
+  isSelected = false,
 }: IncidentItemProps) {
   const { color, dotColor } = severityConfig[kabcoSeverityLevel];
+  const normalizedDotiIncidentId = dotiIncidentId?.trim();
+  const normalizedCdotCuid = cdotCuid?.trim();
+  const dotiRecordUrl = getSafeHttpsUrl(sourceLinks?.dotiRecordUrl);
+  const cdotReportRequestUrl = getSafeHttpsUrl(
+    sourceLinks?.cdotReportRequestUrl,
+  );
+  const stopRowClick = (event: React.MouseEvent<HTMLAnchorElement>) =>
+    event.stopPropagation();
+  const selectionLabel =
+    normalizedDotiIncidentId ||
+    normalizedCdotCuid ||
+    area ||
+    "at these coordinates";
 
   return (
     <Paper
-      key={id}
       p="md"
       radius="md"
       withBorder
-      style={{ cursor: onClick ? "pointer" : "default" }}
+      style={{
+        cursor: onClick ? "pointer" : "default",
+        borderColor: isSelected ? "#2563eb" : undefined,
+        boxShadow: isSelected ? "0 0 0 2px #2563eb" : undefined,
+      }}
       onClick={onClick}
       className="hover:shadow-md transition-shadow"
     >
@@ -81,9 +113,25 @@ export function CrashDetails({
           </Text>
         </Group>
 
-        <Badge color={color} variant="light" size="sm">
-          {SEVERITY_LABELS[kabcoSeverityLevel]}
-        </Badge>
+        <Group gap="xs" wrap="nowrap">
+          {onClick && (
+            <Button
+              size="compact-xs"
+              variant={isSelected ? "filled" : "light"}
+              aria-label={`Select crash ${selectionLabel} on map`}
+              aria-pressed={isSelected}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+              }}
+            >
+              {isSelected ? "Selected" : "Show on map"}
+            </Button>
+          )}
+          <Badge color={color} variant="light" size="sm">
+            {SEVERITY_LABELS[kabcoSeverityLevel]}
+          </Badge>
+        </Group>
       </Group>
 
       <Stack gap={2}>
@@ -137,29 +185,73 @@ export function CrashDetails({
           </Group>
         )}
 
-        <Group gap="xs">
-          <ThemeIcon
-            size="sm"
-            variant="subtle"
-            color="gray"
-            styles={{
-              root: { justifyContent: "flex-start" },
-            }}
-          >
-            <IconDatabase size={14} />
-          </ThemeIcon>
-          <Text size="sm" c="dimmed">
-            {dataSource === "CDOT" ? (
-              <>
-                CO Dept. of Transportation CUID <b>{id}</b>
-              </>
-            ) : (
-              <>
-                Denver DOTI Incident ID <b>{id}</b>
-              </>
+        {normalizedDotiIncidentId && (
+          <Group gap="xs">
+            <ThemeIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              styles={{
+                root: { justifyContent: "flex-start" },
+              }}
+            >
+              <IconDatabase size={14} />
+            </ThemeIcon>
+            <Text size="sm" c="dimmed">
+              Denver DOTI Incident ID <b>{normalizedDotiIncidentId}</b>
+            </Text>
+          </Group>
+        )}
+
+        {normalizedCdotCuid && (
+          <Group gap="xs">
+            <ThemeIcon
+              size="sm"
+              variant="subtle"
+              color="gray"
+              styles={{
+                root: { justifyContent: "flex-start" },
+              }}
+            >
+              <IconDatabase size={14} />
+            </ThemeIcon>
+            <Text size="sm" c="dimmed">
+              CDOT crash data ID (CUID) <b>{normalizedCdotCuid}</b>
+            </Text>
+          </Group>
+        )}
+
+        {(dotiRecordUrl || cdotReportRequestUrl) && (
+          <Group gap="md" mt="xs" wrap="wrap">
+            {dotiRecordUrl && (
+              <Anchor
+                href={dotiRecordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="xs"
+                aria-label={`View DOTI source record for ${normalizedDotiIncidentId || "this crash"} (opens in a new tab)`}
+                onClick={stopRowClick}
+              >
+                View DOTI source record{" "}
+                <IconExternalLink size={12} aria-hidden />
+              </Anchor>
             )}
-          </Text>
-        </Group>
+
+            {cdotReportRequestUrl && (
+              <Anchor
+                href={cdotReportRequestUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="xs"
+                aria-label="How to obtain an official crash report (opens in a new tab)"
+                onClick={stopRowClick}
+              >
+                How to obtain an official crash report{" "}
+                <IconExternalLink size={12} aria-hidden />
+              </Anchor>
+            )}
+          </Group>
+        )}
 
         {!!(coordinates.lat && coordinates.lng) && (
           <Text size="xs" c="dimmed" mt="xs">
