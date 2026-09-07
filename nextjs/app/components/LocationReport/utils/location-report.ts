@@ -1,5 +1,5 @@
-import { Feature, Point } from "geojson";
-import { Crash } from "@/app/lib/api-client";
+import type { Feature, Point } from "geojson";
+import type { Crash } from "@/app/lib/api-client";
 
 export type KABCO_SEVERITY_LEVEL = "K" | "A" | "B" | "C" | "O";
 
