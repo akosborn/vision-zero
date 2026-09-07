@@ -35,6 +35,26 @@ TypeScript utility tests and React component interaction tests run locally and
 must not connect to the remote database. Mock database and API boundaries when a
 test needs data.
 
+## Crash summary JSON
+
+`GET /api/crash-summary` publishes the summary for any valid version-1
+bookmarkable query. Pass the same query string used by `/map`:
+
+```text
+/api/crash-summary?v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500
+```
+
+The endpoint supports `radius`, `street`, and `draw` queries. Its response
+includes the validated query and a versioned summary with total crashes, crash
+and person counts by KABCO severity, bicyclists and pedestrians involved, and
+the existing comprehensive-cost estimate. The endpoint is read-only, uses the
+same PostGIS crash APIs and summary rules as the interactive report, and returns
+HTTP 400 with an `error` string for an invalid query.
+
+The `peopleByInjurySeverity.noInjuryPropertyDamage` field follows the existing
+report behavior: CDOT supplies person counts, while a Denver-only crash without
+a fatality or serious injury contributes one conservative fallback count.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## TODOs
