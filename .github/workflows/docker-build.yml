@@ -50,6 +50,11 @@ jobs:
           context: ./nextjs
           file: ./nextjs/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN=${{ secrets.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN }}
+            NEXT_PUBLIC_BASE_PATH=/map
+            NEXT_PUBLIC_DRAW_ROUTE_ENABLED=${{ vars.NEXT_PUBLIC_DRAW_ROUTE_ENABLED || 'true' }}
+            NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED=${{ vars.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED || 'false' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
