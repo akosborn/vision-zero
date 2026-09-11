@@ -1,6 +1,6 @@
 # syntax=docker.io/docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -10,8 +10,8 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json yarn.lock* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 100000; \
+RUN --mount=type=cache,target=/root/.yarn-cache \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile --network-timeout 100000 --cache-folder /root/.yarn-cache; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
@@ -37,7 +37,7 @@ ENV NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED=$NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 
-RUN \
+RUN --mount=type=cache,target=/app/.next/cache \
   if [ -f yarn.lock ]; then yarn run build; \
   else echo "Lockfile not found." && exit 1; \
   fi

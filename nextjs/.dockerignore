@@ -1,0 +1,35 @@
+# dependencies — reinstalled in the deps stage from package.json + yarn.lock
+node_modules
+.pnp
+.pnp.*
+.yarn
+
+# next.js build output and Turbopack dev cache
+.next
+out
+build
+
+# testing / typescript artifacts
+coverage
+*.tsbuildinfo
+
+# vcs + editor
+.git
+.gitignore
+.idea
+.DS_Store
+*.pem
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# docker
+Dockerfile
+.dockerignore
+
+# NOTE: .env is intentionally NOT ignored. `next build` reads
+# NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN from it, because compose.yaml substitutes an
+# empty value for that build arg (no root .env / shell var defines it).
