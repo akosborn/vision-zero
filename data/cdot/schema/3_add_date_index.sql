@@ -63,7 +63,7 @@ FROM vision_zero.incidents_denver doti
             doti.geo,
             200 -- Meters. This is somewhat arbitrary but should fine since the dates and times have to match.
     )
-        and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
+        and doti.first_occurrence_date AT TIME ZONE 'America/Denver' = cdot.vz_date
         and cdot.suspected_duplicate = false
          join buffered_line bl on st_dwithin(COALESCE(cdot.geo, doti.geo)::geography, bl.line::geography, 0)
 GROUP BY date_part('year', first_occurrence_date)
