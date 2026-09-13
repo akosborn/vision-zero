@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
                               doti.geo,
                               200 -- Meters. This is somewhat arbitrary but should fine since the dates and times have to match.
                             )
-                        and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
+                        and doti.first_occurrence_date AT TIME ZONE 'America/Denver' = cdot.vz_date
                         and cdot.suspected_duplicate = false
                     join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
                     ${whereClause}) inputs) features;
@@ -345,7 +345,7 @@ export async function GET(request: NextRequest) {
                               doti.geo,
                               200 -- Meters. This is somewhat arbitrary but should fine since the dates and times have to match.
                             )
-                        and doti.first_occurrence_date = (crash_date + crash_time) AT TIME ZONE 'UTC' AT TIME ZONE 'America/Denver'
+                        and doti.first_occurrence_date AT TIME ZONE 'America/Denver' = cdot.vz_date
                         and cdot.suspected_duplicate = false
                     join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
                     ${whereClause}) inputs) features;
