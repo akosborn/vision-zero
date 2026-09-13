@@ -1,7 +1,10 @@
+--DROP VIEW IF EXISTS vision_zero.vw_crashes;
+
 CREATE OR REPLACE VIEW vision_zero.vw_crashes AS
 SELECT
     doti.incident_id as doti_incident_id,
     doti.object_id as doti_object_id,
+    doti.priority_geo as doti_priority_geo,
     doti.first_occurrence_date as doti_first_occurrence_date,
     upper(trim(doti.incident_address)) AS doti_address,
     case
