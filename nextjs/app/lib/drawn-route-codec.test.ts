@@ -6,6 +6,8 @@ import {
   MAX_DRAWN_ROUTE_VERTICES,
   MAX_ENCODED_POLYLINE_LENGTH,
   decodeDrawnRoute,
+  decodeDrawnRouteLines,
+  encodeDrawnRouteLines,
   encodeDrawnRoute,
 } from "@/app/lib/drawn-route-codec";
 
@@ -96,5 +98,50 @@ describe("drawn-route polyline codec", () => {
     expect(() => encodeDrawnRoute(route(excessiveCoordinates))).toThrow(
       "cannot exceed",
     );
+  });
+});
+
+describe("multiple drawn-route polylines", () => {
+  it("round trips each disconnected line independently", () => {
+    const source: FeatureCollection<LineString> = {
+      type: "FeatureCollection",
+      features: [
+        ...route([
+          [-104.99, 39.74],
+          [-104.98, 39.75],
+        ]).features,
+        ...route([
+          [-104.9, 39.8],
+          [-104.89, 39.81],
+        ]).features,
+      ],
+    };
+    const encoded = encodeDrawnRouteLines(source);
+    expect(encoded).toHaveLength(2);
+    expect(decodeDrawnRouteLines(encoded)).toEqual(source);
+  });
+
+  it.each([null, [], "polyline", [1], [""], ["?"]])(
+    "rejects malformed line collections: %j",
+    (value) => {
+      expect(() => decodeDrawnRouteLines(value)).toThrow();
+    },
+  );
+
+  it("enforces the vertex limit across all lines", () => {
+    const line = route(
+      Array.from({ length: 501 }, (_, index) => [
+        -104.99 + index / 1_000_000,
+        39.74,
+      ]),
+    );
+    const source: FeatureCollection<LineString> = {
+      type: "FeatureCollection",
+      features: [...line.features, ...line.features],
+    };
+    expect(() => encodeDrawnRouteLines(source)).toThrow("cannot exceed");
+    expect(() =>
+      decodeDrawnRouteLines([encodeDrawnRoute(line), encodeDrawnRoute(line)]),
+    ).toThrow("cannot exceed");
   });
 });

@@ -45,6 +45,7 @@ import {
   createRoutePreview,
   INITIAL_ROUTE_DRAWING_STATE,
   routeDrawingReducer,
+  isValidRouteLine,
 } from "@/app/lib/route-drawing";
 import { prepareRouteSearch } from "@/app/lib/route-search";
 import {
@@ -165,6 +166,13 @@ function HomeContent() {
         : null,
     [routeDrawingState],
   );
+  const routeDrawingVertexCount =
+    routeDrawingState.coordinates.length +
+    routeDrawingState.completedLines.reduce(
+      (count, line) => count + line.length,
+      0,
+    );
+  const canStartNewRouteLine = isValidRouteLine(routeDrawingState.coordinates);
   const finalDrawnRoute = React.useMemo(
     () => createFinalRoute(routeDrawingState),
     [routeDrawingState],
@@ -745,8 +753,12 @@ function HomeContent() {
                   onSearchToolChange={handleSearchToolChange}
                   hasAppliedRoute={routeGeometry !== null}
                   isDrawingRoute={routeDrawingState.status === "drawing"}
-                  routeDrawingVertexCount={routeDrawingState.coordinates.length}
+                  routeDrawingVertexCount={routeDrawingVertexCount}
                   canApplyDrawnRoute={finalDrawnRoute !== null}
+                  canStartNewRouteLine={canStartNewRouteLine}
+                  onNewRouteLine={() =>
+                    dispatchRouteDrawing({ type: "new-line" })
+                  }
                   onStartRouteDrawing={startRouteDrawing}
                   onCancelRouteDrawing={clearAppliedRoute}
                   onUndoRouteDrawing={() =>
@@ -785,8 +797,12 @@ function HomeContent() {
                 onSearchToolChange={handleSearchToolChange}
                 hasAppliedRoute={routeGeometry !== null}
                 isDrawingRoute={routeDrawingState.status === "drawing"}
-                routeDrawingVertexCount={routeDrawingState.coordinates.length}
+                routeDrawingVertexCount={routeDrawingVertexCount}
                 canApplyDrawnRoute={finalDrawnRoute !== null}
+                canStartNewRouteLine={canStartNewRouteLine}
+                onNewRouteLine={() =>
+                  dispatchRouteDrawing({ type: "new-line" })
+                }
                 onStartRouteDrawing={startRouteDrawing}
                 onCancelRouteDrawing={clearAppliedRoute}
                 onUndoRouteDrawing={() =>

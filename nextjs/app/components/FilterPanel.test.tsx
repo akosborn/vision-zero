@@ -54,6 +54,7 @@ const renderPanel = (
     isDrawingRoute?: boolean;
     routeDrawingVertexCount?: number;
     canApplyDrawnRoute?: boolean;
+    onNewRouteLine?: Mock<() => void>;
     onStartRouteDrawing?: Mock<() => void>;
     onCancelRouteDrawing?: Mock<() => void>;
     onUndoRouteDrawing?: Mock<() => void>;
@@ -89,6 +90,8 @@ const renderPanel = (
         isDrawingRoute={options.isDrawingRoute || false}
         routeDrawingVertexCount={options.routeDrawingVertexCount || 0}
         canApplyDrawnRoute={options.canApplyDrawnRoute || false}
+        canStartNewRouteLine={options.canApplyDrawnRoute || false}
+        onNewRouteLine={options.onNewRouteLine || vi.fn()}
         onStartRouteDrawing={onStartRouteDrawing}
         onCancelRouteDrawing={onCancelRouteDrawing}
         onUndoRouteDrawing={onUndoRouteDrawing}
@@ -180,6 +183,7 @@ describe("FilterPanel route modes", () => {
       const startDrawing = vi.fn();
       const cancelDrawing = vi.fn();
       const undoDrawing = vi.fn();
+      const newLine = vi.fn();
       const clearDrawing = vi.fn();
       const applyDrawing = vi.fn();
       const clearRoute = vi.fn();
@@ -203,6 +207,7 @@ describe("FilterPanel route modes", () => {
           canApplyDrawnRoute: true,
           onCancelRouteDrawing: cancelDrawing,
           onUndoRouteDrawing: undoDrawing,
+          onNewRouteLine: newLine,
           onClearRouteDrawing: clearDrawing,
           onApplyDrawnRoute: applyDrawing,
         },
@@ -217,6 +222,8 @@ describe("FilterPanel route modes", () => {
       expect(
         screen.getByText("Click on map to plot route"),
       ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "New line" }));
+      expect(newLine).toHaveBeenCalledOnce();
       await user.click(screen.getByRole("button", { name: "Undo" }));
       await user.click(screen.getByRole("button", { name: "Clear" }));
       await user.click(screen.getByRole("button", { name: "Apply" }));

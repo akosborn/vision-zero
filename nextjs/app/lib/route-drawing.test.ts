@@ -14,6 +14,7 @@ const secondCoordinate = [-104.98, 39.75];
 const drawingState = (...coordinates: number[][]): RouteDrawingState => ({
   status: "drawing",
   coordinates,
+  completedLines: [],
 });
 
 describe("route drawing state", () => {
@@ -22,7 +23,7 @@ describe("route drawing state", () => {
       routeDrawingReducer(drawingState(firstCoordinate, secondCoordinate), {
         type: "start",
       }),
-    ).toEqual({ status: "drawing", coordinates: [] });
+    ).toEqual({ status: "drawing", coordinates: [], completedLines: [] });
   });
 
   it("adds copied vertices in order only while drawing", () => {
@@ -144,5 +145,84 @@ describe("route drawing GeoJSON", () => {
         },
       ],
     });
+  });
+});
+
+describe("separate route lines", () => {
+  const firstLine = [firstCoordinate, secondCoordinate];
+  const thirdCoordinate = [-104.9, 39.8];
+  const fourthCoordinate = [-104.89, 39.81];
+  const afterBreak = () =>
+    routeDrawingReducer(drawingState(...firstLine), { type: "new-line" });
+
+  it("keeps completed lines visible and never connects the next line", () => {
+    const state = afterBreak();
+    expect(state.coordinates).toEqual([]);
+    expect(
+      createRoutePreview(state).features.map(
+        (feature) => feature.geometry.coordinates,
+      ),
+    ).toEqual([firstLine]);
+    expect(createFinalRoute(state)?.features).toHaveLength(1);
+    const withPoint = routeDrawingReducer(state, {
+      type: "add-vertex",
+      coordinate: thirdCoordinate,
+    });
+    expect(
+      createRoutePreview(withPoint).features.map(
+        (feature) => feature.geometry.type,
+      ),
+    ).toEqual(["LineString", "Point"]);
+    expect(createFinalRoute(withPoint)).toBeNull();
+    const complete = routeDrawingReducer(withPoint, {
+      type: "add-vertex",
+      coordinate: fourthCoordinate,
+    });
+    const expected = [firstLine, [thirdCoordinate, fourthCoordinate]];
+    expect(
+      createRoutePreview(complete).features.map(
+        (feature) => feature.geometry.coordinates,
+      ),
+    ).toEqual(expected);
+    expect(
+      createFinalRoute(complete)?.features.map(
+        (feature) => feature.geometry.coordinates,
+      ),
+    ).toEqual(expected);
+  });
+
+  it("requires a valid current line before starting another", () => {
+    for (const state of [
+      INITIAL_ROUTE_DRAWING_STATE,
+      drawingState(),
+      drawingState(firstCoordinate),
+      drawingState(firstCoordinate, firstCoordinate),
+      afterBreak(),
+    ]) {
+      expect(routeDrawingReducer(state, { type: "new-line" })).toBe(state);
+    }
+  });
+
+  it("undoes new vertices and then the line break, and clears or cancels every line", () => {
+    const state = routeDrawingReducer(afterBreak(), {
+      type: "add-vertex",
+      coordinate: thirdCoordinate,
+    });
+    const undonePoint = routeDrawingReducer(state, { type: "undo" });
+    expect(undonePoint).toEqual(afterBreak());
+    const undoneBreak = routeDrawingReducer(undonePoint, { type: "undo" });
+    expect(undoneBreak).toEqual(drawingState(...firstLine));
+    expect(routeDrawingReducer(undoneBreak, { type: "undo" })).toEqual(
+      drawingState(firstCoordinate),
+    );
+    expect(routeDrawingReducer(state, { type: "clear" })).toEqual(
+      drawingState(),
+    );
+    expect(routeDrawingReducer(state, { type: "cancel" })).toBe(
+      INITIAL_ROUTE_DRAWING_STATE,
+    );
+    expect(routeDrawingReducer(state, { type: "start" })).toEqual(
+      drawingState(),
+    );
   });
 });
