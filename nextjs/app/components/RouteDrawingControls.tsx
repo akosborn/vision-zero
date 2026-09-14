@@ -6,6 +6,8 @@ import { Button, Flex, Text } from "@mantine/core";
 type Props = {
   vertexCount: number;
   canApply: boolean;
+  canStartNewLine: boolean;
+  onNewLine: () => void;
   isLoading: boolean;
   onUndo: () => void;
   onClear: () => void;
@@ -15,6 +17,8 @@ type Props = {
 const RouteDrawingControls: React.FC<Props> = ({
   vertexCount,
   canApply,
+  canStartNewLine,
+  onNewLine,
   isLoading,
   onUndo,
   onClear,
@@ -30,6 +34,14 @@ const RouteDrawingControls: React.FC<Props> = ({
     }`}
   >
     <Text size="sm">Click on map to plot route</Text>
+    <Button
+      variant="default"
+      size="xs"
+      disabled={isLoading || !canStartNewLine}
+      onClick={onNewLine}
+    >
+      New line
+    </Button>
     <Button
       variant="default"
       size="xs"

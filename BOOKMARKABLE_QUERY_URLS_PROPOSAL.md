@@ -15,12 +15,11 @@ Version 1 will support:
 - street and street-segment searches; and
 - manually drawn route searches.
 
-Drawn routes will use the Google encoded polyline format at precision 6. The
-application will use the standalone `@googlemaps/polyline-codec` package rather
-than loading the Google Maps JavaScript API. Uploaded GPX/KML routes are outside
-the first version because the current parser can return multiple features and
-geometry types that cannot always be represented by one polyline without
-changing the query.
+Drawn routes use the Google encoded polyline format at precision 6, encoding
+each disconnected line independently. The application uses the standalone `@googlemaps/polyline-codec` package rather
+than loading the Google Maps JavaScript API. Uploaded GPX/KML routes remain
+outside the first version; their parser supports additional geometry types
+that require separate normalization and validation.
 
 The existing crash APIs remain authoritative. Opening a bookmarked URL restores
 the query definition and reruns it; the URL never contains crash results.
@@ -131,7 +130,8 @@ Additional parameters:
 
 | Parameter | Required | Meaning |
 | --- | --- | --- |
-| `polyline` | yes | URL-encoded Google encoded polyline. |
+| `polyline` | one of `polyline` / `polylines` | Google encoded polyline for a single line; existing links remain supported. |
+| `polylines` | one of `polyline` / `polylines` | JSON array of independently encoded polylines for multiple disconnected lines. |
 | `precision` | yes | Must be `6` in version 1. |
 | `bufferFeet` | yes | Buffer distance in feet. |
 
@@ -141,13 +141,19 @@ Example:
 /map?v=1&tool=draw&from=2025-01-01&to=2025-12-31&bufferFeet=100&precision=6&polyline=...
 ```
 
+The serializer uses `polyline` for one line and `polylines` for multiple lines.
+The parser rejects links containing both parameters, empty arrays, or invalid
+lines. The 1,000-vertex and 2,000-encoded-character limits apply across all lines;
+the complete URL must also fit within the existing 2,000-character limit.
+
 Parameter ordering is canonicalized by the serializer so generated links are
 stable, but the parser must not depend on incoming order.
 
 ## Drawn-Route Encoding
 
 The Google encoded polyline algorithm is a good match for a manually drawn
-route because the drawing workflow produces one ordered GeoJSON `LineString`.
+route because each drawn line is an ordered GeoJSON `LineString`. A route can
+contain multiple line features; their endpoints are never joined across gaps.
 It delta-encodes coordinates into a compact string and is broadly interoperable.
 It is lossy, so the precision is part of the public URL contract.
 

@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home, { type Filters, type SearchTool } from "./page";
 import type { CrashListFilters } from "./components/LocationReport/CrashList";
-import { serializeQueryUrl } from "./lib/query-url";
+import { parseQueryUrl, serializeQueryUrl } from "./lib/query-url";
 
 type DateRange = { from?: string; to?: string };
 
@@ -24,6 +24,7 @@ type FilterPanelProps = {
   canApplyDrawnRoute: boolean;
   onSearchToolChange: (searchTool: SearchTool) => void;
   onStartRouteDrawing: () => void;
+  onNewRouteLine: () => void;
   onApplyDrawnRoute: () => void;
   onDateRangeChange: (range: DateRange) => void;
   onApplyStreetSearch: () => Promise<void>;
@@ -422,6 +423,17 @@ describe("page-owned query execution", () => {
             ],
           },
         },
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [-104.9, 39.8],
+              [-104.89, 39.81],
+            ],
+          },
+        },
       ],
     };
     harness.searchParams = serializeQueryUrl({
@@ -605,81 +617,109 @@ describe("page-owned query execution", () => {
     );
   });
 
-  it("reruns the same route and replaces results for the new dates", async () => {
-    harness.getIncidentsWithinBufferedRoute
-      .mockResolvedValueOnce(crashResults("old-result"))
-      .mockResolvedValueOnce(crashResults("new-result"));
+  it.each([false, true])(
+    "reruns the same route and replaces results for new dates (multiple lines: %s)",
+    async (multipleLines) => {
+      harness.getIncidentsWithinBufferedRoute
+        .mockResolvedValueOnce(crashResults("old-result"))
+        .mockResolvedValueOnce(crashResults("new-result"));
 
-    render(
-      <MantineProvider>
-        <Home />
-      </MantineProvider>,
-    );
+      render(
+        <MantineProvider>
+          <Home />
+        </MantineProvider>,
+      );
 
-    await waitFor(() => {
-      expect(latestFilterPanelProps().filters.searchTool).toBe("Radius Search");
-      expect(harness.getStreets).toHaveBeenCalledOnce();
-    });
+      await waitFor(() => {
+        expect(latestFilterPanelProps().filters.searchTool).toBe(
+          "Radius Search",
+        );
+        expect(harness.getStreets).toHaveBeenCalledOnce();
+      });
 
-    act(() => {
-      latestFilterPanelProps().onSearchToolChange("Draw Route");
-    });
-    act(() => {
-      latestFilterPanelProps().onStartRouteDrawing();
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add first vertex" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add second vertex" }));
+      act(() => {
+        latestFilterPanelProps().onSearchToolChange("Draw Route");
+      });
+      act(() => {
+        latestFilterPanelProps().onStartRouteDrawing();
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Add first vertex" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Add second vertex" }),
+      );
 
-    await waitFor(() => {
-      expect(latestFilterPanelProps().canApplyDrawnRoute).toBe(true);
-    });
-    act(() => {
-      latestFilterPanelProps().onApplyDrawnRoute();
-    });
+      await waitFor(() => {
+        expect(latestFilterPanelProps().canApplyDrawnRoute).toBe(true);
+      });
+      if (multipleLines) {
+        act(() => latestFilterPanelProps().onNewRouteLine());
+        act(() => latestMapProps().onAddDrawnRouteVertex([-104.9, 39.8]));
+        expect(latestFilterPanelProps().canApplyDrawnRoute).toBe(false);
+        act(() => latestMapProps().onAddDrawnRouteVertex([-104.89, 39.81]));
+      }
+      act(() => {
+        latestFilterPanelProps().onApplyDrawnRoute();
+      });
 
-    await waitFor(() => {
-      expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
-      expect(latestFilterPanelProps().hasAppliedRoute).toBe(true);
-      expect(harness.locationReportProps?.historyAvailable).toBe(true);
-      expect(harness.locationReportProps?.crashSummaryHistory).toEqual([
-        { year: 2024 },
-      ]);
-      expect(screen.getByTestId("location-report")).toHaveTextContent(
+      await waitFor(() => {
+        expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
+        expect(latestFilterPanelProps().hasAppliedRoute).toBe(true);
+        expect(harness.locationReportProps?.historyAvailable).toBe(true);
+        expect(harness.locationReportProps?.crashSummaryHistory).toEqual([
+          { year: 2024 },
+        ]);
+        expect(screen.getByTestId("location-report")).toHaveTextContent(
+          "old-result",
+        );
+      });
+
+      const firstRequest =
+        harness.getIncidentsWithinBufferedRoute.mock.calls[0][0];
+      expect(firstRequest.route.features).toHaveLength(multipleLines ? 2 : 1);
+      expect(harness.getAnnualRouteCrashHistory).toHaveBeenLastCalledWith({
+        route: firstRequest.route,
+        bufferInFeet: firstRequest.bufferInFeet,
+      });
+      const appliedPath = harness.replace.mock.calls.at(-1)![0];
+      const restored = parseQueryUrl(
+        new URLSearchParams(appliedPath.split("?")[1]),
+      );
+      expect(restored.status).toBe("success");
+      if (restored.status === "success" && restored.query.tool === "draw") {
+        expect(restored.query.route).toEqual(firstRequest.route);
+      }
+      const newDateRange = { from: "2024-01-01", to: "2024-12-31" };
+
+      act(() => {
+        latestFilterPanelProps().onDateRangeChange(newDateRange);
+      });
+
+      await waitFor(() => {
+        expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledTimes(
+          2,
+        );
+        expect(screen.getByTestId("location-report")).toHaveTextContent(
+          "new-result",
+        );
+        expect(harness.locationReportProps?.selectedDateRange).toEqual(
+          newDateRange,
+        );
+      });
+
+      const secondRequest =
+        harness.getIncidentsWithinBufferedRoute.mock.calls[1][0];
+      expect(secondRequest).toEqual({
+        ...firstRequest,
+        startDate: newDateRange.from,
+        endDate: newDateRange.to,
+      });
+      expect(secondRequest.route).toEqual(firstRequest.route);
+      expect(secondRequest.bufferInFeet).toBe(firstRequest.bufferInFeet);
+      expect(screen.getByTestId("location-report")).not.toHaveTextContent(
         "old-result",
       );
-    });
-
-    const firstRequest =
-      harness.getIncidentsWithinBufferedRoute.mock.calls[0][0];
-    const newDateRange = { from: "2024-01-01", to: "2024-12-31" };
-
-    act(() => {
-      latestFilterPanelProps().onDateRangeChange(newDateRange);
-    });
-
-    await waitFor(() => {
-      expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("location-report")).toHaveTextContent(
-        "new-result",
-      );
-      expect(harness.locationReportProps?.selectedDateRange).toEqual(
-        newDateRange,
-      );
-    });
-
-    const secondRequest =
-      harness.getIncidentsWithinBufferedRoute.mock.calls[1][0];
-    expect(secondRequest).toEqual({
-      ...firstRequest,
-      startDate: newDateRange.from,
-      endDate: newDateRange.to,
-    });
-    expect(secondRequest.route).toEqual(firstRequest.route);
-    expect(secondRequest.bufferInFeet).toBe(firstRequest.bufferInFeet);
-    expect(screen.getByTestId("location-report")).not.toHaveTextContent(
-      "old-result",
-    );
-  });
+    },
+  );
 
   it("passes only crash-list matches to CSV export", async () => {
     harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce(

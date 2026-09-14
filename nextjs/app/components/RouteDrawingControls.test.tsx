@@ -20,6 +20,7 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 const callbacks = () => ({
+  onNewLine: vi.fn(),
   onUndo: vi.fn(),
   onClear: vi.fn(),
   onApply: vi.fn(),
@@ -35,11 +36,13 @@ describe("RouteDrawingControls", () => {
           {...handlers}
           vertexCount={0}
           canApply={false}
+          canStartNewLine={false}
           isLoading={false}
         />
       </MantineProvider>,
     );
 
+    expect(screen.getByRole("button", { name: "New line" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
@@ -49,7 +52,13 @@ describe("RouteDrawingControls", () => {
       Array.from(
         screen.getByRole("group", { name: /Route drawing controls/ }).children,
       ).map((element) => element.textContent),
-    ).toEqual(["Click on map to plot route", "Undo", "Clear", "Apply"]);
+    ).toEqual([
+      "Click on map to plot route",
+      "New line",
+      "Undo",
+      "Clear",
+      "Apply",
+    ]);
 
     rerender(
       <MantineProvider>
@@ -57,15 +66,18 @@ describe("RouteDrawingControls", () => {
           {...handlers}
           vertexCount={2}
           canApply
+          canStartNewLine
           isLoading={false}
         />
       </MantineProvider>,
     );
 
+    await user.click(screen.getByRole("button", { name: "New line" }));
     await user.click(screen.getByRole("button", { name: "Undo" }));
     await user.click(screen.getByRole("button", { name: "Clear" }));
     await user.click(screen.getByRole("button", { name: "Apply" }));
 
+    expect(handlers.onNewLine).toHaveBeenCalledOnce();
     expect(handlers.onUndo).toHaveBeenCalledOnce();
     expect(handlers.onClear).toHaveBeenCalledOnce();
     expect(handlers.onApply).toHaveBeenCalledOnce();

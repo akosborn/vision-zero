@@ -89,10 +89,12 @@ const routeSchema = z.custom<FeatureCollection<LineString>>(
 
     const features = (value as FeatureCollection).features;
     return (
-      features.length === 1 && features[0]?.geometry?.type === "LineString"
+      Array.isArray(features) &&
+      features.length > 0 &&
+      features.every((feature) => feature?.geometry?.type === "LineString")
     );
   },
-  { message: "Drawn routes must contain exactly one LineString" },
+  { message: "Drawn routes must contain one or more LineStrings" },
 );
 
 const baseQuerySchema = {

@@ -184,3 +184,60 @@ describe("version-1 query URLs", () => {
     ).toMatchObject({ status: "error", kind: "invalid" });
   });
 });
+
+describe("disconnected drawn-route links", () => {
+  it("uses polylines for multiple lines and preserves legacy single-line URLs", () => {
+    const single = queries[3];
+    if (single.tool !== "draw") throw new Error("Expected drawn query");
+    const query: QueryDefinitionV1 = {
+      ...single,
+      route: {
+        type: "FeatureCollection",
+        features: [
+          ...drawnRoute.features,
+          {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-104.9, 39.8],
+                [-104.89, 39.81],
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const params = serializeQueryUrl(query);
+    expect(params.has("polyline")).toBe(false);
+    expect(JSON.parse(params.get("polylines")!)).toHaveLength(2);
+    expect(parseQueryUrl(params)).toEqual({
+      status: "success",
+      query,
+      legacy: false,
+    });
+    expect(serializeQueryUrl(single).has("polylines")).toBe(false);
+    expect(serializeQueryUrl(single).has("polyline")).toBe(true);
+  });
+
+  it.each(["not-json", "null", "[]", "[1]", '[""]', '"abc"'])(
+    "rejects malformed polylines %s",
+    (value) => {
+      const params = serializeQueryUrl(queries[3]);
+      params.delete("polyline");
+      params.set("polylines", value);
+      expect(parseQueryUrl(params).status).toBe("error");
+    },
+  );
+
+  it("rejects ambiguous and duplicated line parameters", () => {
+    const params = serializeQueryUrl(queries[3]);
+    const encoded = params.get("polyline")!;
+    params.set("polylines", JSON.stringify([encoded, encoded]));
+    expect(parseQueryUrl(params).status).toBe("error");
+    params.delete("polyline");
+    params.append("polylines", JSON.stringify([encoded]));
+    expect(parseQueryUrl(params).status).toBe("error");
+  });
+});

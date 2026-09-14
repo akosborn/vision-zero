@@ -58,3 +58,33 @@ describe("prepareRouteSearch", () => {
     ).toBeNull();
   });
 });
+
+it("buffers disconnected lines separately without filling the gap", () => {
+  const route: FeatureCollection<LineString> = {
+    type: "FeatureCollection",
+    features: [
+      ...drawnRoute.features,
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-104.9, 39.8],
+            [-104.89, 39.81],
+          ],
+        },
+      },
+    ],
+  };
+  const prepared = prepareRouteSearch(route, 20, undefined);
+  expect(prepared?.request.route).toEqual(route);
+  expect(prepared?.searchArea?.features).toHaveLength(2);
+  const polygons = prepared!.searchArea!.features.map(({ geometry }) => {
+    if (geometry.type !== "Polygon")
+      throw new Error("Expected separate corridor polygons");
+    return geometry.coordinates.flat().map(([longitude]) => longitude);
+  });
+  expect(Math.max(...polygons[0])).toBeLessThan(-104.97);
+  expect(Math.min(...polygons[1])).toBeGreaterThan(-104.91);
+});

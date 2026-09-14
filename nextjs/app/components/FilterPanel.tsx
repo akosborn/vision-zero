@@ -35,6 +35,8 @@ type Props = {
   isDrawingRoute: boolean;
   routeDrawingVertexCount: number;
   canApplyDrawnRoute: boolean;
+  canStartNewRouteLine: boolean;
+  onNewRouteLine: () => void;
   onStartRouteDrawing: () => void;
   onCancelRouteDrawing: () => void;
   onUndoRouteDrawing: () => void;
@@ -76,6 +78,8 @@ const FilterPanel: React.FC<Props> = ({
   isDrawingRoute,
   routeDrawingVertexCount,
   canApplyDrawnRoute,
+  canStartNewRouteLine,
+  onNewRouteLine,
   onStartRouteDrawing,
   onCancelRouteDrawing,
   onUndoRouteDrawing,
@@ -177,6 +181,8 @@ const FilterPanel: React.FC<Props> = ({
               <RouteDrawingControls
                 vertexCount={routeDrawingVertexCount}
                 canApply={canApplyDrawnRoute}
+                canStartNewLine={canStartNewRouteLine}
+                onNewLine={onNewRouteLine}
                 isLoading={isLoading}
                 onUndo={onUndoRouteDrawing}
                 onClear={onClearRouteDrawing}
@@ -383,6 +389,8 @@ const FilterPanel: React.FC<Props> = ({
         <RouteDrawingControls
           vertexCount={routeDrawingVertexCount}
           canApply={canApplyDrawnRoute}
+          canStartNewLine={canStartNewRouteLine}
+          onNewLine={onNewRouteLine}
           isLoading={isLoading}
           onUndo={onUndoRouteDrawing}
           onClear={onClearRouteDrawing}

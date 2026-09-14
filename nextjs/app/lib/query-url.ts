@@ -2,8 +2,8 @@ import { ZodError } from "zod";
 
 import {
   DRAWN_ROUTE_PRECISION,
-  decodeDrawnRoute,
-  encodeDrawnRoute,
+  decodeDrawnRouteLines,
+  encodeDrawnRouteLines,
 } from "@/app/lib/drawn-route-codec";
 import {
   QUERY_TOOLS,
@@ -149,6 +149,7 @@ const parseVersionOne = (
         "bufferFeet",
         "precision",
         "polyline",
+        "polylines",
       ])
     ) {
       return invalid(
@@ -159,11 +160,23 @@ const parseVersionOne = (
       return invalid("This drawn-route query link uses an invalid precision.");
     }
 
+    if (
+      (params.get("polyline") === null) ===
+      (params.get("polylines") === null)
+    ) {
+      return invalid(
+        "This drawn-route query link must specify either polyline or polylines.",
+      );
+    }
     try {
       candidate = {
         ...common,
         tool,
-        route: decodeDrawnRoute(params.get("polyline") ?? ""),
+        route: decodeDrawnRouteLines(
+          params.get("polylines") !== null
+            ? JSON.parse(params.get("polylines")!)
+            : [params.get("polyline")],
+        ),
         bufferFeet: parseNumber(params.get("bufferFeet")),
       };
     } catch {
@@ -294,7 +307,12 @@ export const serializeQueryUrl = (
   } else {
     params.set("bufferFeet", String(query.bufferFeet));
     params.set("precision", String(DRAWN_ROUTE_PRECISION));
-    params.set("polyline", encodeDrawnRoute(query.route));
+    const lines = encodeDrawnRouteLines(query.route);
+    if (lines.length === 1) {
+      params.set("polyline", lines[0]);
+    } else {
+      params.set("polylines", JSON.stringify(lines));
+    }
   }
 
   return params;

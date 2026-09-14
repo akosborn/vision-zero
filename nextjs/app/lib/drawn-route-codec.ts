@@ -127,3 +127,68 @@ export const decodeDrawnRoute = (
     ],
   };
 };
+
+// Keep each line encoded independently so links never bridge gaps between lines.
+export const encodeDrawnRouteLines = (
+  route: FeatureCollection<LineString>,
+): string[] => {
+  if (!Array.isArray(route.features) || route.features.length === 0) {
+    throw new DrawnRouteCodecError(
+      "A drawn route must contain at least one LineString",
+    );
+  }
+  const encoded = route.features.map((feature) =>
+    encodeDrawnRoute({
+      type: "FeatureCollection",
+      features: [feature],
+    }),
+  );
+  validateRouteTotals(route, encoded);
+  return encoded;
+};
+
+export const decodeDrawnRouteLines = (
+  encoded: unknown,
+): FeatureCollection<LineString> => {
+  if (
+    !Array.isArray(encoded) ||
+    encoded.length === 0 ||
+    !encoded.every((line) => typeof line === "string")
+  ) {
+    throw new DrawnRouteCodecError(
+      "Encoded lines must be a nonempty array of polylines",
+    );
+  }
+  if (encoded.join("").length > MAX_ENCODED_POLYLINE_LENGTH) {
+    throw new DrawnRouteCodecError(
+      `Encoded route cannot exceed ${MAX_ENCODED_POLYLINE_LENGTH} characters`,
+    );
+  }
+  const route: FeatureCollection<LineString> = {
+    type: "FeatureCollection",
+    features: encoded.flatMap((line) => decodeDrawnRoute(line).features),
+  };
+  validateRouteTotals(route, encoded);
+  return route;
+};
+
+const validateRouteTotals = (
+  route: FeatureCollection<LineString>,
+  encoded: string[],
+) => {
+  if (
+    route.features.reduce(
+      (count, feature) => count + feature.geometry.coordinates.length,
+      0,
+    ) > MAX_DRAWN_ROUTE_VERTICES
+  ) {
+    throw new DrawnRouteCodecError(
+      `A drawn route cannot exceed ${MAX_DRAWN_ROUTE_VERTICES} coordinates`,
+    );
+  }
+  if (encoded.join("").length > MAX_ENCODED_POLYLINE_LENGTH) {
+    throw new DrawnRouteCodecError(
+      `Encoded route cannot exceed ${MAX_ENCODED_POLYLINE_LENGTH} characters`,
+    );
+  }
+};
