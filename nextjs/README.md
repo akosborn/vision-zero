@@ -37,12 +37,16 @@ test needs data.
 
 ## Crash summary JSON
 
-`GET /api/crash-summary` publishes the summary for any valid version-1
-bookmarkable query. Pass the same query string used by `/map`:
+`GET /map/api/crash-summary` publishes the summary for any valid version-1
+bookmarkable query in production. Pass the same query string used by `/map`:
 
 ```text
-/api/crash-summary?v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500
+/map/api/crash-summary?v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500
 ```
+
+The Docker deployment configures the Next.js base path as `/map`. When running
+the Next.js app locally without that base path, the same handler is available at
+`/api/crash-summary`.
 
 The endpoint supports `radius`, `street`, and `draw` queries. Its response
 includes the validated query and a versioned summary with total crashes, crash

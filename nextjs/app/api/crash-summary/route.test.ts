@@ -28,7 +28,7 @@ import { GET as getCrashSummary } from "./route";
 
 const request = (params = "") =>
   ({
-    nextUrl: new URL(`http://localhost/api/crash-summary?${params}`),
+    nextUrl: new URL(`http://localhost/map/api/crash-summary?${params}`),
   }) as NextRequest;
 
 const feature = (
