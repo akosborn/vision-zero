@@ -349,9 +349,12 @@ KML geometry with the same dates and buffer.
 | `GET /api/incidents/buffered-street`         | Crashes inside a street buffer                  |
 | `GET /api/incidents/buffered-street/history` | Annual street crash summary                     |
 | `POST /api/incidents/buffered-route`         | Crashes inside uploaded or drawn route geometry |
+| `GET /api/crash-summary`                     | Versioned JSON summary for a bookmarkable query |
 
 The API is part of the Next.js application rather than a separately deployed
-backend service.
+backend service. The Docker deployment sets the Next.js base path to `/map`, so
+these routes are publicly available under `/map/api`; for example, the crash
+summary endpoint is `GET /map/api/crash-summary`.
 
 ## Frontend State and Reporting
 
