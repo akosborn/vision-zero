@@ -88,7 +88,7 @@ type ActiveCrashResults = {
 };
 
 const DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET = 1000;
-const DEFAULT_DRAW_ROUTE_BUFFER_IN_FEET = 20;
+const DEFAULT_ROUTE_BUFFER_IN_FEET = 20;
 const EMPTY_CRASH_FEATURES: Feature<Point, Crash>[] = [];
 
 function HomeContent() {
@@ -203,9 +203,7 @@ function HomeContent() {
       bufferRadiusInFeet:
         searchTool === "Radius Search"
           ? DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET
-          : searchTool === "Draw Route"
-            ? DEFAULT_DRAW_ROUTE_BUFFER_IN_FEET
-            : previousFilters.bufferRadiusInFeet,
+          : DEFAULT_ROUTE_BUFFER_IN_FEET,
       droppedPin: undefined,
     }));
   }, []);
