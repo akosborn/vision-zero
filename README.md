@@ -16,13 +16,18 @@ live in `data/`. Never commit local `.env` files or database credentials.
 
 ### Renewing SSL Cert
 
-1. Disable the HTTPS redirects in `nginx.conf`.
-2. Rebuild the nginx container: `docker compose build nginx`
-3. Restart the nginx container: `docker compose restart nginx`
-4. Run `docker run --rm -it   -v "$(pwd)/certbot/conf:/etc/letsencrypt"   -v "$(pwd)/certbot/www:/var/www/certbot"   certbot/certbot certonly   --webroot   --webroot-path /var/www/certbot   -d denver.zerovision.dev -d www.denver.zerovision.dev   --email andrewosborn93@gmail.com --agree-tos --no-eff-email`
-5. Re-enable HTTPS redirects in `nginx.conf`.
-6. Rebuild the nginx container: `docker compose build nginx`
-7. Restart the nginx container: `docker compose restart nginx`
+Ultimately, I should automate this with a cron job, but for now:
+
+```shell
+docker run --rm -it \
+  -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
+  -v "$(pwd)/certbot/www:/var/www/certbot" \
+  certbot/certbot certonly --webroot \
+  --webroot-path /var/www/certbot \
+  -d denver.zerovision.dev -d www.denver.zerovision.dev \
+  --email my-email@gmail.com --agree-tos --no-eff-email && \
+  docker compose exec nginx nginx -s reload
+```
 
 ### Restoring the PostGIS Container
 
