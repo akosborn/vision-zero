@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const query = buildAnnualCrashHistoryQuery({
     spatialClause: `
       WHERE ST_DWithin(
-        COALESCE(cdot.geo, doti.geo),
+        doti.priority_geo,
         ST_SetSRID(ST_Point($1, $2), 4326)::geography,
         $3
       )
