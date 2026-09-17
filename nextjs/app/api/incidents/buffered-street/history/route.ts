@@ -95,11 +95,11 @@ export async function GET(request: NextRequest) {
           count(*) filter ( where cdot.tu_1_estimated_speed > cdot.tu_1_speed_limit or cdot.tu_2_estimated_speed > cdot.tu_2_speed_limit ) as "crashesOverSpeedLimit",
           count(*) filter ( where cdot.tu_1_estimated_speed > 0 or cdot.tu_2_estimated_speed > 0 ) as "crashesWithSpeedData"
       FROM vision_zero.incidents_denver doti
-          join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
-          -- 200 meters. This is somewhat arbitrary but, but it should fine since the dates and times have to match.
+        -- 200 meters. This is somewhat arbitrary but, but it should fine since the dates and times have to match.
           left join vision_zero.cdot_crashes cdot ON ST_DWithin(cdot.geo,doti.geo,200)
                                                   and doti.first_occurrence_date = cdot.vz_date
                                                   and cdot.suspected_duplicate = false
+          join buffered_line bl on ST_Intersects(COALESCE(cdot.geo, doti.geo), bl.line)
       GROUP BY date_part('year', first_occurrence_date)
       ORDER BY year
     `;
@@ -170,9 +170,9 @@ export async function GET(request: NextRequest) {
       count(*) filter ( where cdot.tu_1_estimated_speed > cdot.tu_1_speed_limit or cdot.tu_2_estimated_speed > cdot.tu_2_speed_limit ) as "crashesOverSpeedLimit",
       count(*) filter ( where cdot.tu_1_estimated_speed > 0 or cdot.tu_2_estimated_speed > 0 ) as "crashesWithSpeedData"
     FROM vision_zero.incidents_denver doti
-           join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
-      -- 200 meters. This is somewhat arbitrary but, but it should fine since the dates and times have to match.
-           left join vision_zero.cdot_crashes cdot ON ST_DWithin(cdot.geo,doti.geo,200)
+        -- 200 meters. This is somewhat arbitrary but, but it should fine since the dates and times have to match.
+        left join vision_zero.cdot_crashes cdot ON ST_DWithin(cdot.geo,doti.geo,200)
+        join buffered_line bl on ST_Intersects(COALESCE(cdot.geo, doti.geo), bl.line)
       and doti.first_occurrence_date = cdot.vz_date
       and cdot.suspected_duplicate = false
     GROUP BY date_part('year', first_occurrence_date)
