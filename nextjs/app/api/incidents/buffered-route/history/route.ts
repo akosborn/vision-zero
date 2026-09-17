@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       )
     `,
     spatialClause:
-      "JOIN buffered_line bl ON ST_Intersects(doti.priority_geo, bl.line)",
+      "JOIN buffered_line bl ON ST_Intersects(COALESCE(cdot.geo, doti.geo), bl.line)",
   });
   const queryParams = [
     JSON.stringify(features.map((feature) => feature.geometry)),

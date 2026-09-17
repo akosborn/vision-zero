@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
                             )
                         and doti.first_occurrence_date AT TIME ZONE 'America/Denver' = cdot.vz_date
                         and cdot.suspected_duplicate = false
-                    join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
+                    join buffered_line bl on ST_Intersects(COALESCE(cdot.geo, doti.geo), bl.line)
                     ${whereClause}) inputs) features;
     `;
 
@@ -347,7 +347,7 @@ export async function GET(request: NextRequest) {
                             )
                         and doti.first_occurrence_date AT TIME ZONE 'America/Denver' = cdot.vz_date
                         and cdot.suspected_duplicate = false
-                    join buffered_line bl on ST_Intersects(doti.priority_geo, bl.line)
+                    join buffered_line bl on ST_Intersects(COALESCE(cdot.geo, doti.geo), bl.line)
                     ${whereClause}) inputs) features;
     `;
 
