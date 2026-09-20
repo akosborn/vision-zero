@@ -63,6 +63,7 @@ import {
   useSearchParams,
 } from "next/dist/client/components/navigation";
 import CopyQueryLinkButton from "@/app/components/CopyQueryLinkButton";
+import ShareQrButton from "@/app/components/ShareQrButton";
 
 export type SearchTool =
   | "Radius Search"
@@ -859,8 +860,10 @@ function HomeContent() {
                 >
                   <Drawer.Content style={{ height: "auto" }}>
                     <Drawer.Header>
-                      <Drawer.Title fw={700}>Location Report</Drawer.Title>
                       <Flex align="center" gap="xs" ml="auto">
+                        <ShareQrButton
+                          query={activeCrashResults?.query ?? null}
+                        />
                         <CopyQueryLinkButton
                           query={activeCrashResults?.query ?? null}
                         />
@@ -906,10 +909,8 @@ function HomeContent() {
             ) : (
               <>
                 <Flex align="center" justify="space-between" mb="sm">
-                  <Text size="md" fw={700}>
-                    Location Report
-                  </Text>
                   <Flex gap="xs">
+                    <ShareQrButton query={activeCrashResults?.query ?? null} />
                     <CopyQueryLinkButton
                       query={activeCrashResults?.query ?? null}
                     />

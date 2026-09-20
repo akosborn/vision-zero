@@ -49,7 +49,7 @@ const CopyQueryLinkButton: React.FC<Props> = ({ query }) => {
       ? "Link copied"
       : status === "error"
         ? "Copy failed"
-        : "Copy query link";
+        : "Copy link";
 
   return (
     <Tooltip label={disabledReason} disabled={!disabledReason}>
