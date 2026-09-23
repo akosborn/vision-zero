@@ -1,0 +1,228 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model BicycleInventory {
+  id        Int                      @id @default(autoincrement())
+  geom      Unsupported("geometry")?
+  fac_num   Int?
+  fac_type  String?                  @db.VarChar(254)
+  status    String?                  @db.VarChar(254)
+  name      String?                  @db.VarChar(254)
+  alt_name  String?                  @db.VarChar(254)
+  route     String?                  @db.VarChar(254)
+  crossing  String?                  @db.VarChar(254)
+  sign      String?                  @db.VarChar(254)
+  num_sds   Int?
+  trvlwys   Int?
+  on_st_pk  String?                  @db.VarChar(254)
+  surface   String?                  @db.VarChar(254)
+  pln_yr    DateTime?                @db.Date
+  prpsd_pln String?                  @db.VarChar(254)
+  horiz_buf Int?
+  vert_bar  String?                  @db.VarChar(254)
+  width     Int?
+  rum_strps String?                  @db.VarChar(254)
+  atc       String?                  @db.VarChar(254)
+  on_off    String?                  @db.VarChar(254)
+  len_ft    Decimal?                 @db.Decimal
+  geomid    String?                  @db.VarChar(254)
+
+  @@index([geom], map: "idx_bicycle_inventory_geom", type: Gist)
+  @@index([geom], map: "sidx_bicycle_inventory_geom", type: Gist)
+
+  @@map("bicycle_inventory")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model CDOTCrash {
+  cuid                              String                    @id
+  system_code                       String?
+  rd_number                         String?
+  rd_section                        String?
+  city_street                       String?
+  crash_date                        DateTime?                 @db.Date
+  crash_time                        DateTime?                 @db.Time(6)
+  agency_id                         String?
+  city                              String?
+  county                            String?
+  latitude                          Decimal?                  @db.Decimal(9, 6)
+  longitude                         Decimal?                  @db.Decimal(9, 6)
+  geo                               Unsupported("geography")?
+  location_1                        String?
+  link                              String?
+  location_2                        String?
+  location                          String?
+  road_description                  String?
+  first_he                          String?
+  second_he                         String?
+  third_he                          String?
+  fourth_he                         String?
+  mhe                               String?
+  crash_type                        String?
+  approach_overtaking_turn          String?
+  wild_animal                       String?
+  number_killed                     Int?
+  number_injured                    Int?
+  injury_00                         Int?
+  injury_01                         Int?
+  injury_02                         Int?
+  injury_03                         Int?
+  injury_04                         Int?
+  total_vehicles                    Int?
+  secondary_crash                   Boolean?
+  construction_zone                 Boolean?
+  school_zone                       Boolean?
+  road_contour_curves               String?
+  road_contour_grade                String?
+  road_condition                    String?
+  lighting_conditions               String?
+  weather_condition                 String?
+  weather_condition_2               String?
+  lane_position                     String?
+  tu_1_direction                    String?
+  tu_1_movement                     String?
+  tu_1_type                         String?
+  tu_1_special_function             String?
+  tu_1_autonomous_vehicle           String?
+  tu_1_hit_and_run                  Boolean?
+  tu_1_speed_limit                  Int?
+  tu_1_estimated_speed              Int?
+  tu_1_speed                        Int?
+  tu_1_driver_action                String?
+  tu_1_human_contributing_factor    String?
+  tu_1_age                          Int?
+  tu_1_sex                          String?
+  tu_1_safety_system_available      String?
+  tu_1_safety_restraint_use         String?
+  tu_1_safety_helmet                String?
+  tu_1_alcohol_suspected            String?
+  tu_1_marijuana_suspected          String?
+  tu_1_other_drugs_suspected        String?
+  tu_2_direction                    String?
+  tu_2_movement                     String?
+  tu_2_type                         String?
+  tu_2_special_function             String?
+  tu_2_autonomous_vehicle           String?
+  tu_2_hit_and_run                  Boolean?
+  tu_2_speed_limit                  Int?
+  tu_2_estimated_speed              Int?
+  tu_2_speed                        Int?
+  tu_2_driver_action                String?
+  tu_2_human_contributing_factor    String?
+  tu_2_age                          Int?
+  tu_2_sex                          String?
+  tu_2_safety_system_available      String?
+  tu_2_safety_restraint_use         String?
+  tu_2_safety_helmet                String?
+  tu_2_alcohol_suspected            String?
+  tu_2_marijuana_suspected          String?
+  tu_2_other_drugs_suspected        String?
+  tu_1_nm_direction                 String?
+  tu_1_nm_movement                  String?
+  tu_1_nm_facility_available        String?
+  tu_1_nm_location                  String?
+  tu_1_nm_type                      String?
+  tu_1_nm_age                       Int?
+  tu_1_nm_sex                       String?
+  tu_1_nm_action                    String?
+  tu_1_nm_human_contributing_factor String?
+  tu_1_nm_safety_helmet             String?
+  tu_1_nm_alcohol_suspected         String?
+  tu_1_nm_marijuana_suspected       String?
+  tu_1_nm_other_drugs_suspected     String?
+  tu_2_nm_direction                 String?
+  tu_2_nm_movement                  String?
+  tu_2_nm_facility_available        String?
+  tu_2_nm_location                  String?
+  tu_2_nm_type                      String?
+  tu_2_nm_age                       Int?
+  tu_2_nm_sex                       String?
+  tu_2_nm_action                    String?
+  tu_2_nm_human_contributing_factor String?
+  tu_2_nm_safety_helmet             String?
+  tu_2_nm_alcohol_suspected         String?
+  tu_2_nm_marijuana_suspected       String?
+  tu_2_nm_other_drugs_suspected     String?
+  record_status                     String?
+  processing_status                 String?
+  last_updated                      DateTime?                 @db.Timestamptz(6)
+  vz_created_at                     DateTime                  @default(now()) @db.Timestamptz(6)
+  vz_updated_at                     DateTime                  @default(now()) @db.Timestamptz(6)
+  suspected_duplicate               Boolean?                  @default(false)
+  vz_date                           DateTime?                 @db.Timestamptz(6)
+
+  @@index([vz_date], map: "idx_cdot_crash_date_denver")
+  @@index([geo], map: "idx_cdot_crashes_geo", type: Gist)
+
+  @@map("cdot_crashes")
+}
+
+model DOTICrash {
+  object_id                     BigInt                    @id
+  incident_id                   String?                   @db.VarChar(20)
+  offense_id                    String?                   @db.VarChar(20)
+  offense_code                  String?                   @db.VarChar(4)
+  offense_code_extension        String?                   @db.Char(1)
+  top_traffic_accident_offense  String?                   @db.VarChar(200)
+  first_occurrence_date         DateTime?                 @db.Timestamp(6)
+  last_occurrence_date          DateTime?                 @db.Timestamp(6)
+  reported_date                 DateTime?                 @db.Timestamp(6)
+  incident_address              String?                   @db.VarChar(100)
+  geo_x                         Int?
+  geo_y                         Int?
+  geo_lon                       Decimal?                  @db.Decimal(11, 8)
+  geo_lat                       Decimal?                  @db.Decimal(10, 8)
+  district_id                   String?                   @db.VarChar(6)
+  precinct_id                   String?                   @db.VarChar(3)
+  neighborhood_id               String?                   @db.VarChar(50)
+  bicycle_ind                   Int?                      @db.SmallInt
+  pedestrian_ind                Int?                      @db.SmallInt
+  harmful_event_seq_1           String?                   @db.VarChar(100)
+  harmful_event_seq_2           String?                   @db.VarChar(100)
+  harmful_event_seq_3           String?                   @db.VarChar(100)
+  road_location                 String?                   @db.VarChar(100)
+  road_description              String?                   @db.VarChar(100)
+  road_contour                  String?                   @db.VarChar(100)
+  road_condition                String?                   @db.VarChar(100)
+  light_condition               String?                   @db.VarChar(100)
+  tu1_vehicle_type              String?                   @db.VarChar(100)
+  tu1_travel_direction          String?                   @db.VarChar(20)
+  tu1_vehicle_movement          String?                   @db.VarChar(100)
+  tu1_driver_action             String?                   @db.VarChar(100)
+  tu1_driver_humancontribfactor String?                   @db.VarChar(100)
+  tu1_pedestrian_action         String?                   @db.VarChar(100)
+  tu2_vehicle_type              String?                   @db.VarChar(100)
+  tu2_travel_direction          String?                   @db.VarChar(20)
+  tu2_vehicle_movement          String?                   @db.VarChar(100)
+  tu2_driver_action             String?                   @db.VarChar(100)
+  tu2_driver_humancontribfactor String?                   @db.VarChar(100)
+  tu2_pedestrian_action         String?                   @db.VarChar(100)
+  seriously_injured             Int?                      @db.SmallInt
+  fatalities                    Int?                      @db.SmallInt
+  fatality_mode_1               String?                   @db.VarChar(100)
+  fatality_mode_2               String?                   @db.VarChar(100)
+  seriously_injured_mode_1      String?                   @db.VarChar(100)
+  seriously_injured_mode_2      String?                   @db.VarChar(100)
+  point_x                       Decimal?                  @db.Decimal(15, 6)
+  point_y                       Decimal?                  @db.Decimal(15, 6)
+  geo                           Unsupported("geography")?
+  data_notes                    String?                   @db.VarChar(1000)
+  priority_geo                  Unsupported("geography")?
+
+  @@index([first_occurrence_date], map: "idx_first_occurrence_date_denver")
+  @@index([geo], map: "idx_incidents_denver_geo", type: Gist)
+  @@index([incident_id], map: "idx_traffic_incidents_incident_id")
+  @@index([geo_lat, geo_lon], map: "idx_traffic_incidents_location")
+  @@index([neighborhood_id], map: "idx_traffic_incidents_neighborhood")
+  @@index([reported_date], map: "idx_traffic_incidents_reported_date")
+  @@index([priority_geo], type: Gist)
+
+  @@map("incidents_denver")
+}
