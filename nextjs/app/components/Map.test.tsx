@@ -17,6 +17,7 @@ const mapHarness = vi.hoisted(() => ({
   layers: {} as Record<string, unknown>,
   popupOnClose: undefined as (() => void) | undefined,
   popupCloseOnClick: undefined as boolean | undefined,
+  popupMaxWidth: undefined as string | undefined,
 }));
 
 vi.mock("react-map-gl/mapbox-legacy", async () => {
@@ -54,13 +55,16 @@ vi.mock("react-map-gl/mapbox-legacy", async () => {
       children,
       closeOnClick,
       onClose,
+      maxWidth,
     }: {
       children: React.ReactNode;
       closeOnClick: boolean;
       onClose: () => void;
+      maxWidth: string;
     }) => {
       mapHarness.popupOnClose = onClose;
       mapHarness.popupCloseOnClick = closeOnClick;
+      mapHarness.popupMaxWidth = maxWidth;
       return React.createElement("div", { "data-testid": "popup" }, children);
     },
     Source: ({
@@ -141,6 +145,7 @@ describe("Map crash popup source action", () => {
     mapHarness.layers = {};
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
+    mapHarness.popupMaxWidth = undefined;
   });
 
   it("links by semantic DOTI incident ID and makes both crash layers interactive", () => {
@@ -202,6 +207,27 @@ describe("Map crash popup source action", () => {
       overscrollBehavior: "contain",
     });
     expect(mapHarness.popupCloseOnClick).toBe(false);
+  });
+
+  it("keeps route geometry and long crash fields from widening the popup", () => {
+    const selectedCrashFeature = feature({
+      line: "[-104.968,39.736]".repeat(1000),
+      data_notes: "long crash note ".repeat(100),
+    } as Partial<Crash>) as unknown as Feature<Point, Crash>;
+
+    renderMap({ selectedCrashFeature, selectedCrashCalloutIsOpen: true });
+
+    const rawJson = screen.getByTestId("popup").querySelector("pre")!;
+    expect(JSON.parse(rawJson.textContent!)).toMatchObject({
+      doti_incident_id: "DP2026473926",
+      data_notes: "long crash note ".repeat(100),
+    });
+    expect(rawJson.textContent).not.toContain('"line"');
+    expect(rawJson).toHaveStyle({
+      whiteSpace: "pre-wrap",
+      overflowWrap: "anywhere",
+    });
+    expect(mapHarness.popupMaxWidth).toBe("min(24rem, calc(100vw - 2rem))");
   });
 
   it("highlights a list-selected crash without showing its popup", () => {
@@ -324,6 +350,7 @@ describe("Map drawn route interaction", () => {
     mapHarness.layers = {};
     mapHarness.popupOnClose = undefined;
     mapHarness.popupCloseOnClick = undefined;
+    mapHarness.popupMaxWidth = undefined;
   });
 
   it.each([

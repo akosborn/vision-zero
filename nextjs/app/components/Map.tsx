@@ -156,6 +156,13 @@ export default forwardRef<MapRef | null, Props>(function Map(
   const selectedPointDotiRecordUrl = selectedPointProperties
     ? getCrashSourceLinks(selectedPointProperties).dotiRecordUrl
     : undefined;
+  const selectedPointPopupProperties = selectedPointProperties
+    ? Object.fromEntries(
+        Object.entries(selectedPointProperties).filter(
+          ([key]) => key !== "line",
+        ),
+      )
+    : null;
 
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
@@ -393,7 +400,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
             anchor="bottom"
             closeOnClick={false}
             onClose={() => onCrashSelect(null)}
-            maxWidth="none"
+            maxWidth="min(24rem, calc(100vw - 2rem))"
           >
             <div
               className="p-2 text-black"
@@ -417,8 +424,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
                   View DOTI source record
                 </a>
               )}
-              <pre className="text-xs">
-                {JSON.stringify(selectedCrashFeature.properties, null, 2)}
+              <pre
+                className="text-xs"
+                style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+              >
+                {JSON.stringify(selectedPointPopupProperties, null, 2)}
               </pre>
             </div>
           </Popup>
