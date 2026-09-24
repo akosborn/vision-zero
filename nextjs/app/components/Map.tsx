@@ -108,6 +108,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
   mapRef,
 ) {
   const onClick = (event: MapMouseEvent) => {
+    if (selectedCrashFeature && selectedCrashCalloutIsOpen) {
+      onCrashSelect(null);
+      return;
+    }
+
     if (isDrawingRoute) {
       const { lng, lat } = event.lngLat;
       onCrashSelect(null);
@@ -398,6 +403,7 @@ export default forwardRef<MapRef | null, Props>(function Map(
             longitude={selectedCrashFeature.geometry.coordinates[0]}
             latitude={selectedCrashFeature.geometry.coordinates[1]}
             anchor="bottom"
+            closeButton={false}
             closeOnClick={false}
             onClose={() => onCrashSelect(null)}
             maxWidth="min(24rem, calc(100vw - 2rem))"
@@ -412,6 +418,17 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 overscrollBehavior: "contain",
               }}
             >
+              <button
+                type="button"
+                className="mapboxgl-popup-close-button"
+                aria-label="Close popup"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCrashSelect(null);
+                }}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
               <h3 className="font-bold">Incident Info</h3>
               {selectedPointDotiRecordUrl && (
                 <a

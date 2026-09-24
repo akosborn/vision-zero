@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Feature, FeatureCollection, Point } from "geojson";
 import { GeoJSONFeature } from "mapbox-gl";
 import React from "react";
@@ -16,6 +16,7 @@ const mapHarness = vi.hoisted(() => ({
   sourceData: {} as Record<string, unknown>,
   layers: {} as Record<string, unknown>,
   popupOnClose: undefined as (() => void) | undefined,
+  popupCloseButton: undefined as boolean | undefined,
   popupCloseOnClick: undefined as boolean | undefined,
   popupMaxWidth: undefined as string | undefined,
 }));
@@ -53,16 +54,19 @@ vi.mock("react-map-gl/mapbox-legacy", async () => {
     Map: MockMap,
     Popup: ({
       children,
+      closeButton,
       closeOnClick,
       onClose,
       maxWidth,
     }: {
       children: React.ReactNode;
+      closeButton: boolean;
       closeOnClick: boolean;
       onClose: () => void;
       maxWidth: string;
     }) => {
       mapHarness.popupOnClose = onClose;
+      mapHarness.popupCloseButton = closeButton;
       mapHarness.popupCloseOnClick = closeOnClick;
       mapHarness.popupMaxWidth = maxWidth;
       return React.createElement("div", { "data-testid": "popup" }, children);
@@ -144,6 +148,7 @@ describe("Map crash popup source action", () => {
     mapHarness.sourceData = {};
     mapHarness.layers = {};
     mapHarness.popupOnClose = undefined;
+    mapHarness.popupCloseButton = undefined;
     mapHarness.popupCloseOnClick = undefined;
     mapHarness.popupMaxWidth = undefined;
   });
@@ -207,6 +212,57 @@ describe("Map crash popup source action", () => {
       overscrollBehavior: "contain",
     });
     expect(mapHarness.popupCloseOnClick).toBe(false);
+    expect(mapHarness.popupCloseButton).toBe(false);
+  });
+
+  it("closes from the X without starting a radius search", () => {
+    const onCrashSelect = vi.fn();
+    const { props } = renderMap({
+      selectedCrashFeature: feature({}) as unknown as Feature<Point, Crash>,
+      selectedCrashCalloutIsOpen: true,
+      onCrashSelect,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close popup" }));
+
+    expect(onCrashSelect).toHaveBeenCalledOnce();
+    expect(onCrashSelect).toHaveBeenCalledWith(null);
+    expect(props.onRadiusSearchPoint).not.toHaveBeenCalled();
+  });
+
+  it("uses the first outside map click only to dismiss the popup", () => {
+    const onCrashSelect = vi.fn();
+    const selectedCrashFeature = feature({}) as unknown as Feature<
+      Point,
+      Crash
+    >;
+    const { props, rerender } = renderMap({
+      selectedCrashFeature,
+      selectedCrashCalloutIsOpen: true,
+      onCrashSelect,
+    });
+    const mapClick = {
+      features: [],
+      lngLat: { lng: -104.99, lat: 39.74 },
+    };
+
+    act(() => mapHarness.onClick?.(mapClick));
+
+    expect(onCrashSelect).toHaveBeenCalledOnce();
+    expect(onCrashSelect).toHaveBeenCalledWith(null);
+    expect(props.onRadiusSearchPoint).not.toHaveBeenCalled();
+    expect(props.setFilters).not.toHaveBeenCalled();
+
+    rerender(
+      <Map
+        {...props}
+        selectedCrashFeature={null}
+        selectedCrashCalloutIsOpen={false}
+      />,
+    );
+    act(() => mapHarness.onClick?.(mapClick));
+
+    expect(props.onRadiusSearchPoint).toHaveBeenCalledWith(mapClick.lngLat);
   });
 
   it("keeps route geometry and long crash fields from widening the popup", () => {
