@@ -22,12 +22,13 @@ export class StreetsController {
     @Query(new ZodValidationPipe(getStreetCenterlinesSchema))
     query: GetStreetCenterlinesParams,
   ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
-    const { fullStreetName, crossStreet1, crossStreet2 } = query;
+    const { fullStreetName, crossStreet1, crossStreet2, bufferInFeet } = query;
 
     return this.streetService.getCenterlines(
       fullStreetName,
       crossStreet1,
       crossStreet2,
+      bufferInFeet,
     );
   }
 }

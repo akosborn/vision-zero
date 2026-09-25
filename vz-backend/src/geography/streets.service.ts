@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { FeatureCollection, LineString } from 'geojson';
+import { feetToMeters } from '../utils/feet-to-meters';
 
 @Injectable()
 export class StreetsService {
@@ -23,7 +24,10 @@ export class StreetsService {
     fullStreetName: string,
     crossStreet1: string,
     crossStreet2: string,
+    bufferInFeet: number = 0,
   ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+    const bufferInMeters = feetToMeters(bufferInFeet);
+
     const results = await this.prisma.$queryRaw<
       {
         geojson: FeatureCollection<LineString, StreetSegmentProperties>;
@@ -39,8 +43,8 @@ export class StreetsService {
           jsonb_build_object(
             'type', 'Feature',
             'id', id,
-            'geometry', ST_AsGeoJSON(geom)::jsonb,
-            'properties', to_jsonb(inputs) - 'gid' - 'geom'
+            'geometry', ST_AsGeoJSON(ST_Buffer(ST_Union(geom)::geography, ${bufferInMeters})::geometry)::jsonb,
+            'properties', (to_jsonb(inputs) - 'gid' - 'geom') || jsonb_build_object('isBuffer', ${bufferInMeters > 0})
           ) as feature
         from (
           select *,
@@ -65,4 +69,5 @@ export type StreetSegmentProperties = {
   fullName: string;
   fromName: string;
   toName: string;
+  isBuffer: boolean;
 };
