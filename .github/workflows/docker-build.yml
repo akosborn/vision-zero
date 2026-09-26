@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Images
 
 on:
   push:
@@ -6,19 +6,45 @@ on:
     tags: ["v*.*.*"]
     paths:
       - "nextjs/**"
+      - "vz-backend/**"
       - ".github/workflows/*.yml"
   pull_request:
     branches: ["main"]
     paths:
       - "nextjs/**"
+      - "vz-backend/**"
       - ".github/workflows/*.yml"
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      nextjs: ${{ steps.filter.outputs.nextjs }}
+      vz-backend: ${{ steps.filter.outputs.vz-backend }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Detect changed apps
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            nextjs:
+              - 'nextjs/**'
+              - '.github/workflows/*.yml'
+            vz-backend:
+              - 'vz-backend/**'
+              - '.github/workflows/*.yml'
+
+  build-nextjs:
+    needs: changes
+    if: needs.changes.outputs.nextjs == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,7 +69,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-nextjs
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
@@ -63,5 +89,50 @@ jobs:
             NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED=${{ vars.NEXT_PUBLIC_UPLOAD_ROUTE_ENABLED || 'false' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=nextjs
+          cache-to: type=gha,mode=max,scope=nextjs
+
+  build-vz-backend:
+    needs: changes
+    if: needs.changes.outputs.vz-backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-vz-backend
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=,format=short
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./vz-backend
+          file: ./vz-backend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=vz-backend
+          cache-to: type=gha,mode=max,scope=vz-backend
