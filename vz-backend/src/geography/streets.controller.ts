@@ -13,7 +13,10 @@ import {
 } from './input-schemas';
 import { FeatureCollection, LineString, Polygon } from 'geojson';
 
-@Controller('streets')
+@Controller({
+  path: 'streets',
+  version: '1',
+})
 export class StreetsController {
   constructor(private readonly streetService: StreetsService) {}
 
