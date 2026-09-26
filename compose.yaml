@@ -59,11 +59,7 @@ services:
     ports:
       - "3002:3000" # Maps host port 3002 to container port 3000
     environment:
-      - DB_HOST=postgres17
-      - DB_PORT=5432
-      - DB_USER=${DATABASE_USER}
-      - DB_PASSWORD=${DATABASE_PASSWORD}
-      - DB_NAME=primary
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@postgres17:5432/primary?schema=vision_zero
     depends_on:
       - postgres
     restart: always
