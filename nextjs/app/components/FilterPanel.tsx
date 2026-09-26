@@ -14,12 +14,12 @@ import {
   SegmentedControl,
   Select,
 } from "@mantine/core";
-import { Street } from "@/app/api/streets/route";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconInfoCircle } from "@tabler/icons-react";
 import type { Filters, SearchTool } from "@/app/page";
 import { parseRouteFile } from "@/app/lib/route-file";
 import RouteDrawingControls from "@/app/components/RouteDrawingControls";
+import { Street } from "@/app/lib/api-client";
 
 type Props = {
   filters: Filters;
