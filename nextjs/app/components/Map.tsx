@@ -1,6 +1,10 @@
 "use client";
 
-import { MapMouseEvent } from "mapbox-gl";
+import {
+  CircleLayerSpecification,
+  MapMouseEvent,
+  SymbolLayerSpecification,
+} from "mapbox-gl";
 import {
   Layer,
   Map as ReactMap,
@@ -59,6 +63,31 @@ export const DEFAULT_VIEWPORT = {
   latitude: 39.74,
   longitude: -104.9874,
   zoom: 13,
+};
+
+const clusterCirclePaint: CircleLayerSpecification["paint"] = {
+  "circle-color": [
+    "step",
+    ["get", "point_count"],
+    "#60a5fa",
+    10,
+    "#3b82f6",
+    50,
+    "#1d4ed8",
+  ],
+  "circle-radius": ["step", ["get", "point_count"], 16, 10, 22, 50, 28],
+  "circle-stroke-width": 2,
+  "circle-stroke-color": "#ffffff",
+};
+
+const clusterCountLayout: SymbolLayerSpecification["layout"] = {
+  "text-field": ["get", "point_count_abbreviated"],
+  "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+  "text-size": 12,
+};
+
+const clusterCountPaint: SymbolLayerSpecification["paint"] = {
+  "text-color": "#ffffff",
 };
 
 type Props = {
@@ -121,6 +150,30 @@ export default forwardRef<MapRef | null, Props>(function Map(
     }
 
     const feature = event.features && event.features[0];
+
+    // Clicked a cluster bubble: zoom in to expand it instead of selecting a crash
+    if (feature?.properties?.cluster) {
+      const clusterId = feature.properties.cluster_id;
+      const sourceId = feature.layer?.source as string | undefined;
+      const map = (event.target as any) ?? null;
+      const source = sourceId ? map?.getSource?.(sourceId) : undefined;
+
+      if (source && typeof source.getClusterExpansionZoom === "function") {
+        source.getClusterExpansionZoom(
+          clusterId,
+          (err: unknown, zoom: number) => {
+            if (err || feature.geometry.type !== "Point") return;
+            map.easeTo({
+              center: feature.geometry.coordinates as [number, number],
+              zoom,
+              duration: 400,
+            });
+          },
+        );
+      }
+      return;
+    }
+
     if (feature?.geometry.type === "Point" && feature.properties) {
       onCrashSelect({
         type: "Feature",
@@ -179,13 +232,22 @@ export default forwardRef<MapRef | null, Props>(function Map(
         doubleClickZoom={!isDrawingRoute}
         interactiveLayerIds={[
           "incident-layer",
+          "incident-cluster-layer",
           "area-of-interest-incident-layer",
+          "area-of-interest-incident-cluster-layer",
         ]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
       >
         {incidentGeoJson && (
-          <Source id="incidents" type="geojson" data={incidentGeoJson}>
+          <Source
+            id="incidents"
+            type="geojson"
+            data={incidentGeoJson}
+            cluster
+            clusterMaxZoom={16}
+            clusterRadius={50}
+          >
             <Layer
               id="incident-layer"
               type="circle"
@@ -207,6 +269,19 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 "circle-stroke-color": "#ffffff",
               }}
             />
+            <Layer
+              id="incident-cluster-layer"
+              type="circle"
+              filter={["has", "point_count"]}
+              paint={clusterCirclePaint}
+            />
+            <Layer
+              id="incident-cluster-count-layer"
+              type="symbol"
+              filter={["has", "point_count"]}
+              layout={clusterCountLayout}
+              paint={clusterCountPaint}
+            />
           </Source>
         )}
 
@@ -215,6 +290,9 @@ export default forwardRef<MapRef | null, Props>(function Map(
             id="area-of-interest-incidents"
             type="geojson"
             data={areaOfInterestIncidentGeoJson}
+            cluster
+            clusterMaxZoom={16}
+            clusterRadius={50}
           >
             <Layer
               id="area-of-interest-incident-layer"
@@ -236,6 +314,19 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
               }}
+            />
+            <Layer
+              id="area-of-interest-incident-cluster-layer"
+              type="circle"
+              filter={["has", "point_count"]}
+              paint={clusterCirclePaint}
+            />
+            <Layer
+              id="area-of-interest-incident-cluster-count-layer"
+              type="symbol"
+              filter={["has", "point_count"]}
+              layout={clusterCountLayout}
+              paint={clusterCountPaint}
             />
           </Source>
         )}
