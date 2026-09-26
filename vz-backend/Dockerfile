@@ -4,12 +4,12 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
-COPY package*.json ./
-RUN npm ci
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN yarn build
 
 # ---- Production stage ----
 FROM node:24-alpine AS production
@@ -19,8 +19,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 # Copy built app from the build stage
 COPY --from=build /app/dist ./dist
