@@ -2,6 +2,9 @@
 
 import {
   CircleLayerSpecification,
+  ExpressionSpecification,
+  GeoJSONSource,
+  Map as MapboxGLMap,
   MapMouseEvent,
   SymbolLayerSpecification,
 } from "mapbox-gl";
@@ -12,7 +15,7 @@ import {
   Popup,
   Source,
 } from "react-map-gl/mapbox-legacy";
-import React, { forwardRef } from "react";
+import React, { forwardRef, useCallback, useState } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
 import { Crash } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
@@ -65,17 +68,42 @@ export const DEFAULT_VIEWPORT = {
   zoom: 13,
 };
 
+const CLUSTER_MAX_ZOOM = 24;
+const CLUSTER_RADIUS = 50;
+
+// Reused so unclustered points and spiderfied ("fanned out") points look identical
+const severityCircleColorExpression: ExpressionSpecification = [
+  "case",
+  [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
+  severityConfig.K.dotColor, // Red (Tailwind red-500)
+  [">", ["get", "doti_fatalities"], 0],
+  severityConfig.K.dotColor, // Red (Tailwind red-500)
+  [">", ["get", "doti_serious_injuries"], 0],
+  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+  [">", ["coalesce", ["get", "cdot_injury_03"], 0], 0],
+  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
+  severityConfig.O.dotColor, // Green
+];
+
 const clusterCirclePaint: CircleLayerSpecification["paint"] = {
   "circle-color": [
     "step",
     ["get", "point_count"],
-    "#60a5fa",
+    "#60a5fa", // < 10 points: light blue
     10,
-    "#3b82f6",
+    "#3b82f6", // 10-49: blue
     50,
-    "#1d4ed8",
+    "#1d4ed8", // 50+: dark blue
   ],
-  "circle-radius": ["step", ["get", "point_count"], 16, 10, 22, 50, 28],
+  "circle-radius": [
+    "step",
+    ["get", "point_count"],
+    16, // < 10 points
+    10,
+    22, // 10-49
+    50,
+    28, // 50+
+  ],
   "circle-stroke-width": 2,
   "circle-stroke-color": "#ffffff",
 };
@@ -86,8 +114,54 @@ const clusterCountLayout: SymbolLayerSpecification["layout"] = {
   "text-size": 12,
 };
 
-const clusterCountPaint: SymbolLayerSpecification["paint"] = {
+const clusterCountPaint = {
   "text-color": "#ffffff",
+};
+
+/**
+ * Given N points that all sit on (or very near) the same spot, returns pixel
+ * offsets arranged in one or more concentric rings so each point gets its
+ * own clickable position. Ring size grows as more points need to be placed.
+ */
+const computeSpiderLegOffsets = (
+  count: number,
+): { dx: number; dy: number }[] => {
+  if (count <= 1) return [{ dx: 0, dy: 0 }];
+
+  const offsets: { dx: number; dy: number }[] = [];
+  const firstRingRadius = 42;
+  const ringSpacing = 30;
+  let ring = 0;
+  let placed = 0;
+
+  while (placed < count) {
+    const radius = firstRingRadius + ring * ringSpacing;
+    const pointsInRing = Math.min(
+      count - placed,
+      Math.max(6, Math.floor((2 * Math.PI * radius) / 28)),
+    );
+    const angleStep = (2 * Math.PI) / pointsInRing;
+    // Stagger each ring's starting angle so rings don't line up radially
+    const angleOffset = ring * 0.4;
+
+    for (let i = 0; i < pointsInRing; i++) {
+      const angle = angleStep * i + angleOffset;
+      offsets.push({
+        dx: radius * Math.cos(angle),
+        dy: radius * Math.sin(angle),
+      });
+    }
+
+    placed += pointsInRing;
+    ring += 1;
+  }
+
+  return offsets.slice(0, count);
+};
+
+type SpiderfyState = {
+  anchor: [number, number];
+  legs: { feature: Feature<Point, Crash>; position: [number, number] }[];
 };
 
 type Props = {
@@ -113,7 +187,7 @@ type Props = {
   onCrashSelect: (feature: Feature<Point, Crash> | null) => void;
 };
 
-export default forwardRef<MapRef | null, Props>(function Map(
+export default forwardRef<MapRef | null, Props>(function MapComponent(
   {
     filters,
     setFilters,
@@ -136,7 +210,50 @@ export default forwardRef<MapRef | null, Props>(function Map(
   },
   mapRef,
 ) {
+  const [spiderfy, setSpiderfy] = useState<SpiderfyState | null>(null);
+
+  // Track the geojson currently reflected in `spiderfy`, so that if the
+  // underlying data changes (new filters, refetch, etc.) we can collapse any
+  // fanned-out points during render rather than in an effect.
+  const [spiderfySourceIncidentGeoJson, setSpiderfySourceIncidentGeoJson] =
+    useState(incidentGeoJson);
+  const [
+    spiderfySourceAreaOfInterestGeoJson,
+    setSpiderfySourceAreaOfInterestGeoJson,
+  ] = useState(areaOfInterestIncidentGeoJson);
+
+  if (
+    incidentGeoJson !== spiderfySourceIncidentGeoJson ||
+    areaOfInterestIncidentGeoJson !== spiderfySourceAreaOfInterestGeoJson
+  ) {
+    setSpiderfySourceIncidentGeoJson(incidentGeoJson);
+    setSpiderfySourceAreaOfInterestGeoJson(areaOfInterestIncidentGeoJson);
+    setSpiderfy(null);
+  }
+
+  const spiderfyAt = useCallback(
+    (
+      map: MapboxGLMap,
+      anchor: [number, number],
+      leaves: Feature<Point, Crash>[],
+    ) => {
+      const centerPx = map.project(anchor);
+      const offsets = computeSpiderLegOffsets(leaves.length);
+
+      const legs = leaves.map((leaf, i) => {
+        const { dx, dy } = offsets[i];
+        const { lng, lat } = map.unproject([centerPx.x + dx, centerPx.y + dy]);
+        return { feature: leaf, position: [lng, lat] as [number, number] };
+      });
+
+      setSpiderfy({ anchor, legs });
+    },
+    [],
+  );
+
   const onClick = (event: MapMouseEvent) => {
+    const map = event.target;
+
     if (selectedCrashFeature && selectedCrashCalloutIsOpen) {
       onCrashSelect(null);
       return;
@@ -145,59 +262,142 @@ export default forwardRef<MapRef | null, Props>(function Map(
     if (isDrawingRoute) {
       const { lng, lat } = event.lngLat;
       onCrashSelect(null);
+      setSpiderfy(null);
       onAddDrawnRouteVertex([lng, lat]);
       return;
     }
 
-    const feature = event.features && event.features[0];
+    const features = event.features ?? [];
 
-    // Clicked a cluster bubble: zoom in to expand it instead of selecting a crash
-    if (feature?.properties?.cluster) {
-      const clusterId = feature.properties.cluster_id;
-      const sourceId = feature.layer?.source as string | undefined;
-      const map = (event.target as any) ?? null;
-      const source = sourceId ? map?.getSource?.(sourceId) : undefined;
-
-      if (source && typeof source.getClusterExpansionZoom === "function") {
-        source.getClusterExpansionZoom(
-          clusterId,
-          (err: unknown, zoom: number) => {
-            if (err || feature.geometry.type !== "Point") return;
-            map.easeTo({
-              center: feature.geometry.coordinates as [number, number],
-              zoom,
-              duration: 400,
-            });
-          },
-        );
-      }
+    // 1. Clicked one of the fanned-out ("spiderfied") points
+    const spiderfyLeafFeature = features.find(
+      (f) => f.layer?.id === "spiderfy-leaf-layer",
+    );
+    if (
+      spiderfyLeafFeature?.geometry.type === "Point" &&
+      spiderfyLeafFeature.properties
+    ) {
+      onCrashSelect({
+        type: "Feature",
+        id: spiderfyLeafFeature.id,
+        geometry: spiderfyLeafFeature.geometry,
+        properties: spiderfyLeafFeature.properties as Crash,
+      });
+      setFilters((prevState) => ({ ...prevState, droppedPin: undefined }));
+      setSpiderfy(null);
       return;
     }
 
-    if (feature?.geometry.type === "Point" && feature.properties) {
+    // 2. Clicked a cluster bubble
+    const clusterFeature = features.find((f) => f.properties?.cluster);
+    if (clusterFeature && clusterFeature.geometry.type === "Point") {
+      setSpiderfy(null);
+
+      const clusterId = clusterFeature.properties?.cluster_id;
+      const sourceId = clusterFeature.layer?.source as string | undefined;
+      const source = sourceId
+        ? (map.getSource(sourceId) as GeoJSONSource | undefined)
+        : undefined;
+      const clusterCenter = clusterFeature.geometry.coordinates as [
+        number,
+        number,
+      ];
+      const pointCount =
+        (clusterFeature.properties?.point_count as number) ?? 0;
+
+      if (!source) return;
+
+      source.getClusterExpansionZoom(clusterId, (err, expansionZoom) => {
+        if (err) return;
+        const currentZoom = map.getZoom();
+        const maxZoom = map.getMaxZoom();
+
+        const cannotZoomFurther =
+          expansionZoom == null ||
+          expansionZoom > maxZoom ||
+          expansionZoom <= currentZoom + 0.1;
+
+        if (cannotZoomFurther) {
+          // Zooming in further wouldn't break this cluster apart any more
+          // (we're already at the map's max zoom, or the points are stacked at
+          // literally the same coordinates) — fan them out instead.
+          source.getClusterLeaves(
+            clusterId,
+            Math.min(pointCount, 60),
+            0,
+            (leavesErr, leaves) => {
+              if (leavesErr || !leaves) return;
+              spiderfyAt(map, clusterCenter, leaves as Feature<Point, Crash>[]);
+            },
+          );
+          return;
+        }
+
+        map.easeTo({
+          center: clusterCenter,
+          zoom: Math.min(expansionZoom, maxZoom),
+          duration: 400,
+        });
+      });
+      return;
+    }
+
+    // 3. Clicked what looks like a single point — check whether other points
+    //    are stacked at essentially the same spot, and fan them out if so.
+    const pointFeature = features.find(
+      (f) =>
+        f.geometry.type === "Point" && f.properties && !f.properties.cluster,
+    );
+
+    if (pointFeature && pointFeature.geometry.type === "Point") {
+      const nearby = map.queryRenderedFeatures(
+        [
+          [event.point.x - 10, event.point.y - 10],
+          [event.point.x + 10, event.point.y + 10],
+        ],
+        { layers: ["incident-layer", "area-of-interest-incident-layer"] },
+      ) as unknown as Feature<Point, Crash>[];
+
+      const uniqueNearby = Array.from(
+        new Map(
+          nearby.map((f) => [f.id ?? JSON.stringify(f.geometry), f]),
+        ).values(),
+      ) as unknown as Feature<Point, Crash>[];
+
+      if (uniqueNearby.length > 1) {
+        spiderfyAt(
+          map,
+          pointFeature.geometry.coordinates as [number, number],
+          uniqueNearby,
+        );
+        return;
+      }
+
+      setSpiderfy(null);
       onCrashSelect({
         type: "Feature",
-        id: feature.id,
-        geometry: feature.geometry,
-        properties: feature.properties as Crash,
+        id: pointFeature.id,
+        geometry: pointFeature.geometry,
+        properties: pointFeature.properties as Crash,
       });
-      setFilters((prevState) => ({
-        ...prevState,
-        droppedPin: undefined,
-      }));
-    } else {
-      if (filters.searchTool === "Draw Route") {
-        return;
-      }
-
-      if (isLoading) {
-        return;
-      }
-
-      const { lng, lat } = event.lngLat;
-      onCrashSelect(null);
-      onRadiusSearchPoint({ lng, lat });
+      setFilters((prevState) => ({ ...prevState, droppedPin: undefined }));
+      return;
     }
+
+    // 4. Clicked empty map
+    setSpiderfy(null);
+
+    if (filters.searchTool === "Draw Route") {
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    const { lng, lat } = event.lngLat;
+    onCrashSelect(null);
+    onRadiusSearchPoint({ lng, lat });
   };
 
   const radiusGeoJSON = filters.droppedPin
@@ -222,6 +422,33 @@ export default forwardRef<MapRef | null, Props>(function Map(
       )
     : null;
 
+  const spiderfyLegsGeoJSON: FeatureCollection | null = spiderfy
+    ? {
+        type: "FeatureCollection",
+        features: spiderfy.legs.map(({ feature, position }, i) => ({
+          type: "Feature",
+          id: feature.id ?? i,
+          geometry: { type: "Point", coordinates: position },
+          properties: feature.properties,
+        })),
+      }
+    : null;
+
+  const spiderfyLinesGeoJSON: FeatureCollection | null = spiderfy
+    ? {
+        type: "FeatureCollection",
+        features: spiderfy.legs.map(({ position }, i) => ({
+          type: "Feature",
+          id: i,
+          geometry: {
+            type: "LineString",
+            coordinates: [spiderfy.anchor, position],
+          },
+          properties: {},
+        })),
+      }
+    : null;
+
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
@@ -235,9 +462,11 @@ export default forwardRef<MapRef | null, Props>(function Map(
           "incident-cluster-layer",
           "area-of-interest-incident-layer",
           "area-of-interest-incident-cluster-layer",
+          "spiderfy-leaf-layer",
         ]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
+        maxZoom={22}
       >
         {incidentGeoJson && (
           <Source
@@ -245,26 +474,16 @@ export default forwardRef<MapRef | null, Props>(function Map(
             type="geojson"
             data={incidentGeoJson}
             cluster
-            clusterMaxZoom={16}
-            clusterRadius={50}
+            clusterMaxZoom={CLUSTER_MAX_ZOOM}
+            clusterRadius={CLUSTER_RADIUS}
           >
             <Layer
               id="incident-layer"
               type="circle"
               filter={["!", ["has", "point_count"]]}
               paint={{
-                "circle-color": [
-                  "case",
-                  [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
-                  severityConfig.K.dotColor, // Red (Tailwind red-500)
-                  [">", ["get", "doti_fatalities"], 0],
-                  severityConfig.K.dotColor, // Red (Tailwind red-500)
-                  [">", ["get", "doti_serious_injuries"], 0],
-                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
-                  [">", ["coalesce", ["get", "cdot_injury_03"], 0], 0],
-                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
-                  severityConfig.O.dotColor, // Green
-                ],
+                "circle-color": severityCircleColorExpression,
+                "circle-radius": 6,
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
               }}
@@ -291,26 +510,16 @@ export default forwardRef<MapRef | null, Props>(function Map(
             type="geojson"
             data={areaOfInterestIncidentGeoJson}
             cluster
-            clusterMaxZoom={16}
-            clusterRadius={50}
+            clusterMaxZoom={CLUSTER_MAX_ZOOM}
+            clusterRadius={CLUSTER_RADIUS}
           >
             <Layer
               id="area-of-interest-incident-layer"
               type="circle"
               filter={["!", ["has", "point_count"]]}
               paint={{
-                "circle-color": [
-                  "case",
-                  [">", ["coalesce", ["get", "cdot_number_killed"], 0], 0],
-                  severityConfig.K.dotColor, // Red (Tailwind red-500)
-                  [">", ["get", "doti_fatalities"], 0],
-                  severityConfig.K.dotColor, // Red (Tailwind red-500)
-                  [">", ["get", "doti_serious_injuries"], 0],
-                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
-                  [">", ["coalesce", ["get", "cdot_injury_03"], 0], 0],
-                  severityConfig.A.dotColor, // Yellow (Tailwind yellow-400)
-                  severityConfig.O.dotColor, // Green
-                ],
+                "circle-color": severityCircleColorExpression,
+                "circle-radius": 6,
                 "circle-stroke-width": 1,
                 "circle-stroke-color": "#ffffff",
               }}
@@ -464,6 +673,43 @@ export default forwardRef<MapRef | null, Props>(function Map(
                 "line-color": "#3b82f6",
                 "line-width": 2,
                 "line-dasharray": [2, 2],
+              }}
+            />
+          </Source>
+        )}
+
+        {spiderfyLinesGeoJSON && (
+          <Source
+            id="spiderfy-lines-source"
+            type="geojson"
+            data={spiderfyLinesGeoJSON}
+          >
+            <Layer
+              id="spiderfy-lines-layer"
+              type="line"
+              paint={{
+                "line-color": "#6b7280",
+                "line-width": 1.5,
+                "line-dasharray": [1, 1],
+              }}
+            />
+          </Source>
+        )}
+
+        {spiderfyLegsGeoJSON && (
+          <Source
+            id="spiderfy-leaves-source"
+            type="geojson"
+            data={spiderfyLegsGeoJSON}
+          >
+            <Layer
+              id="spiderfy-leaf-layer"
+              type="circle"
+              paint={{
+                "circle-color": severityCircleColorExpression,
+                "circle-radius": 7,
+                "circle-stroke-width": 2,
+                "circle-stroke-color": "#ffffff",
               }}
             />
           </Source>
