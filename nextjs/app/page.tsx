@@ -37,8 +37,8 @@ import {
   getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
+  Street,
 } from "@/app/lib/api-client";
-import { Street } from "@/app/api/streets/route";
 import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
 import {
   createFinalRoute,
