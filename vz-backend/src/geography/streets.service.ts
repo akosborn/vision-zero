@@ -36,24 +36,18 @@ export class StreetsService {
       select
         jsonb_build_object(
           'type', 'FeatureCollection',
-          'features', coalesce(jsonb_agg(feature), '[]'::jsonb)
+          'features', jsonb_build_array(
+            jsonb_build_object(
+              'type', 'Feature',
+              'geometry', ST_AsGeoJSON(ST_Buffer(ST_Union(geom)::geography, ${bufferInMeters})::geometry)::jsonb,
+              'properties', jsonb_build_object(
+                'name', ${fullStreetName}::text,
+                'isBuffer', ${bufferInMeters > 0}::boolean
+              )
+            )
+          )
         ) as geojson
-      from (
-        select
-          jsonb_build_object(
-            'type', 'Feature',
-            'id', id,
-            'geometry', ST_AsGeoJSON(ST_Buffer(ST_Union(geom)::geography, ${bufferInMeters})::geometry)::jsonb,
-            'properties', (to_jsonb(inputs) - 'gid' - 'geom') || jsonb_build_object('isBuffer', ${bufferInMeters > 0})
-          ) as feature
-        from (
-          select *,
-                 fullname as "fullName",
-                 fromname as "fromName",
-                 toname as "toName"
-          from public.get_street_segments_between(${fullStreetName}, ${crossStreet1}, ${crossStreet2})
-        ) inputs
-      ) features;
+      from public.get_street_segments_between(${fullStreetName}, ${crossStreet1}, ${crossStreet2}) as inputs;
     `;
 
     return results[0]?.geojson;
