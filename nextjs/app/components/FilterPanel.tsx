@@ -103,7 +103,7 @@ const FilterPanel: React.FC<Props> = ({
     const street = streets.find(
       ({ fullName }) => fullName === filters.streetSegment?.fullName,
     );
-    return street?.crossingStreets || [];
+    return street?.crossStreets || [];
   }, [streets, filters.streetSegment]);
 
   const fromCrossStreetsToDisplay = crossStreetsToDisplay.filter(
