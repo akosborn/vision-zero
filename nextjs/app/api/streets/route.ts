@@ -21,5 +21,5 @@ const query = `
 
 export type Street = {
   fullName: string;
-  crossingStreets: string[];
+  crossStreets: string[];
 };
