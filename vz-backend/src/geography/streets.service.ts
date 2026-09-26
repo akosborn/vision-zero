@@ -1,14 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { FeatureCollection, LineString, Polygon } from 'geojson';
 import { feetToMeters } from '../utils/feet-to-meters';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 @Injectable()
 export class StreetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   async getStreets(): Promise<Street[]> {
-    return this.prisma.$queryRaw<
+    const cachedStreets = await this.cacheManager.get<Street[]>('streets');
+    if (cachedStreets) {
+      return cachedStreets;
+    }
+
+    const streets = await this.prisma.$queryRaw<
       { fullName: string; crossStreets: string[] }[]
     >`
       select distinct
@@ -18,6 +27,8 @@ export class StreetsService {
       group by 1
       order by 1
     `;
+    await this.cacheManager.set('streets', streets);
+    return streets;
   }
 
   async getBufferedStreetSegment(
@@ -27,6 +38,11 @@ export class StreetsService {
     bufferInFeet: number = 0,
   ): Promise<FeatureCollection<Polygon, StreetSegmentProperties>> {
     const bufferInMeters = feetToMeters(bufferInFeet);
+
+    const cachedBufferedStreetSegment = await this.cacheManager.get<FeatureCollection<Polygon, StreetSegmentProperties>>(`bufferedStreetSegment_${fullStreetName}_${crossStreet1}_${crossStreet2}_${bufferInFeet}`);
+    if (cachedBufferedStreetSegment) {
+      return cachedBufferedStreetSegment;
+    }
 
     const results = await this.prisma.$queryRaw<
       {
@@ -50,6 +66,8 @@ export class StreetsService {
       from public.get_street_segments_between(${fullStreetName}, ${crossStreet1}, ${crossStreet2}) as inputs;
     `;
 
+    await this.cacheManager.set(`bufferedStreetSegment_${fullStreetName}_${crossStreet1}_${crossStreet2}_${bufferInFeet}`, results[0]?.geojson);
+
     return results[0]?.geojson;
   }
 
@@ -58,6 +76,11 @@ export class StreetsService {
     crossStreet1: string,
     crossStreet2: string,
   ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+    const cachedCenterline = await this.cacheManager.get<FeatureCollection<LineString, StreetSegmentProperties>>(`centerline_${fullStreetName}_${crossStreet1}_${crossStreet2}`);
+    if (cachedCenterline) {
+      return cachedCenterline;
+    }
+
     const results = await this.prisma.$queryRaw<
       {
         geojson: FeatureCollection<LineString, StreetSegmentProperties>;
@@ -86,6 +109,8 @@ export class StreetsService {
         ) inputs
       ) features;
     `;
+
+    await this.cacheManager.set(`centerline_${fullStreetName}_${crossStreet1}_${crossStreet2}`, results[0]?.geojson);
 
     return results[0]?.geojson;
   }
