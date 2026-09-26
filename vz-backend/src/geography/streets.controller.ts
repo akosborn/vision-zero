@@ -5,8 +5,13 @@ import {
   StreetsService,
 } from './streets.service';
 import { ZodValidationPipe } from '../pipes/zod-validation-pipe';
-import { GetStreetCenterlinesParams, getStreetCenterlinesSchema } from './street-centerlines-schemas';
-import { FeatureCollection, LineString } from 'geojson';
+import {
+  GetBufferedStreetParams,
+  getBufferedStreetSchema,
+  GetStreetCenterlinesParams,
+  getStreetCenterlinesSchema,
+} from './input-schemas';
+import { FeatureCollection, LineString, Polygon } from 'geojson';
 
 @Controller('streets')
 export class StreetsController {
@@ -17,18 +22,32 @@ export class StreetsController {
     return this.streetService.getStreets();
   }
 
-  @Get('centerlines')
-  async getCenterlines(
-    @Query(new ZodValidationPipe(getStreetCenterlinesSchema))
-    query: GetStreetCenterlinesParams,
-  ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+  @Get('buffered')
+  async getBufferedStreetSegment(
+    @Query(new ZodValidationPipe(getBufferedStreetSchema))
+    query: GetBufferedStreetParams,
+  ): Promise<FeatureCollection<Polygon, StreetSegmentProperties>> {
     const { fullStreetName, crossStreet1, crossStreet2, bufferInFeet } = query;
 
-    return this.streetService.getCenterlines(
+    return this.streetService.getBufferedStreetSegment(
       fullStreetName,
       crossStreet1,
       crossStreet2,
       bufferInFeet,
+    );
+  }
+
+  @Get('centerline')
+  async getCenterline(
+    @Query(new ZodValidationPipe(getStreetCenterlinesSchema))
+    query: GetStreetCenterlinesParams,
+  ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+    const { fullStreetName, crossStreet1, crossStreet2 } = query;
+
+    return this.streetService.getCenterline(
+      fullStreetName,
+      crossStreet1,
+      crossStreet2,
     );
   }
 }

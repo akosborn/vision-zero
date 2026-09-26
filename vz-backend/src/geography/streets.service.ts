@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
-import { FeatureCollection, LineString } from 'geojson';
+import { FeatureCollection, LineString, Polygon } from 'geojson';
 import { feetToMeters } from '../utils/feet-to-meters';
 
 @Injectable()
@@ -20,17 +20,17 @@ export class StreetsService {
     `;
   }
 
-  async getCenterlines(
+  async getBufferedStreetSegment(
     fullStreetName: string,
     crossStreet1: string,
     crossStreet2: string,
     bufferInFeet: number = 0,
-  ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+  ): Promise<FeatureCollection<Polygon, StreetSegmentProperties>> {
     const bufferInMeters = feetToMeters(bufferInFeet);
 
     const results = await this.prisma.$queryRaw<
       {
-        geojson: FeatureCollection<LineString, StreetSegmentProperties>;
+        geojson: FeatureCollection<Polygon, StreetSegmentProperties>;
       }[]
     >`
       select
@@ -48,6 +48,43 @@ export class StreetsService {
           )
         ) as geojson
       from public.get_street_segments_between(${fullStreetName}, ${crossStreet1}, ${crossStreet2}) as inputs;
+    `;
+
+    return results[0]?.geojson;
+  }
+
+  async getCenterline(
+    fullStreetName: string,
+    crossStreet1: string,
+    crossStreet2: string,
+  ): Promise<FeatureCollection<LineString, StreetSegmentProperties>> {
+    const results = await this.prisma.$queryRaw<
+      {
+        geojson: FeatureCollection<LineString, StreetSegmentProperties>;
+      }[]
+    >`
+      select 
+        jsonb_build_object(
+          'type', 'FeatureCollection',
+          'features', COALESCE(jsonb_agg(feature), '[]'::jsonb)
+        ) as geojson
+      from (
+        select 
+          jsonb_build_object(
+            'type', 'Feature',
+            'id', id,
+            'geometry', ST_AsGeoJSON(geom)::jsonb,
+            'properties', to_jsonb(inputs) - 'gid' - 'geom'
+          ) as feature
+        from (
+          select *
+          from get_street_segments_between(
+            ${fullStreetName}::varchar,
+            ${crossStreet1}::varchar,
+            ${crossStreet2}::varchar
+          )
+        ) inputs
+      ) features;
     `;
 
     return results[0]?.geojson;
