@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 const MAX_STREET_NAME_LENGTH = 200;
-// Bound the area of spatial queries while remaining well above the UI's
-// current 500-foot maximum.
+
 const MAX_BUFFER_IN_FEET = 5280;
 
 const containsControlCharacter = (value: string) =>
@@ -94,12 +93,6 @@ const routeAreaSchema = z.object({
 
 export type RouteArea = z.infer<typeof routeAreaSchema>;
 
-/**
- * POST /crashes/search
- *
- * Filters crashes by date range and, optionally, an area. Omitting the area
- * searches the entire city.
- */
 export const listCrashesSchema = z
   .object({
     startDate: z.iso.date().optional(),
