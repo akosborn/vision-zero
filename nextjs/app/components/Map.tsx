@@ -220,11 +220,7 @@ const computeSpiderLegOffsets = (
   return offsets.slice(0, count);
 };
 
-const CLUSTERED_SOURCE_IDS = [
-  "incidents",
-  "area-of-interest-incidents",
-] as const;
-type ClusteredSourceId = (typeof CLUSTERED_SOURCE_IDS)[number];
+type ClusteredSourceId = "incidents" | "area-of-interest-incidents";
 
 type SpiderfyState = {
   sourceId: ClusteredSourceId;
