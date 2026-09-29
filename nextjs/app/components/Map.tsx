@@ -71,6 +71,10 @@ export const DEFAULT_VIEWPORT = {
 const CLUSTER_MAX_ZOOM = 24;
 const CLUSTER_RADIUS = 50;
 
+// A cluster_id that can never match a real cluster, used to build a filter
+// that matches nothing (i.e. "hide this layer entirely").
+const NO_MATCH_CLUSTER_ID = -1;
+
 // Reused so unclustered points and spiderfied ("fanned out") points look identical
 const severityCircleColorExpression: ExpressionSpecification = [
   "case",
@@ -114,8 +118,65 @@ const clusterCountLayout: SymbolLayerSpecification["layout"] = {
   "text-size": 12,
 };
 
-const clusterCountPaint = {
+const clusterCountPaint: SymbolLayerSpecification["paint"] = {
   "text-color": "#ffffff",
+};
+
+// Small badge shown at the edge of every cluster bubble hinting that it's
+// clickable. Shows "+" for clusters that will expand/fan out on click, and
+// swaps to "×" for whichever cluster is currently fanned out, hinting that
+// clicking it again will collapse it.
+const clusterHintLayout: SymbolLayerSpecification["layout"] = {
+  "text-field": "+",
+  "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+  "text-size": 11,
+  "text-offset": [0.95, -0.95],
+  "text-allow-overlap": true,
+  "text-ignore-placement": true,
+};
+
+const clusterCollapseHintLayout: SymbolLayerSpecification["layout"] = {
+  ...clusterHintLayout,
+  "text-field": "×",
+};
+
+const clusterHintPaint: SymbolLayerSpecification["paint"] = {
+  "text-color": "#ffffff",
+  "text-halo-color": "#1d4ed8",
+  "text-halo-width": 1.5,
+};
+
+/**
+ * Builds the pair of filters used to show the "+" hint on every cluster
+ * except the one currently fanned out (if any), and the "×" hint on just
+ * that one.
+ */
+const buildClusterHintFilters = (
+  spiderfiedClusterId: number | null,
+): {
+  expandFilter: ExpressionSpecification;
+  collapseFilter: ExpressionSpecification;
+} => {
+  if (spiderfiedClusterId == null) {
+    return {
+      expandFilter: ["has", "point_count"],
+      // Matches no real cluster_id, so effectively hides this layer
+      collapseFilter: ["==", ["get", "cluster_id"], NO_MATCH_CLUSTER_ID],
+    };
+  }
+
+  return {
+    expandFilter: [
+      "all",
+      ["has", "point_count"],
+      ["!=", ["get", "cluster_id"], spiderfiedClusterId],
+    ],
+    collapseFilter: [
+      "all",
+      ["has", "point_count"],
+      ["==", ["get", "cluster_id"], spiderfiedClusterId],
+    ],
+  };
 };
 
 /**
@@ -159,7 +220,15 @@ const computeSpiderLegOffsets = (
   return offsets.slice(0, count);
 };
 
+const CLUSTERED_SOURCE_IDS = [
+  "incidents",
+  "area-of-interest-incidents",
+] as const;
+type ClusteredSourceId = (typeof CLUSTERED_SOURCE_IDS)[number];
+
 type SpiderfyState = {
+  sourceId: ClusteredSourceId;
+  clusterId: number;
   anchor: [number, number];
   legs: { feature: Feature<Point, Crash>; position: [number, number] }[];
 };
@@ -234,6 +303,8 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
   const spiderfyAt = useCallback(
     (
       map: MapboxGLMap,
+      sourceId: ClusteredSourceId,
+      clusterId: number,
       anchor: [number, number],
       leaves: Feature<Point, Crash>[],
     ) => {
@@ -246,10 +317,19 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         return { feature: leaf, position: [lng, lat] as [number, number] };
       });
 
-      setSpiderfy({ anchor, legs });
+      setSpiderfy({ sourceId, clusterId, anchor, legs });
     },
     [],
   );
+
+  // Shows a pointer cursor over anything clickable (points, clusters, and
+  // fanned-out leaves) as a lightweight hint that these respond to clicks.
+  const onMouseEnter = (event: MapMouseEvent) => {
+    event.target.getCanvas().style.cursor = "pointer";
+  };
+  const onMouseLeave = (event: MapMouseEvent) => {
+    event.target.getCanvas().style.cursor = "";
+  };
 
   const onClick = (event: MapMouseEvent) => {
     const map = event.target;
@@ -291,17 +371,29 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
     // 2. Clicked a cluster bubble
     const clusterFeature = features.find((f) => f.properties?.cluster);
     if (clusterFeature && clusterFeature.geometry.type === "Point") {
-      setSpiderfy(null);
-
-      const clusterId = clusterFeature.properties?.cluster_id;
-      const sourceId = clusterFeature.layer?.source as string | undefined;
-      const source = sourceId
-        ? (map.getSource(sourceId) as GeoJSONSource | undefined)
-        : undefined;
+      const clusterId = clusterFeature.properties?.cluster_id as number;
+      const sourceId = clusterFeature.layer?.source as
+        | ClusteredSourceId
+        | undefined;
       const clusterCenter = clusterFeature.geometry.coordinates as [
         number,
         number,
       ];
+
+      if (!sourceId) return;
+
+      // Clicking the cluster that's already fanned out collapses it —
+      // this is the toggle-off gesture, matching the "×" hint badge.
+      if (
+        spiderfy &&
+        spiderfy.sourceId === sourceId &&
+        spiderfy.clusterId === clusterId
+      ) {
+        setSpiderfy(null);
+        return;
+      }
+
+      const source = map.getSource(sourceId) as GeoJSONSource | undefined;
       const pointCount =
         (clusterFeature.properties?.point_count as number) ?? 0;
 
@@ -327,12 +419,19 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
             0,
             (leavesErr, leaves) => {
               if (leavesErr || !leaves) return;
-              spiderfyAt(map, clusterCenter, leaves as Feature<Point, Crash>[]);
+              spiderfyAt(
+                map,
+                sourceId,
+                clusterId,
+                clusterCenter,
+                leaves as Feature<Point, Crash>[],
+              );
             },
           );
           return;
         }
 
+        setSpiderfy(null);
         map.easeTo({
           center: clusterCenter,
           zoom: Math.min(expansionZoom, maxZoom),
@@ -365,12 +464,19 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
       ) as unknown as Feature<Point, Crash>[];
 
       if (uniqueNearby.length > 1) {
-        spiderfyAt(
-          map,
-          pointFeature.geometry.coordinates as [number, number],
-          uniqueNearby,
-        );
-        return;
+        const sourceId = pointFeature.layer?.source as
+          | ClusteredSourceId
+          | undefined;
+        if (sourceId) {
+          spiderfyAt(
+            map,
+            sourceId,
+            NO_MATCH_CLUSTER_ID, // not a real cluster — no toggle hint applies
+            pointFeature.geometry.coordinates as [number, number],
+            uniqueNearby,
+          );
+          return;
+        }
       }
 
       setSpiderfy(null);
@@ -449,6 +555,22 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
       }
     : null;
 
+  const incidentSpiderfiedClusterId =
+    spiderfy && spiderfy.sourceId === "incidents" ? spiderfy.clusterId : null;
+  const areaOfInterestSpiderfiedClusterId =
+    spiderfy && spiderfy.sourceId === "area-of-interest-incidents"
+      ? spiderfy.clusterId
+      : null;
+
+  const {
+    expandFilter: incidentExpandHintFilter,
+    collapseFilter: incidentCollapseHintFilter,
+  } = buildClusterHintFilters(incidentSpiderfiedClusterId);
+  const {
+    expandFilter: areaOfInterestExpandHintFilter,
+    collapseFilter: areaOfInterestCollapseHintFilter,
+  } = buildClusterHintFilters(areaOfInterestSpiderfiedClusterId);
+
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
@@ -456,6 +578,8 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         ref={mapRef}
         onMove={(evt) => setViewport(evt.viewState)}
         onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         doubleClickZoom={!isDrawingRoute}
         interactiveLayerIds={[
           "incident-layer",
@@ -501,6 +625,20 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
               layout={clusterCountLayout}
               paint={clusterCountPaint}
             />
+            <Layer
+              id="incident-cluster-expand-hint-layer"
+              type="symbol"
+              filter={incidentExpandHintFilter}
+              layout={clusterHintLayout}
+              paint={clusterHintPaint}
+            />
+            <Layer
+              id="incident-cluster-collapse-hint-layer"
+              type="symbol"
+              filter={incidentCollapseHintFilter}
+              layout={clusterCollapseHintLayout}
+              paint={clusterHintPaint}
+            />
           </Source>
         )}
 
@@ -536,6 +674,20 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
               filter={["has", "point_count"]}
               layout={clusterCountLayout}
               paint={clusterCountPaint}
+            />
+            <Layer
+              id="area-of-interest-incident-cluster-expand-hint-layer"
+              type="symbol"
+              filter={areaOfInterestExpandHintFilter}
+              layout={clusterHintLayout}
+              paint={clusterHintPaint}
+            />
+            <Layer
+              id="area-of-interest-incident-cluster-collapse-hint-layer"
+              type="symbol"
+              filter={areaOfInterestCollapseHintFilter}
+              layout={clusterCollapseHintLayout}
+              paint={clusterHintPaint}
             />
           </Source>
         )}
