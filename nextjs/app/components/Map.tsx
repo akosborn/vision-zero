@@ -15,13 +15,7 @@ import {
   Popup,
   Source,
 } from "react-map-gl/mapbox-legacy";
-import React, {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { forwardRef, useCallback, useState } from "react";
 import { Feature, FeatureCollection, GeoJSON, Point } from "geojson";
 import { Crash } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
@@ -74,17 +68,8 @@ export const DEFAULT_VIEWPORT = {
   zoom: 13,
 };
 
-const MAP_MAX_ZOOM = 22;
-const CLUSTER_MAX_ZOOM = 24; // kept above MAP_MAX_ZOOM so clustering keeps
-// splitting clusters by real screen distance
-// all the way to the map's actual ceiling
+const CLUSTER_MAX_ZOOM = 24;
 const CLUSTER_RADIUS = 50;
-
-const CLUSTERED_SOURCES = ["incidents", "area-of-interest-incidents"] as const;
-const CLUSTER_LAYER_IDS: Record<(typeof CLUSTERED_SOURCES)[number], string> = {
-  incidents: "incident-cluster-layer",
-  "area-of-interest-incidents": "area-of-interest-incident-cluster-layer",
-};
 
 // Reused so unclustered points and spiderfied ("fanned out") points look identical
 const severityCircleColorExpression: ExpressionSpecification = [
@@ -129,7 +114,7 @@ const clusterCountLayout: SymbolLayerSpecification["layout"] = {
   "text-size": 12,
 };
 
-const clusterCountPaint: SymbolLayerSpecification["paint"] = {
+const clusterCountPaint = {
   "text-color": "#ffffff",
 };
 
@@ -174,36 +159,10 @@ const computeSpiderLegOffsets = (
   return offsets.slice(0, count);
 };
 
-type SpiderfyGroup = {
-  key: string; // `${sourceId}:${clusterId}`
-  sourceId: (typeof CLUSTERED_SOURCES)[number];
-  clusterId: number;
+type SpiderfyState = {
   anchor: [number, number];
   legs: { feature: Feature<Point, Crash>; position: [number, number] }[];
 };
-
-const getClusterExpansionZoomAsync = (
-  source: GeoJSONSource,
-  clusterId: number,
-): Promise<number | null> =>
-  new Promise((resolve) => {
-    source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-      if (err) resolve(null);
-      else resolve(zoom ?? null);
-    });
-  });
-
-const getClusterLeavesAsync = (
-  source: GeoJSONSource,
-  clusterId: number,
-  limit: number,
-): Promise<Feature<Point, Crash>[]> =>
-  new Promise((resolve) => {
-    source.getClusterLeaves(clusterId, limit, 0, (err, leaves) => {
-      if (err || !leaves) resolve([]);
-      else resolve(leaves as Feature<Point, Crash>[]);
-    });
-  });
 
 type Props = {
   filters: Filters;
@@ -251,109 +210,46 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
   },
   mapRef,
 ) {
-  const [spiderfyGroups, setSpiderfyGroups] = useState<SpiderfyGroup[]>([]);
-  const mapInstanceRef = useRef<MapboxGLMap | null>(null);
-  const refreshTokenRef = useRef(0);
+  const [spiderfy, setSpiderfy] = useState<SpiderfyState | null>(null);
 
-  // Recomputes which currently-rendered clusters can't be zoomed in on any
-  // further (already at the map's max zoom, or points genuinely stacked at
-  // the same coordinates) and fans those out automatically. Any cluster that
-  // *can* still expand is left as a normal cluster bubble.
-  const refreshSpiderfy = useCallback(async () => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+  // Track the geojson currently reflected in `spiderfy`, so that if the
+  // underlying data changes (new filters, refetch, etc.) we can collapse any
+  // fanned-out points during render rather than in an effect.
+  const [spiderfySourceIncidentGeoJson, setSpiderfySourceIncidentGeoJson] =
+    useState(incidentGeoJson);
+  const [
+    spiderfySourceAreaOfInterestGeoJson,
+    setSpiderfySourceAreaOfInterestGeoJson,
+  ] = useState(areaOfInterestIncidentGeoJson);
 
-    const token = ++refreshTokenRef.current;
-    const currentZoom = map.getZoom();
-    const maxZoom = map.getMaxZoom();
+  if (
+    incidentGeoJson !== spiderfySourceIncidentGeoJson ||
+    areaOfInterestIncidentGeoJson !== spiderfySourceAreaOfInterestGeoJson
+  ) {
+    setSpiderfySourceIncidentGeoJson(incidentGeoJson);
+    setSpiderfySourceAreaOfInterestGeoJson(areaOfInterestIncidentGeoJson);
+    setSpiderfy(null);
+  }
 
-    const groups: SpiderfyGroup[] = [];
+  const spiderfyAt = useCallback(
+    (
+      map: MapboxGLMap,
+      anchor: [number, number],
+      leaves: Feature<Point, Crash>[],
+    ) => {
+      const centerPx = map.project(anchor);
+      const offsets = computeSpiderLegOffsets(leaves.length);
 
-    for (const sourceId of CLUSTERED_SOURCES) {
-      const layerId = CLUSTER_LAYER_IDS[sourceId];
-      if (!map.getLayer(layerId)) continue;
-
-      const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-      if (!source) continue;
-
-      const rendered = map.queryRenderedFeatures({
-        layers: [layerId],
+      const legs = leaves.map((leaf, i) => {
+        const { dx, dy } = offsets[i];
+        const { lng, lat } = map.unproject([centerPx.x + dx, centerPx.y + dy]);
+        return { feature: leaf, position: [lng, lat] as [number, number] };
       });
 
-      const seenClusterIds = new Set<number>();
-      const uniqueClusters = rendered.filter((f) => {
-        const clusterId = f.properties?.cluster_id;
-        if (clusterId == null || seenClusterIds.has(clusterId)) return false;
-        seenClusterIds.add(clusterId);
-        return true;
-      });
-
-      await Promise.all(
-        uniqueClusters.map(async (clusterFeature) => {
-          if (clusterFeature.geometry.type !== "Point") return;
-
-          const clusterId = clusterFeature.properties?.cluster_id as number;
-          const pointCount =
-            (clusterFeature.properties?.point_count as number) ?? 0;
-          const anchor = clusterFeature.geometry.coordinates as [
-            number,
-            number,
-          ];
-
-          const expansionZoom = await getClusterExpansionZoomAsync(
-            source,
-            clusterId,
-          );
-
-          const cannotZoomFurther =
-            expansionZoom == null ||
-            expansionZoom > maxZoom ||
-            expansionZoom <= currentZoom + 0.1;
-
-          if (!cannotZoomFurther) return;
-
-          const leaves = await getClusterLeavesAsync(
-            source,
-            clusterId,
-            Math.min(pointCount, 60),
-          );
-          if (leaves.length === 0) return;
-
-          const centerPx = map.project(anchor);
-          const offsets = computeSpiderLegOffsets(leaves.length);
-          const legs = leaves.map((leaf, i) => {
-            const { dx, dy } = offsets[i];
-            const { lng, lat } = map.unproject([
-              centerPx.x + dx,
-              centerPx.y + dy,
-            ]);
-            return { feature: leaf, position: [lng, lat] as [number, number] };
-          });
-
-          groups.push({
-            key: `${sourceId}:${clusterId}`,
-            sourceId,
-            clusterId,
-            anchor,
-            legs,
-          });
-        }),
-      );
-    }
-
-    // If a newer refresh started while this one was in flight, drop this
-    // (now-stale) result rather than clobbering a more recent computation.
-    if (token !== refreshTokenRef.current) return;
-    setSpiderfyGroups(groups);
-  }, []);
-
-  // Recompute whenever the underlying data changes (new filters, refetch,
-  // etc.) — this is legitimately syncing derived state with an external
-  // system (the map's clustering engine), not a plain prop→state mirror.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refreshSpiderfy();
-  }, [incidentGeoJson, areaOfInterestIncidentGeoJson, refreshSpiderfy]);
+      setSpiderfy({ anchor, legs });
+    },
+    [],
+  );
 
   const onClick = (event: MapMouseEvent) => {
     const map = event.target;
@@ -366,6 +262,7 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
     if (isDrawingRoute) {
       const { lng, lat } = event.lngLat;
       onCrashSelect(null);
+      setSpiderfy(null);
       onAddDrawnRouteVertex([lng, lat]);
       return;
     }
@@ -387,15 +284,15 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         properties: spiderfyLeafFeature.properties as Crash,
       });
       setFilters((prevState) => ({ ...prevState, droppedPin: undefined }));
+      setSpiderfy(null);
       return;
     }
 
-    // 2. Clicked a cluster bubble that can still be zoomed into further —
-    //    clusters that can't expand any further are already auto-fanned by
-    //    refreshSpiderfy, so clicking one of those hits a spiderfy leaf
-    //    instead (case 1 above), not this branch.
+    // 2. Clicked a cluster bubble
     const clusterFeature = features.find((f) => f.properties?.cluster);
     if (clusterFeature && clusterFeature.geometry.type === "Point") {
+      setSpiderfy(null);
+
       const clusterId = clusterFeature.properties?.cluster_id;
       const sourceId = clusterFeature.layer?.source as string | undefined;
       const source = sourceId
@@ -405,27 +302,78 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         number,
         number,
       ];
+      const pointCount =
+        (clusterFeature.properties?.point_count as number) ?? 0;
 
       if (!source) return;
 
       source.getClusterExpansionZoom(clusterId, (err, expansionZoom) => {
-        if (err || expansionZoom == null) return;
+        if (err) return;
+        const currentZoom = map.getZoom();
+        const maxZoom = map.getMaxZoom();
+
+        const cannotZoomFurther =
+          expansionZoom == null ||
+          expansionZoom > maxZoom ||
+          expansionZoom <= currentZoom + 0.1;
+
+        if (cannotZoomFurther) {
+          // Zooming in further wouldn't break this cluster apart any more
+          // (we're already at the map's max zoom, or the points are stacked at
+          // literally the same coordinates) — fan them out instead.
+          source.getClusterLeaves(
+            clusterId,
+            Math.min(pointCount, 60),
+            0,
+            (leavesErr, leaves) => {
+              if (leavesErr || !leaves) return;
+              spiderfyAt(map, clusterCenter, leaves as Feature<Point, Crash>[]);
+            },
+          );
+          return;
+        }
+
         map.easeTo({
           center: clusterCenter,
-          zoom: Math.min(expansionZoom, map.getMaxZoom()),
+          zoom: Math.min(expansionZoom, maxZoom),
           duration: 400,
         });
       });
       return;
     }
 
-    // 3. Clicked a genuinely unclustered single point
+    // 3. Clicked what looks like a single point — check whether other points
+    //    are stacked at essentially the same spot, and fan them out if so.
     const pointFeature = features.find(
       (f) =>
         f.geometry.type === "Point" && f.properties && !f.properties.cluster,
     );
 
     if (pointFeature && pointFeature.geometry.type === "Point") {
+      const nearby = map.queryRenderedFeatures(
+        [
+          [event.point.x - 10, event.point.y - 10],
+          [event.point.x + 10, event.point.y + 10],
+        ],
+        { layers: ["incident-layer", "area-of-interest-incident-layer"] },
+      ) as unknown as Feature<Point, Crash>[];
+
+      const uniqueNearby = Array.from(
+        new Map(
+          nearby.map((f) => [f.id ?? JSON.stringify(f.geometry), f]),
+        ).values(),
+      ) as unknown as Feature<Point, Crash>[];
+
+      if (uniqueNearby.length > 1) {
+        spiderfyAt(
+          map,
+          pointFeature.geometry.coordinates as [number, number],
+          uniqueNearby,
+        );
+        return;
+      }
+
+      setSpiderfy(null);
       onCrashSelect({
         type: "Feature",
         id: pointFeature.id,
@@ -437,6 +385,8 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
     }
 
     // 4. Clicked empty map
+    setSpiderfy(null);
+
     if (filters.searchTool === "Draw Route") {
       return;
     }
@@ -472,54 +422,39 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
       )
     : null;
 
-  const spiderfyLegsGeoJSON: FeatureCollection | null =
-    spiderfyGroups.length > 0
-      ? {
-          type: "FeatureCollection",
-          features: spiderfyGroups.flatMap((group) =>
-            group.legs.map(({ feature, position }, i) => ({
-              type: "Feature" as const,
-              id: feature.id ?? `${group.key}:${i}`,
-              geometry: { type: "Point" as const, coordinates: position },
-              properties: feature.properties,
-            })),
-          ),
-        }
-      : null;
+  const spiderfyLegsGeoJSON: FeatureCollection | null = spiderfy
+    ? {
+        type: "FeatureCollection",
+        features: spiderfy.legs.map(({ feature, position }, i) => ({
+          type: "Feature",
+          id: feature.id ?? i,
+          geometry: { type: "Point", coordinates: position },
+          properties: feature.properties,
+        })),
+      }
+    : null;
 
-  const spiderfyLinesGeoJSON: FeatureCollection | null =
-    spiderfyGroups.length > 0
-      ? {
-          type: "FeatureCollection",
-          features: spiderfyGroups.flatMap((group) =>
-            group.legs.map(({ position }, i) => ({
-              type: "Feature" as const,
-              id: `${group.key}:line:${i}`,
-              geometry: {
-                type: "LineString" as const,
-                coordinates: [group.anchor, position],
-              },
-              properties: {},
-            })),
-          ),
-        }
-      : null;
+  const spiderfyLinesGeoJSON: FeatureCollection | null = spiderfy
+    ? {
+        type: "FeatureCollection",
+        features: spiderfy.legs.map(({ position }, i) => ({
+          type: "Feature",
+          id: i,
+          geometry: {
+            type: "LineString",
+            coordinates: [spiderfy.anchor, position],
+          },
+          properties: {},
+        })),
+      }
+    : null;
 
   return (
     <div className="h-full w-full" style={{ height: "100vh", width: "100vw" }}>
       <ReactMap
         {...viewport}
         ref={mapRef}
-        maxZoom={MAP_MAX_ZOOM}
         onMove={(evt) => setViewport(evt.viewState)}
-        onLoad={(evt) => {
-          mapInstanceRef.current = evt.target;
-          refreshSpiderfy();
-        }}
-        onMoveEnd={(evt) => {
-          mapInstanceRef.current = evt.target;
-          refreshSpiderfy();
-        }}
         onClick={onClick}
         doubleClickZoom={!isDrawingRoute}
         interactiveLayerIds={[
@@ -531,6 +466,7 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         ]}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_TOKEN}
         mapStyle="mapbox://styles/mapbox/streets-v9"
+        maxZoom={22}
       >
         {incidentGeoJson && (
           <Source
