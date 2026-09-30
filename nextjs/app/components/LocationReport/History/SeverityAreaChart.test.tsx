@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AnnualCrashSummary } from "@/app/lib/api-client";
+import type { AreaCrashSummary } from "@/app/lib/api-client";
 
 import SeverityAreaChart from "./SeverityAreaChart";
 
@@ -60,7 +60,7 @@ vi.mock("@recharts/devtools", () => ({
   RechartsDevtools: () => null,
 }));
 
-const summary = (year: number): AnnualCrashSummary => ({
+const summary = (year: number): AreaCrashSummary => ({
   year,
   crashes: 10,
   fatalities: 1,

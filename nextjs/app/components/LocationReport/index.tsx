@@ -22,7 +22,7 @@ import {
   generateLocationReport,
   KABCO_SEVERITY_LEVEL,
 } from "@/app/components/LocationReport/utils/location-report";
-import { AnnualCrashSummary, Crash } from "@/app/lib/api-client";
+import { AreaCrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
 import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
 import { downloadCrashCsv } from "@/app/components/LocationReport/utils/crash-csv";
@@ -36,7 +36,7 @@ type Props = {
     React.SetStateAction<{ latitude: number; longitude: number; zoom: number }>
   >;
   zoomToLayer: (geojson: FeatureCollection) => void;
-  crashSummaryHistory: AnnualCrashSummary[] | null;
+  crashSummaryHistory: AreaCrashSummary["annualSummary"] | null;
   historyAvailable: boolean;
   selectedDateRange?: { from?: string; to?: string };
   crashListFilters: CrashListFilters;

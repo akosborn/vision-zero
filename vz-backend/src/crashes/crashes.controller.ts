@@ -1,4 +1,10 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+} from '@nestjs/common';
 import { FeatureCollection, GeoJsonProperties, Point } from 'geojson';
 import { CrashesService, CrashSummary } from './crashes.service';
 import { ZodValidationPipe } from '../pipes/zod-validation-pipe';
@@ -15,15 +21,17 @@ import {
 })
 export class CrashesController {
   constructor(private readonly crashesService: CrashesService) {}
-
-  // POST since routes are GeoJSON, which is too large for a query string
   @Post('search')
   @HttpCode(200)
-  async listCrashes(
+  async searchCrashes(
     @Body(new ZodValidationPipe(listCrashesSchema))
     body: ListCrashesParams,
   ): Promise<FeatureCollection<Point, GeoJsonProperties>> {
     const { area, ...dateRange } = body;
+
+    if (!dateRange.startDate && !dateRange.endDate) {
+      throw new BadRequestException('At least one date range must be provided');
+    }
 
     if (!area) {
       return this.crashesService.getCrashes(dateRange);
@@ -47,15 +55,17 @@ export class CrashesController {
     @Body(new ZodValidationPipe(crashSummarySchema))
     body: CrashSummaryParams,
   ): Promise<CrashSummary> {
-    const { area } = body;
+    const { area, startDate, endDate } = body;
+
+    const dateRange = { startDate, endDate };
 
     switch (area.type) {
       case 'radius':
-        return this.crashesService.getSummaryWithinRadius(area);
+        return this.crashesService.getSummaryWithinRadius(area, dateRange);
       case 'street':
-        return this.crashesService.getSummaryAlongStreet(area);
+        return this.crashesService.getSummaryAlongStreet(area, dateRange);
       case 'route':
-        return this.crashesService.getSummaryAlongRoute(area);
+        return this.crashesService.getSummaryAlongRoute(area, dateRange);
     }
   }
 }

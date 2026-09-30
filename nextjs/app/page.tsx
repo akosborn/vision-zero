@@ -26,17 +26,13 @@ import {
 } from "@/app/components/LocationReport/CrashList";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
-  AnnualCrashSummary,
+  AreaCrashSummary,
   Crash,
-  getAnnualCrashHistory,
-  getAnnualRadiusCrashHistory,
-  getAnnualRouteCrashHistory,
+  getAreaCrashSummary,
   getBufferedStreetCenterlines,
-  getIncidents,
-  getIncidentsWithinBufferedRoute,
-  getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
+  searchCrashes,
   Street,
 } from "@/app/lib/api-client";
 import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
@@ -44,8 +40,8 @@ import {
   createFinalRoute,
   createRoutePreview,
   INITIAL_ROUTE_DRAWING_STATE,
-  routeDrawingReducer,
   isValidRouteLine,
+  routeDrawingReducer,
 } from "@/app/lib/route-drawing";
 import { prepareRouteSearch } from "@/app/lib/route-search";
 import {
@@ -124,8 +120,8 @@ function HomeContent() {
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
-  const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<
-    AnnualCrashSummary[] | null
+  const [areaAnnualCrashSummary, setAreaAnnualCrashSummary] = React.useState<
+    AreaCrashSummary["annualSummary"] | null
   >(null);
 
   const [activeCrashResults, setActiveCrashResults] =
@@ -140,7 +136,7 @@ function HomeContent() {
   const clearCrashResults = React.useCallback(() => {
     setIncidentGeoJson(null);
     setAreaOfInterestIncidentGeoJson(null);
-    setCrashSummaryHistory(null);
+    setAreaAnnualCrashSummary(null);
     setActiveCrashResults(null);
     setSelectedCrashFeature(null);
     setSelectedCrashCalloutIsOpen(false);
@@ -272,18 +268,24 @@ function HomeContent() {
 
       try {
         if (query.tool === "radius") {
-          const [crashes, history] = await Promise.all([
-            getIncidents({
+          const [crashes, areaCrashSummary] = await Promise.all([
+            searchCrashes({
               startDate: query.dateRange.from,
               endDate: query.dateRange.to,
-              lat: query.center.lat,
-              lng: query.center.lng,
-              radiusInFeet: query.radiusFeet,
+              area: {
+                type: "radius",
+                lat: query.center.lat,
+                lng: query.center.lng,
+                radiusInFeet: query.radiusFeet,
+              },
             }),
-            getAnnualRadiusCrashHistory({
-              lat: query.center.lat,
-              lng: query.center.lng,
-              radiusInFeet: query.radiusFeet,
+            getAreaCrashSummary({
+              area: {
+                type: "radius",
+                lat: query.center.lat,
+                lng: query.center.lng,
+                radiusInFeet: query.radiusFeet,
+              },
             }),
           ]);
 
@@ -293,7 +295,7 @@ function HomeContent() {
           setBufferedStreet(null);
           setRouteGeometry(null);
           setRouteSearchArea(null);
-          setCrashSummaryHistory(history);
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
           setActiveCrashResults({ query, features: crashes.features });
           zoomToLayer(crashes);
         } else if (query.tool === "street") {
@@ -301,7 +303,7 @@ function HomeContent() {
             fullName: query.street,
             crossStreets: query.crossStreets,
           };
-          const [centerlines, buffer, incidentsInBuffer, history] =
+          const [centerlines, buffer, incidentsInBuffer, areaCrashSummary] =
             await Promise.all([
               getStreetCenterlines(streetSegment),
               getBufferedStreetCenterlines({
@@ -309,17 +311,37 @@ function HomeContent() {
                 fullName: query.street,
                 bufferInFeet: query.bufferFeet,
               }),
-              getIncidentsWithinBufferedStreet({
-                ...streetSegment,
-                fullStreetName: query.street,
-                bufferInFeet: query.bufferFeet,
+              searchCrashes({
                 startDate: query.dateRange.from,
                 endDate: query.dateRange.to,
+                area: {
+                  type: "street",
+                  fullStreetName: query.street,
+                  crossStreets:
+                    streetSegment.crossStreets?.from &&
+                    streetSegment.crossStreets?.to
+                      ? [
+                          streetSegment.crossStreets?.from,
+                          streetSegment.crossStreets?.to,
+                        ]
+                      : undefined,
+                  bufferInFeet: query.bufferFeet,
+                },
               }),
-              getAnnualCrashHistory({
-                ...streetSegment,
-                fullStreetName: query.street,
-                bufferInFeet: query.bufferFeet,
+              getAreaCrashSummary({
+                area: {
+                  type: "street",
+                  fullStreetName: query.street,
+                  crossStreets:
+                    streetSegment.crossStreets?.from &&
+                    streetSegment.crossStreets?.to
+                      ? [
+                          streetSegment.crossStreets?.from,
+                          streetSegment.crossStreets?.to,
+                        ]
+                      : undefined,
+                  bufferInFeet: query.bufferFeet,
+                },
               }),
             ]);
 
@@ -329,7 +351,7 @@ function HomeContent() {
           setBufferedStreet(buffer);
           setRouteGeometry(null);
           setRouteSearchArea(null);
-          setCrashSummaryHistory(history);
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
@@ -345,11 +367,20 @@ function HomeContent() {
             throw new Error("Invalid drawn route");
           }
 
-          const [incidentsInBuffer, history] = await Promise.all([
-            getIncidentsWithinBufferedRoute(preparedSearch.request),
-            getAnnualRouteCrashHistory({
-              route: preparedSearch.route,
-              bufferInFeet: preparedSearch.request.bufferInFeet,
+          const { startDate, endDate, bufferInFeet, route } =
+            preparedSearch.request;
+          const [incidentsInBuffer, areaCrashSummary] = await Promise.all([
+            searchCrashes({
+              startDate,
+              endDate,
+              area: { type: "route", bufferInFeet, route },
+            }),
+            getAreaCrashSummary({
+              area: {
+                type: "route",
+                route: preparedSearch.route,
+                bufferInFeet: preparedSearch.request.bufferInFeet,
+              },
             }),
           ]);
 
@@ -359,7 +390,7 @@ function HomeContent() {
           setBufferedStreet(null);
           setRouteGeometry(preparedSearch.route);
           setRouteSearchArea(preparedSearch.searchArea);
-          setCrashSummaryHistory(history);
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
@@ -554,11 +585,20 @@ function HomeContent() {
     closeMobileFilters();
     openLocationReport();
     try {
-      const [incidentsInBuffer, history] = await Promise.all([
-        getIncidentsWithinBufferedRoute(preparedSearch.request),
-        getAnnualRouteCrashHistory({
-          route: preparedSearch.route,
-          bufferInFeet: preparedSearch.request.bufferInFeet,
+      const { startDate, endDate, bufferInFeet, route } =
+        preparedSearch.request;
+      const [incidentsInBuffer, areaCrashSummary] = await Promise.all([
+        searchCrashes({
+          startDate,
+          endDate,
+          area: { type: "route", bufferInFeet, route },
+        }),
+        getAreaCrashSummary({
+          area: {
+            type: "route",
+            bufferInFeet,
+            route,
+          },
         }),
       ]);
       setIncidentGeoJson(null);
@@ -567,7 +607,7 @@ function HomeContent() {
       setBufferedStreet(null);
       setRouteGeometry(preparedSearch.route);
       setRouteSearchArea(preparedSearch.searchArea);
-      setCrashSummaryHistory(history);
+      setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
       setActiveCrashResults({
         query: null,
         uploadDateRange: range,
@@ -874,13 +914,13 @@ function HomeContent() {
                     </Drawer.Header>
                     <Drawer.Body>
                       <LocationReport
-                        crashSummaryHistory={crashSummaryHistory}
+                        crashSummaryHistory={areaAnnualCrashSummary}
                         isLoading={isLoading}
                         crashFeatures={reportCrashFeatures}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
-                        historyAvailable={crashSummaryHistory !== null}
+                        historyAvailable={areaAnnualCrashSummary !== null}
                         selectedDateRange={reportDateRange}
                         crashListFilters={crashListFilters}
                         onCrashListFiltersChange={setCrashListFilters}
@@ -921,13 +961,13 @@ function HomeContent() {
                   </Flex>
                 </Flex>
                 <LocationReport
-                  crashSummaryHistory={crashSummaryHistory}
+                  crashSummaryHistory={areaAnnualCrashSummary}
                   isLoading={isLoading}
                   crashFeatures={reportCrashFeatures}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
-                  historyAvailable={crashSummaryHistory !== null}
+                  historyAvailable={areaAnnualCrashSummary !== null}
                   selectedDateRange={reportDateRange}
                   crashListFilters={crashListFilters}
                   onCrashListFiltersChange={setCrashListFilters}

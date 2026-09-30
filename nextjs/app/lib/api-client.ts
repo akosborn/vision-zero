@@ -1,4 +1,10 @@
-import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
+import {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Point,
+} from "geojson";
 import axios from "axios";
 
 const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
@@ -49,111 +55,55 @@ export const getStreets = async () => {
   return response.data;
 };
 
-/**
- * Incidents
- */
-
-export const getIncidents = async (params: {
+export const searchCrashes = async (filter: {
   startDate?: string;
   endDate?: string;
-  bbox?: string;
-  lat?: number;
-  lng?: number;
-  radiusInFeet?: number;
-}) => {
-  const response = await axios.get<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents`,
-    { params },
-  );
-  return response.data;
-};
-
-export const getIncidentsWithinBufferedStreet = async (params: {
-  fullStreetName: string;
-  crossStreets?: { from?: string; to?: string };
-  bufferInFeet: number;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const response = await axios.get<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents/buffered-street`,
-    {
-      params: {
-        fullStreetName: params.fullStreetName,
-        crossStreet1: params.crossStreets?.from,
-        crossStreet2: params.crossStreets?.to,
-        bufferInFeet: params.bufferInFeet,
-        startDate: params.startDate,
-        endDate: params.endDate,
-      },
-    },
-  );
-  return response.data;
-};
-
-export const getIncidentsWithinBufferedRoute = async (params: {
-  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
-  bufferInFeet: number;
-  startDate?: string;
-  endDate?: string;
+  area: Area;
 }) => {
   const response = await axios.post<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents/buffered-route`,
-    {
-      route: params.route,
-      bufferInFeet: params.bufferInFeet,
-      startDate: params.startDate,
-      endDate: params.endDate,
-    },
+    `/api/v1/crashes/search`,
+    { ...filter },
   );
   return response.data;
 };
 
-/**
- * Annual Summary
- */
-
-export const getAnnualCrashHistory = async (params: {
-  fullStreetName: string;
-  crossStreets?: { from?: string; to?: string };
-  bufferInFeet: number;
+export const getAreaCrashSummary = async (filter: {
+  startDate?: string;
+  endDate?: string;
+  area: Area;
 }) => {
-  const response = await axios.get<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/buffered-street/history`,
-    {
-      params: {
-        fullStreetName: params.fullStreetName,
-        crossStreet1: params.crossStreets?.from,
-        crossStreet2: params.crossStreets?.to,
-        bufferInFeet: params.bufferInFeet,
-      },
-    },
+  const response = await axios.post<AreaCrashSummary>(
+    `/api/v1/crashes/summary`,
+    { ...filter },
   );
   return response.data;
 };
 
-export const getAnnualRadiusCrashHistory = async (params: {
-  lat: number;
-  lng: number;
-  radiusInFeet: number;
-}) => {
-  const response = await axios.get<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/history`,
-    { params },
-  );
-  return response.data;
-};
-
-export const getAnnualRouteCrashHistory = async (params: {
-  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
-  bufferInFeet: number;
-}) => {
-  const response = await axios.post<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/buffered-route/history`,
-    params,
-  );
-  return response.data;
-};
+type Area =
+  | {
+      type: "bbox";
+      bbox: [number, number, number, number];
+    }
+  | {
+      type: "radius";
+      lat: number;
+      lng: number;
+      radiusInFeet: number;
+    }
+  | {
+      type: "street";
+      fullStreetName: string;
+      crossStreets?: [string, string];
+      bufferInFeet: number;
+    }
+  | {
+      type: "route";
+      route: {
+        type: "FeatureCollection";
+        features: Feature<Geometry, GeoJsonProperties>[];
+      };
+      bufferInFeet: number;
+    };
 
 export interface CrashSourceLinks {
   dotiRecordUrl?: string;
@@ -234,14 +184,16 @@ export interface Crash {
   cdot_tu_2_sex: string | null;
 }
 
-export interface AnnualCrashSummary {
-  year: number;
-  crashes: number;
-  fatalities: number;
-  seriousInjuries: number;
-  bicycleInvolvedCrashes: number;
-  pedestrianInvolvedCrashes: number;
-  maxSpeedMph: number | null;
-  crashesOverSpeedLimit: number;
-  crashesWithSpeedData: number;
+export interface AreaCrashSummary {
+  annualSummary: {
+    year: number;
+    crashes: number;
+    fatalities: number;
+    seriousInjuries: number;
+    bicycleInvolvedCrashes: number;
+    pedestrianInvolvedCrashes: number;
+    maxSpeedMph: number | null;
+    crashesOverSpeedLimit: number;
+    crashesWithSpeedData: number;
+  }[];
 }

@@ -121,6 +121,8 @@ export type DateRange = Pick<ListCrashesParams, 'startDate' | 'endDate'>;
  * Summarizes crashes within an area.
  */
 export const crashSummarySchema = z.object({
+  startDate: z.iso.date().optional(),
+  endDate: z.iso.date().optional(),
   area: z.discriminatedUnion('type', [
     radiusAreaSchema,
     streetAreaSchema,
