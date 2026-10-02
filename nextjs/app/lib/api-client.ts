@@ -184,16 +184,18 @@ export interface Crash {
   cdot_tu_2_sex: string | null;
 }
 
+export interface AnnualCrashSummary {
+  year: number;
+  crashes: number;
+  fatalities: number;
+  seriousInjuries: number;
+  bicycleInvolvedCrashes: number;
+  pedestrianInvolvedCrashes: number;
+  maxSpeedMph: number | null;
+  crashesOverSpeedLimit: number;
+  crashesWithSpeedData: number;
+}
+
 export interface AreaCrashSummary {
-  annualSummary: {
-    year: number;
-    crashes: number;
-    fatalities: number;
-    seriousInjuries: number;
-    bicycleInvolvedCrashes: number;
-    pedestrianInvolvedCrashes: number;
-    maxSpeedMph: number | null;
-    crashesOverSpeedLimit: number;
-    crashesWithSpeedData: number;
-  }[];
+  annualSummary: AnnualCrashSummary[];
 }

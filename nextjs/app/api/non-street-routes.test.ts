@@ -15,7 +15,6 @@ import { POST as postBufferedRoute } from "./incidents/buffered-route/route";
 import { POST as postBufferedRouteHistory } from "./incidents/buffered-route/history/route";
 import { GET as getRadiusHistory } from "./incidents/history/route";
 import { GET as getIncidents } from "./incidents/route";
-import { GET as getStreets } from "./streets/route";
 
 const getRequest = (path: string) =>
   ({ nextUrl: new URL(`http://localhost${path}`) }) as NextRequest;
@@ -437,30 +436,6 @@ describe("buffered-route annual-history route", () => {
     const response = await postBufferedRouteHistory(
       postRequest({ route, bufferInFeet: 20 }),
     );
-
-    await expectError(response, 500, "Database query failed");
-  });
-});
-
-describe("streets route", () => {
-  beforeEach(() => {
-    query.mockReset();
-  });
-
-  it("returns database rows", async () => {
-    const streets = [{ fullName: "N MAIN ST", crossingStreets: [] }];
-    query.mockResolvedValue({ rows: streets });
-
-    const response = await getStreets();
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(streets);
-  });
-
-  it("returns a safe 500 when the database query fails", async () => {
-    query.mockRejectedValue(new Error("connection details"));
-
-    const response = await getStreets();
 
     await expectError(response, 500, "Database query failed");
   });

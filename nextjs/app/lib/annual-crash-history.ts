@@ -1,4 +1,4 @@
-import type { AreaCrashSummary } from "@/app/lib/api-client";
+import type { AnnualCrashSummary } from "@/app/lib/api-client";
 
 export const buildAnnualCrashHistoryQuery = ({
   searchAreaCte = "",
@@ -80,7 +80,7 @@ const parseInteger = (value: unknown) =>
 
 export const mapAnnualCrashSummaryRows = (
   rows: AnnualCrashSummaryRow[],
-): AreaCrashSummary[] =>
+): AnnualCrashSummary[] =>
   rows.map((row) => ({
     year: parseInteger(row.year),
     crashes: parseInteger(row.crashes),

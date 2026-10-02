@@ -6,7 +6,9 @@
   },
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently -n next,tsc -c blue,yellow \"next dev\" \"yarn typecheck:watch\"",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch --preserveWatchOutput",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
@@ -72,6 +74,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@xmldom/xmldom": "^0.9.10",
+    "concurrently": "^10.0.5",
     "eslint": "^9",
     "eslint-config-mantine": "^4.0.3",
     "eslint-config-next": "16.1.1",

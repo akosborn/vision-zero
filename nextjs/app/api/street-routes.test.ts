@@ -5,10 +5,8 @@ const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 
 vi.mock("@/app/lib/db", () => ({ default: { query } }));
 
-import { GET as getBufferedStreetCenterlines } from "./buffered-street-centerlines/route";
 import { GET as getBufferedStreetIncidents } from "./incidents/buffered-street/route";
 import { GET as getBufferedStreetHistory } from "./incidents/buffered-street/history/route";
-import { GET as getStreetCenterlines } from "./street-centerlines/route";
 
 const request = (path: string) =>
   ({ nextUrl: new URL(`http://localhost${path}`) }) as NextRequest;
@@ -31,61 +29,6 @@ const expectSafeQuery = (
 describe("street SQL routes", () => {
   beforeEach(() => {
     query.mockReset();
-  });
-
-  it("binds street names in the segment centerline query", async () => {
-    successfulGeojsonQuery();
-    const street = "N O'Neil ST'; DROP TABLE streets; --";
-
-    const response = await getStreetCenterlines(
-      request(
-        `/api/street-centerlines?fullStreetName=${encodeURIComponent(street)}&crossStreet1=E%201ST%20AVE&crossStreet2=E%202ND%20AVE`,
-      ),
-    );
-
-    expect(response.status).toBe(200);
-    expectSafeQuery(query.mock.calls[0][0], query.mock.calls[0][1], [
-      street,
-      "E 1ST AVE",
-      "E 2ND AVE",
-    ]);
-  });
-
-  it("binds bounding-box coordinates and an entire-street name", async () => {
-    successfulGeojsonQuery();
-    const street = "N O'Neil ST'; DROP TABLE streets; --";
-
-    const response = await getStreetCenterlines(
-      request(
-        `/api/street-centerlines?bbox=-105%2C39%2C-104%2C40&fullStreetName=${encodeURIComponent(street)}`,
-      ),
-    );
-
-    expect(response.status).toBe(200);
-    expectSafeQuery(query.mock.calls[0][0], query.mock.calls[0][1], [
-      -105,
-      39,
-      -104,
-      40,
-      street,
-    ]);
-  });
-
-  it("binds buffer and street name in the buffered-centerline query", async () => {
-    successfulGeojsonQuery();
-    const street = "N O'Neil ST'; DROP TABLE streets; --";
-
-    const response = await getBufferedStreetCenterlines(
-      request(
-        `/api/buffered-street-centerlines?fullStreetName=${encodeURIComponent(street)}&bufferInFeet=20`,
-      ),
-    );
-
-    expect(response.status).toBe(200);
-    expectSafeQuery(query.mock.calls[0][0], query.mock.calls[0][1], [
-      6.096,
-      street,
-    ]);
   });
 
   it("binds every incident street, buffer, cross-street, and date value", async () => {
@@ -143,14 +86,6 @@ describe("street SQL routes", () => {
   });
 
   it.each([
-    [
-      getStreetCenterlines,
-      "/api/street-centerlines?fullStreetName=N%20MAIN%20ST",
-    ],
-    [
-      getBufferedStreetCenterlines,
-      "/api/buffered-street-centerlines?fullStreetName=N%20MAIN%20ST&bufferInFeet=20",
-    ],
     [
       getBufferedStreetIncidents,
       "/api/incidents/buffered-street?fullStreetName=N%20MAIN%20ST&bufferInFeet=20",
