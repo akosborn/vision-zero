@@ -197,7 +197,7 @@ export class CrashesService {
           and doti.first_occurrence_date =
             (cdot.crash_date + cdot.crash_time) at time zone 'UTC' at time zone 'America/Denver'
           and cdot.suspected_duplicate = false
-      where ${dateClause} ${dateClause && spatialCondition ? Prisma.sql` AND ` : Prisma.empty} ${spatialCondition}
+      where ${dateClause} ${!!dateClause.sql.trim() && !!spatialCondition.sql.trim() ? Prisma.sql`AND` : Prisma.empty} ${spatialCondition}
       group by date_part('year', doti.first_occurrence_date)::int
       order by date_part('year', doti.first_occurrence_date)::int
     `;
