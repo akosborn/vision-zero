@@ -7,7 +7,7 @@ import {
 } from "geojson";
 import axios from "axios";
 
-const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
+const API_PATH_BASE = "/api/v1";
 
 export type Street = {
   fullName: string;
@@ -19,7 +19,7 @@ export const getStreetCenterlines = async (params: {
   crossStreets?: { from?: string; to?: string };
 }) => {
   const response = await axios.get<FeatureCollection>(
-    `/api/v1/streets/centerline`,
+    `${API_PATH_BASE}/streets/centerline`,
     {
       params: {
         fullStreetName: params.fullName,
@@ -37,7 +37,7 @@ export const getBufferedStreetCenterlines = async (params: {
   bufferInFeet: number;
 }) => {
   const response = await axios.get<FeatureCollection>(
-    `/api/v1/streets/buffered`,
+    `${API_PATH_BASE}/streets/buffered`,
     {
       params: {
         fullStreetName: params.fullName,
@@ -51,7 +51,7 @@ export const getBufferedStreetCenterlines = async (params: {
 };
 
 export const getStreets = async () => {
-  const response = await axios.get<Street[]>(`/api/v1/streets`);
+  const response = await axios.get<Street[]>(`${API_PATH_BASE}/streets`);
   return response.data;
 };
 
@@ -61,7 +61,7 @@ export const searchCrashes = async (filter: {
   area: Area;
 }) => {
   const response = await axios.post<FeatureCollection<Point, Crash>>(
-    `/api/v1/crashes/search`,
+    `${API_PATH_BASE}/crashes/search`,
     { ...filter },
   );
   return response.data;
@@ -73,7 +73,7 @@ export const getAreaCrashSummary = async (filter: {
   area: Area;
 }) => {
   const response = await axios.post<AreaCrashSummary>(
-    `/api/v1/crashes/summary`,
+    `${API_PATH_BASE}/crashes/summary`,
     { ...filter },
   );
   return response.data;
