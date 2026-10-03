@@ -75,7 +75,7 @@ const years = () =>
   (chartHarness.data as { year: number }[]).map(({ year }) => year);
 
 const HIGHLIGHT_TEXT =
-  /blue highlighting marks where the selected report period overlaps the filtered history/;
+  /blue highlighting marks where the selected report period overlaps the filtered data/;
 
 describe("SeverityBarChart", () => {
   beforeEach(() => {
@@ -100,21 +100,25 @@ describe("SeverityBarChart", () => {
     ).toEqual([
       {
         dataKey: "No Injury, Property Damage (O)",
-        stackId: "kabco",
+        stackId: "annual",
         fill: "#9ca3af",
       },
-      { dataKey: "Complaint of Injury (C)", stackId: "kabco", fill: "#14b8a6" },
+      {
+        dataKey: "Complaint of Injury (C)",
+        stackId: "annual",
+        fill: "#14b8a6",
+      },
       {
         dataKey: "Non-Incapacitating Injury (B)",
-        stackId: "kabco",
+        stackId: "annual",
         fill: "#8b5cf6",
       },
       {
         dataKey: "Incapacitating Injury (A)",
-        stackId: "kabco",
+        stackId: "annual",
         fill: "#eab308",
       },
-      { dataKey: "Fatal (K)", stackId: "kabco", fill: "#ef4444" },
+      { dataKey: "Fatal (K)", stackId: "annual", fill: "#ef4444" },
     ]);
     expect(chartHarness.data).toEqual([
       {

@@ -35,6 +35,14 @@ vi.mock("./utils/crash-csv", () => ({
   downloadCrashCsv: vi.fn(),
 }));
 
+vi.mock("./History/SeverityBarChart", () => ({
+  default: () => <div>Severity chart</div>,
+}));
+
+vi.mock("./History/ModeBarChart", () => ({
+  default: () => <div>Mode chart</div>,
+}));
+
 const crashFeature: Feature<Point, Crash> = {
   type: "Feature",
   geometry: { type: "Point", coordinates: [-104.9903, 39.7392] },
@@ -141,5 +149,50 @@ describe("LocationReport history availability", () => {
 
     expect(screen.getByRole("radio", { name: "Summary" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "History" })).toBeDisabled();
+  });
+});
+
+describe("LocationReport history charts", () => {
+  it("switches between the injury severity and road user charts", async () => {
+    const user = userEvent.setup();
+    render(
+      <MantineProvider env="test">
+        <LocationReport
+          isLoading={false}
+          crashFeatures={[]}
+          summary={EMPTY_AREA_CRASH_SUMMARY}
+          setViewport={vi.fn()}
+          zoomToLayer={vi.fn()}
+          crashSummaryHistory={[
+            {
+              year: 2024,
+              count: 1,
+              kabcoSeverity: { K: 0, A: 0, B: 0, C: 0, O: 1 },
+              mode: { bicycle: 1, pedestrian: 0 },
+              maxSpeedMph: null,
+              crashesOverSpeedLimit: 0,
+              crashesWithSpeedData: 0,
+            },
+          ]}
+          historyAvailable
+          crashListFilters={DEFAULT_CRASH_LIST_FILTERS}
+          onCrashListFiltersChange={vi.fn()}
+          selectedCrashFeature={null}
+          onCrashSelect={vi.fn()}
+        />
+      </MantineProvider>,
+    );
+
+    await user.click(screen.getByText("History"));
+    expect(screen.getByText("Severity chart")).toBeInTheDocument();
+    expect(screen.queryByText("Mode chart")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("textbox", { name: "Chart" }));
+    await user.click(
+      screen.getByRole("option", { name: "Bicyclists and pedestrians" }),
+    );
+
+    expect(screen.getByText("Mode chart")).toBeInTheDocument();
+    expect(screen.queryByText("Severity chart")).not.toBeInTheDocument();
   });
 });
