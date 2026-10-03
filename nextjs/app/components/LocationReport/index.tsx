@@ -24,7 +24,7 @@ import {
 } from "@/app/components/LocationReport/utils/area-crash-summary";
 import { CrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
-import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
+import SeverityBarChart from "@/app/components/LocationReport/History/SeverityBarChart";
 import { downloadCrashCsv } from "@/app/components/LocationReport/utils/crash-csv";
 import type { SearchTool } from "@/app/page";
 
@@ -191,7 +191,7 @@ const LocationReport: React.FC<Props> = ({
             <>
               <Container w="100%" h="100%" px={0}>
                 {crashSummaryHistory && crashSummaryHistory.length > 0 && (
-                  <BarChart
+                  <SeverityBarChart
                     summaries={crashSummaryHistory}
                     selectedDateRange={selectedDateRange}
                   />
