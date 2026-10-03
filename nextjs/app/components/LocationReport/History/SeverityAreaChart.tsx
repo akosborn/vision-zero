@@ -1,6 +1,6 @@
 import { Area, AreaChart, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { RechartsDevtools } from "@recharts/devtools";
-import { AreaCrashSummary } from "@/app/lib/api-client";
+import { CrashSummary } from "@/app/lib/api-client";
 import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
 import { Text } from "@mantine/core";
 import { useId } from "react";
@@ -35,7 +35,7 @@ const StackedAreaChart = ({
   summaries,
   selectedDateRange,
 }: {
-  summaries: AreaCrashSummary["annualSummary"];
+  summaries: CrashSummary["annualSummary"];
   selectedDateRange?: { from?: string; to?: string };
 }) => {
   const gradientIdPrefix = `selected-period-${useId().replaceAll(":", "")}`;

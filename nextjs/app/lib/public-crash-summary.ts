@@ -1,7 +1,4 @@
-import type { Feature, Point } from "geojson";
-
-import { generateLocationReport } from "@/app/components/LocationReport/utils/location-report";
-import type { Crash } from "@/app/lib/api-client";
+import type { AreaCrashSummary } from "@/app/components/LocationReport/utils/area-crash-summary";
 
 export const CRASH_SUMMARY_SCHEMA_VERSION = 1 as const;
 
@@ -29,10 +26,8 @@ export type PublicCrashSummary = {
 };
 
 export const buildPublicCrashSummary = (
-  features: Feature<Point, Crash>[],
+  report: AreaCrashSummary,
 ): PublicCrashSummary => {
-  const report = generateLocationReport(features);
-
   return {
     crashes: report.crashes,
     crashesByHighestSeverity: {

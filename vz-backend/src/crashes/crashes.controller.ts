@@ -7,10 +7,17 @@ import {
 } from '@nestjs/common';
 import { FeatureCollection, GeoJsonProperties, Point } from 'geojson';
 import { CrashesService, CrashSummary } from './crashes.service';
+import {
+  AreaCrashSummary,
+  generateAreaCrashSummary,
+  summarizeCrash,
+  SummarizableCrash,
+} from './area-crash-summary';
 import { ZodValidationPipe } from '../pipes/zod-validation-pipe';
 import {
   CrashSummaryParams,
   crashSummarySchema,
+  DateRange,
   ListCrashesParams,
   listCrashesSchema,
 } from './input-schemas';
@@ -26,27 +33,28 @@ export class CrashesController {
   async searchCrashes(
     @Body(new ZodValidationPipe(listCrashesSchema))
     body: ListCrashesParams,
-  ): Promise<FeatureCollection<Point, GeoJsonProperties>> {
+  ): Promise<CrashSearchResult> {
     const { area, ...dateRange } = body;
 
     if (!dateRange.startDate && !dateRange.endDate) {
       throw new BadRequestException('At least one date range must be provided');
     }
 
-    if (!area) {
-      return this.crashesService.getCrashes(dateRange);
-    }
+    const crashes = await this.findCrashes(area, dateRange);
+    const features = crashes.features.map((feature) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        summary: summarizeCrash(feature.properties as SummarizableCrash),
+      },
+    }));
 
-    switch (area.type) {
-      case 'bbox':
-        return this.crashesService.getCrashesInBoundingBox(area, dateRange);
-      case 'radius':
-        return this.crashesService.getCrashesWithinRadius(area, dateRange);
-      case 'street':
-        return this.crashesService.getCrashesAlongStreet(area, dateRange);
-      case 'route':
-        return this.crashesService.getCrashesAlongRoute(area, dateRange);
-    }
+    return {
+      crashes: { ...crashes, features },
+      summary: generateAreaCrashSummary(
+        features.map((feature) => feature.properties.summary),
+      ),
+    };
   }
 
   @Post('summary')
@@ -68,4 +76,29 @@ export class CrashesController {
         return this.crashesService.getSummaryAlongRoute(area, dateRange);
     }
   }
+
+  private async findCrashes(
+    area: ListCrashesParams['area'],
+    dateRange: DateRange,
+  ): Promise<FeatureCollection<Point, GeoJsonProperties>> {
+    if (!area) {
+      return this.crashesService.getCrashes(dateRange);
+    }
+
+    switch (area.type) {
+      case 'bbox':
+        return this.crashesService.getCrashesInBoundingBox(area, dateRange);
+      case 'radius':
+        return this.crashesService.getCrashesWithinRadius(area, dateRange);
+      case 'street':
+        return this.crashesService.getCrashesAlongStreet(area, dateRange);
+      case 'route':
+        return this.crashesService.getCrashesAlongRoute(area, dateRange);
+    }
+  }
 }
+
+export type CrashSearchResult = {
+  crashes: FeatureCollection<Point, GeoJsonProperties>;
+  summary: AreaCrashSummary;
+};

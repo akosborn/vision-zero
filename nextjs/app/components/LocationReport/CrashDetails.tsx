@@ -16,7 +16,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { DateTime } from "luxon";
-import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/location-report";
+import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/area-crash-summary";
 import { getSafeHttpsUrl } from "@/app/components/LocationReport/utils/crash-source-links";
 import { CrashSourceLinks } from "@/app/lib/api-client";
 

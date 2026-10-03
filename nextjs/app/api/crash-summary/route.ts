@@ -1,11 +1,10 @@
-import type { FeatureCollection, Point } from "geojson";
 import { NextRequest } from "next/server";
 
-import { POST as getBufferedRouteIncidents } from "@/app/api/incidents/buffered-route/route";
-import { GET as getBufferedStreetIncidents } from "@/app/api/incidents/buffered-street/route";
-import { GET as getRadiusIncidents } from "@/app/api/incidents/route";
-import type { Crash } from "@/app/lib/api-client";
-import { invalidInputResponse } from "@/app/lib/api-responses";
+import type { CrashSearchResult } from "@/app/lib/api-client";
+import {
+  databaseFailureResponse,
+  invalidInputResponse,
+} from "@/app/lib/api-responses";
 import type { QueryDefinitionV1 } from "@/app/lib/query-definition";
 import { parseQueryUrl } from "@/app/lib/query-url";
 import {
@@ -15,47 +14,68 @@ import {
 
 const jsonHeaders = { "Cache-Control": "no-store" };
 
-const incidentsRequestForQuery = (
-  request: NextRequest,
-  query: QueryDefinitionV1,
-): Promise<Response> => {
-  const url = new URL("/api/incidents", request.nextUrl.origin);
+const backendUrl = () => process.env.VZ_BACKEND_URL || "http://localhost:4000";
+
+/** Translates a saved query into a vz-backend `POST /crashes/search` body. */
+const searchRequestForQuery = (query: QueryDefinitionV1) => {
+  const dateRange = {
+    startDate: query.dateRange.from,
+    endDate: query.dateRange.to,
+  };
 
   if (query.tool === "radius") {
-    url.searchParams.set("startDate", query.dateRange.from);
-    url.searchParams.set("endDate", query.dateRange.to);
-    url.searchParams.set("lat", String(query.center.lat));
-    url.searchParams.set("lng", String(query.center.lng));
-    url.searchParams.set("radiusInFeet", String(query.radiusFeet));
-    return getRadiusIncidents(new NextRequest(url));
+    return {
+      ...dateRange,
+      area: {
+        type: "radius",
+        lat: query.center.lat,
+        lng: query.center.lng,
+        radiusInFeet: query.radiusFeet,
+      },
+    };
   }
 
   if (query.tool === "street") {
-    url.pathname = "/api/incidents/buffered-street";
-    url.searchParams.set("fullStreetName", query.street);
-    if (query.crossStreets) {
-      url.searchParams.set("crossStreet1", query.crossStreets.from);
-      url.searchParams.set("crossStreet2", query.crossStreets.to);
-    }
-    url.searchParams.set("bufferInFeet", String(query.bufferFeet));
-    url.searchParams.set("startDate", query.dateRange.from);
-    url.searchParams.set("endDate", query.dateRange.to);
-    return getBufferedStreetIncidents(new NextRequest(url));
+    return {
+      ...dateRange,
+      area: {
+        type: "street",
+        fullStreetName: query.street,
+        crossStreets: query.crossStreets
+          ? [query.crossStreets.from, query.crossStreets.to]
+          : undefined,
+        bufferInFeet: query.bufferFeet,
+      },
+    };
   }
 
-  url.pathname = "/api/incidents/buffered-route";
-  return getBufferedRouteIncidents(
-    new NextRequest(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        route: query.route,
-        bufferInFeet: query.bufferFeet,
-        startDate: query.dateRange.from,
-        endDate: query.dateRange.to,
-      }),
-    }),
-  );
+  return {
+    ...dateRange,
+    area: {
+      type: "route",
+      route: query.route,
+      bufferInFeet: query.bufferFeet,
+    },
+  };
+};
+
+/**
+ * Nest reports validation failures as `{ message: string | { message }[] }`.
+ * This API has always returned `{ error: string }`, so flatten it to that.
+ */
+const backendErrorMessage = async (response: Response) => {
+  const body = (await response.json().catch(() => null)) as {
+    message?: string | { path?: string; message: string }[];
+  } | null;
+  const message = body?.message;
+
+  if (Array.isArray(message)) {
+    return message
+      .map(({ path, message }) => (path ? `${path}: ${message}` : message))
+      .join("; ");
+  }
+
+  return message || "Invalid crash query.";
 };
 
 export async function GET(request: NextRequest) {
@@ -68,24 +88,32 @@ export async function GET(request: NextRequest) {
     return invalidInputResponse(parsedQuery.message);
   }
 
-  const incidentsResponse = await incidentsRequestForQuery(
-    request,
-    parsedQuery.query,
-  );
-  if (!incidentsResponse.ok) {
-    return incidentsResponse;
+  let searchResponse: Response;
+  try {
+    searchResponse = await fetch(`${backendUrl()}/api/v1/crashes/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(searchRequestForQuery(parsedQuery.query)),
+      cache: "no-store",
+    });
+  } catch {
+    return databaseFailureResponse();
   }
 
-  const incidents = (await incidentsResponse.json()) as FeatureCollection<
-    Point,
-    Crash
-  >;
+  if (searchResponse.status >= 400 && searchResponse.status < 500) {
+    return invalidInputResponse(await backendErrorMessage(searchResponse));
+  }
+  if (!searchResponse.ok) {
+    return databaseFailureResponse();
+  }
+
+  const { summary } = (await searchResponse.json()) as CrashSearchResult;
 
   return Response.json(
     {
       schemaVersion: CRASH_SUMMARY_SCHEMA_VERSION,
       query: parsedQuery.query,
-      summary: buildPublicCrashSummary(incidents.features),
+      summary: buildPublicCrashSummary(summary),
     },
     { headers: jsonHeaders },
   );

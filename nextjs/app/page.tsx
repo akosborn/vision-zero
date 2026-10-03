@@ -24,11 +24,15 @@ import {
   DEFAULT_CRASH_LIST_FILTERS,
   getVisibleCrashFeatures,
 } from "@/app/components/LocationReport/CrashList";
-import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   AreaCrashSummary,
+  EMPTY_AREA_CRASH_SUMMARY,
+} from "@/app/components/LocationReport/utils/area-crash-summary";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import {
+  CrashSummary,
   Crash,
-  getAreaCrashSummary,
+  getCrashSummary,
   getBufferedStreetCenterlines,
   getStreetCenterlines,
   getStreets,
@@ -81,6 +85,7 @@ type ActiveCrashResults = {
   query: QueryDefinitionV1 | null;
   uploadDateRange?: { from?: string; to?: string };
   features: Feature<Point, Crash>[];
+  summary: AreaCrashSummary;
 };
 
 const DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET = 1000;
@@ -121,7 +126,7 @@ function HomeContent() {
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
   const [areaAnnualCrashSummary, setAreaAnnualCrashSummary] = React.useState<
-    AreaCrashSummary["annualSummary"] | null
+    CrashSummary["annualSummary"] | null
   >(null);
 
   const [activeCrashResults, setActiveCrashResults] =
@@ -268,7 +273,7 @@ function HomeContent() {
 
       try {
         if (query.tool === "radius") {
-          const [crashes, areaCrashSummary] = await Promise.all([
+          const [{ crashes, summary }, areaCrashSummary] = await Promise.all([
             searchCrashes({
               startDate: query.dateRange.from,
               endDate: query.dateRange.to,
@@ -279,7 +284,7 @@ function HomeContent() {
                 radiusInFeet: query.radiusFeet,
               },
             }),
-            getAreaCrashSummary({
+            getCrashSummary({
               area: {
                 type: "radius",
                 lat: query.center.lat,
@@ -296,54 +301,58 @@ function HomeContent() {
           setRouteGeometry(null);
           setRouteSearchArea(null);
           setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
-          setActiveCrashResults({ query, features: crashes.features });
+          setActiveCrashResults({ query, features: crashes.features, summary });
           zoomToLayer(crashes);
         } else if (query.tool === "street") {
           const streetSegment = {
             fullName: query.street,
             crossStreets: query.crossStreets,
           };
-          const [centerlines, buffer, incidentsInBuffer, areaCrashSummary] =
-            await Promise.all([
-              getStreetCenterlines(streetSegment),
-              getBufferedStreetCenterlines({
-                ...streetSegment,
-                fullName: query.street,
+          const [
+            centerlines,
+            buffer,
+            { crashes: incidentsInBuffer, summary },
+            areaCrashSummary,
+          ] = await Promise.all([
+            getStreetCenterlines(streetSegment),
+            getBufferedStreetCenterlines({
+              ...streetSegment,
+              fullName: query.street,
+              bufferInFeet: query.bufferFeet,
+            }),
+            searchCrashes({
+              startDate: query.dateRange.from,
+              endDate: query.dateRange.to,
+              area: {
+                type: "street",
+                fullStreetName: query.street,
+                crossStreets:
+                  streetSegment.crossStreets?.from &&
+                  streetSegment.crossStreets?.to
+                    ? [
+                        streetSegment.crossStreets?.from,
+                        streetSegment.crossStreets?.to,
+                      ]
+                    : undefined,
                 bufferInFeet: query.bufferFeet,
-              }),
-              searchCrashes({
-                startDate: query.dateRange.from,
-                endDate: query.dateRange.to,
-                area: {
-                  type: "street",
-                  fullStreetName: query.street,
-                  crossStreets:
-                    streetSegment.crossStreets?.from &&
-                    streetSegment.crossStreets?.to
-                      ? [
-                          streetSegment.crossStreets?.from,
-                          streetSegment.crossStreets?.to,
-                        ]
-                      : undefined,
-                  bufferInFeet: query.bufferFeet,
-                },
-              }),
-              getAreaCrashSummary({
-                area: {
-                  type: "street",
-                  fullStreetName: query.street,
-                  crossStreets:
-                    streetSegment.crossStreets?.from &&
-                    streetSegment.crossStreets?.to
-                      ? [
-                          streetSegment.crossStreets?.from,
-                          streetSegment.crossStreets?.to,
-                        ]
-                      : undefined,
-                  bufferInFeet: query.bufferFeet,
-                },
-              }),
-            ]);
+              },
+            }),
+            getCrashSummary({
+              area: {
+                type: "street",
+                fullStreetName: query.street,
+                crossStreets:
+                  streetSegment.crossStreets?.from &&
+                  streetSegment.crossStreets?.to
+                    ? [
+                        streetSegment.crossStreets?.from,
+                        streetSegment.crossStreets?.to,
+                      ]
+                    : undefined,
+                bufferInFeet: query.bufferFeet,
+              },
+            }),
+          ]);
 
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
@@ -355,6 +364,7 @@ function HomeContent() {
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
+            summary,
           });
           zoomToLayer(incidentsInBuffer);
         } else {
@@ -369,20 +379,21 @@ function HomeContent() {
 
           const { startDate, endDate, bufferInFeet, route } =
             preparedSearch.request;
-          const [incidentsInBuffer, areaCrashSummary] = await Promise.all([
-            searchCrashes({
-              startDate,
-              endDate,
-              area: { type: "route", bufferInFeet, route },
-            }),
-            getAreaCrashSummary({
-              area: {
-                type: "route",
-                route: preparedSearch.route,
-                bufferInFeet: preparedSearch.request.bufferInFeet,
-              },
-            }),
-          ]);
+          const [{ crashes: incidentsInBuffer, summary }, areaCrashSummary] =
+            await Promise.all([
+              searchCrashes({
+                startDate,
+                endDate,
+                area: { type: "route", bufferInFeet, route },
+              }),
+              getCrashSummary({
+                area: {
+                  type: "route",
+                  route: preparedSearch.route,
+                  bufferInFeet: preparedSearch.request.bufferInFeet,
+                },
+              }),
+            ]);
 
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
@@ -394,6 +405,7 @@ function HomeContent() {
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
+            summary,
           });
           zoomToLayer(preparedSearch.route);
         }
@@ -587,20 +599,21 @@ function HomeContent() {
     try {
       const { startDate, endDate, bufferInFeet, route } =
         preparedSearch.request;
-      const [incidentsInBuffer, areaCrashSummary] = await Promise.all([
-        searchCrashes({
-          startDate,
-          endDate,
-          area: { type: "route", bufferInFeet, route },
-        }),
-        getAreaCrashSummary({
-          area: {
-            type: "route",
-            bufferInFeet,
-            route,
-          },
-        }),
-      ]);
+      const [{ crashes: incidentsInBuffer, summary }, areaCrashSummary] =
+        await Promise.all([
+          searchCrashes({
+            startDate,
+            endDate,
+            area: { type: "route", bufferInFeet, route },
+          }),
+          getCrashSummary({
+            area: {
+              type: "route",
+              bufferInFeet,
+              route,
+            },
+          }),
+        ]);
       setIncidentGeoJson(null);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setStreetCenterlines(null);
@@ -612,6 +625,7 @@ function HomeContent() {
         query: null,
         uploadDateRange: range,
         features: incidentsInBuffer.features,
+        summary,
       });
       zoomToLayer(preparedSearch.route);
       router.replace(window.location.pathname || "/map", { scroll: false });
@@ -696,6 +710,7 @@ function HomeContent() {
     activeCrashResults?.query?.dateRange || activeCrashResults?.uploadDateRange;
   const reportCrashFeatures =
     activeCrashResults?.features || EMPTY_CRASH_FEATURES;
+  const reportSummary = activeCrashResults?.summary ?? EMPTY_AREA_CRASH_SUMMARY;
   const exportCrashFeatures = React.useMemo(
     () => getVisibleCrashFeatures(reportCrashFeatures, crashListFilters),
     [crashListFilters, reportCrashFeatures],
@@ -917,6 +932,7 @@ function HomeContent() {
                         crashSummaryHistory={areaAnnualCrashSummary}
                         isLoading={isLoading}
                         crashFeatures={reportCrashFeatures}
+                        summary={reportSummary}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
@@ -964,6 +980,7 @@ function HomeContent() {
                   crashSummaryHistory={areaAnnualCrashSummary}
                   isLoading={isLoading}
                   crashFeatures={reportCrashFeatures}
+                  summary={reportSummary}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}

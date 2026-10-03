@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Crash } from "@/app/lib/api-client";
 
 import CrashList, { DEFAULT_CRASH_LIST_FILTERS } from "./CrashList";
+import type { IndividualCrashSummary } from "./utils/area-crash-summary";
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -31,6 +32,18 @@ global.ResizeObserver = class ResizeObserver {
 
 Element.prototype.scrollIntoView = vi.fn();
 
+// The per-crash figures vz-backend attaches to every search result.
+const crashSummary = (
+  overrides: Partial<IndividualCrashSummary> = {},
+): IndividualCrashSummary => ({
+  maxKabcoSeverity: "O",
+  kabcoSeverityCounts: { K: 0, A: 0, B: 0, C: 0, O: 1 },
+  bicyclesInvolved: 0,
+  pedestriansInvolved: 0,
+  comprehensiveCost: 18_100,
+  ...overrides,
+});
+
 const feature = (
   properties: Partial<Crash>,
   id?: string | number,
@@ -50,6 +63,7 @@ const feature = (
     doti_bicycle_count: 0,
     doti_pedestrian_count: 0,
     cdot_cuid: null,
+    summary: crashSummary(),
     ...properties,
   } as Crash,
 });
@@ -231,11 +245,11 @@ describe("CrashList source actions", () => {
 
 describe("CrashList filters", () => {
   const severityFeatures = [
-    cdotFeature("CDOT-K", { cdot_injury_04: 1 }),
-    cdotFeature("CDOT-A", { cdot_injury_03: 1 }),
-    cdotFeature("CDOT-B", { cdot_injury_02: 1 }),
-    cdotFeature("CDOT-C", { cdot_injury_01: 1 }),
-    cdotFeature("CDOT-O", { cdot_injury_00: 1 }),
+    cdotFeature("CDOT-K", { summary: crashSummary({ maxKabcoSeverity: "K" }) }),
+    cdotFeature("CDOT-A", { summary: crashSummary({ maxKabcoSeverity: "A" }) }),
+    cdotFeature("CDOT-B", { summary: crashSummary({ maxKabcoSeverity: "B" }) }),
+    cdotFeature("CDOT-C", { summary: crashSummary({ maxKabcoSeverity: "C" }) }),
+    cdotFeature("CDOT-O", { summary: crashSummary({ maxKabcoSeverity: "O" }) }),
   ];
 
   it.each([
@@ -261,13 +275,15 @@ describe("CrashList filters", () => {
     }
   });
 
-  it("filters pedestrian and bicyclist crashes using CDOT involvement data", async () => {
+  it("filters pedestrian and bicyclist crashes using the backend's road-user counts", async () => {
     const user = userEvent.setup();
     renderCrashList([
       cdotFeature("CDOT-PEDESTRIAN", {
-        cdot_tu_1_nm_type: "Pedestrian",
+        summary: crashSummary({ pedestriansInvolved: 1 }),
       }),
-      cdotFeature("CDOT-BICYCLE", { cdot_tu_1_nm_type: "Bicyclist" }),
+      cdotFeature("CDOT-BICYCLE", {
+        summary: crashSummary({ bicyclesInvolved: 1 }),
+      }),
       cdotFeature("CDOT-VEHICLE", {}),
     ]);
 
@@ -292,12 +308,13 @@ describe("CrashList filters", () => {
     const user = userEvent.setup();
     renderCrashList([
       cdotFeature("CDOT-FATAL-BICYCLE", {
-        cdot_injury_04: 1,
-        cdot_tu_1_nm_type: "Bicycle",
+        summary: crashSummary({ maxKabcoSeverity: "K", bicyclesInvolved: 1 }),
       }),
       cdotFeature("CDOT-FATAL-PEDESTRIAN", {
-        cdot_injury_04: 1,
-        cdot_tu_1_nm_type: "Pedestrian",
+        summary: crashSummary({
+          maxKabcoSeverity: "K",
+          pedestriansInvolved: 1,
+        }),
       }),
     ]);
 

@@ -6,6 +6,10 @@ import {
   Point,
 } from "geojson";
 import axios from "axios";
+import type {
+  AreaCrashSummary,
+  IndividualCrashSummary,
+} from "@/app/components/LocationReport/utils/area-crash-summary";
 
 const API_PATH_BASE = "/api/v1";
 
@@ -60,19 +64,19 @@ export const searchCrashes = async (filter: {
   endDate?: string;
   area: Area;
 }) => {
-  const response = await axios.post<FeatureCollection<Point, Crash>>(
+  const response = await axios.post<CrashSearchResult>(
     `${API_PATH_BASE}/crashes/search`,
     { ...filter },
   );
   return response.data;
 };
 
-export const getAreaCrashSummary = async (filter: {
+export const getCrashSummary = async (filter: {
   startDate?: string;
   endDate?: string;
   area: Area;
 }) => {
-  const response = await axios.post<AreaCrashSummary>(
+  const response = await axios.post<CrashSummary>(
     `${API_PATH_BASE}/crashes/summary`,
     { ...filter },
   );
@@ -182,6 +186,13 @@ export interface Crash {
   cdot_tu_2_nm_type: string | null;
   cdot_tu_2_age: number | null;
   cdot_tu_2_sex: string | null;
+
+  summary: IndividualCrashSummary;
+}
+
+export interface CrashSearchResult {
+  crashes: FeatureCollection<Point, Crash>;
+  summary: AreaCrashSummary;
 }
 
 export interface AnnualCrashSummary {
@@ -196,6 +207,6 @@ export interface AnnualCrashSummary {
   crashesWithSpeedData: number;
 }
 
-export interface AreaCrashSummary {
+export interface CrashSummary {
   annualSummary: AnnualCrashSummary[];
 }
