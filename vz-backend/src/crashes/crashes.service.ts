@@ -4,6 +4,11 @@ import { PrismaService } from '../db/prisma.service';
 import { Prisma } from '../db/generated/prisma/client';
 import { feetToMeters } from '../utils/feet-to-meters';
 import {
+  AnnualCrashSummary,
+  AnnualSummarizableCrash,
+  generateAnnualCrashSummaries,
+} from './area-crash-summary';
+import {
   BoundingBoxArea,
   DateRange,
   RadiusArea,
@@ -59,39 +64,28 @@ export class CrashesService {
     area: RadiusArea,
     dateRange: DateRange,
   ): Promise<CrashSummary> {
-    return this.summarize(
-      this.withinRadius(INCIDENT_GEOMETRY, area),
-      dateRange,
-    );
+    return this.summarize(this.withinRadius(CRASH_GEOMETRY, area), dateRange);
   }
 
   async getSummaryAlongStreet(
     area: StreetArea,
     dateRange: DateRange,
   ): Promise<CrashSummary> {
-    return this.summarize(this.alongStreet(INCIDENT_GEOMETRY, area), dateRange);
+    return this.summarize(this.alongStreet(CRASH_GEOMETRY, area), dateRange);
   }
 
   async getSummaryAlongRoute(
     area: RouteArea,
     dateRange: DateRange,
   ): Promise<CrashSummary> {
-    return this.summarize(this.alongRoute(INCIDENT_GEOMETRY, area), dateRange);
+    return this.summarize(this.alongRoute(CRASH_GEOMETRY, area), dateRange);
   }
 
   private async queryCrashes(
-    { startDate, endDate }: DateRange,
+    dateRange: DateRange,
     spatialCondition?: Prisma.Sql,
   ): Promise<FeatureCollection<Point, GeoJsonProperties>> {
-    const conditions = [
-      spatialCondition,
-      startDate &&
-        Prisma.sql`vc.doti_first_occurrence_date >= ${startDate}::date`,
-      endDate && Prisma.sql`vc.doti_first_occurrence_date <= ${endDate}::date`,
-    ].filter((condition) => !!condition);
-    const whereClause = conditions.length
-      ? Prisma.sql`where ${Prisma.join(conditions, ' and ')}`
-      : Prisma.empty;
+    const whereClause = this.crashesWhere(dateRange, spatialCondition);
 
     const results = await this.prisma.$queryRaw<
       { geojson: FeatureCollection<Point, GeoJsonProperties> }[]
@@ -120,92 +114,67 @@ export class CrashesService {
     return results[0].geojson;
   }
 
-  private async summarize(spatialCondition: Prisma.Sql, dateRange: DateRange): Promise<CrashSummary> {
+  private async summarize(
+    spatialCondition: Prisma.Sql,
+    dateRange: DateRange,
+  ): Promise<CrashSummary> {
+    // Only the columns the summary reads. Selecting every `vw_crashes` column
+    // for an area's full history is several times slower.
+    const results = await this.prisma.$queryRaw<
+      { crashes: AnnualSummarizableCrash[] }[]
+    >`
+      select coalesce(jsonb_agg(to_jsonb(inputs)), '[]'::jsonb) as crashes
+      from (
+        select
+          vc.doti_incident_id,
+          vc.doti_first_occurrence_date,
+          vc.doti_fatalities,
+          vc.doti_serious_injuries,
+          vc.doti_bicycle_count,
+          vc.doti_pedestrian_count,
+          vc.cdot_cuid,
+          vc.cdot_mhe,
+          vc.cdot_injury_00,
+          vc.cdot_injury_01,
+          vc.cdot_injury_02,
+          vc.cdot_injury_03,
+          vc.cdot_injury_04,
+          vc.cdot_tu_1_nm_type,
+          vc.cdot_tu_2_nm_type,
+          vc.cdot_tu_1_estimated_speed,
+          vc.cdot_tu_2_estimated_speed,
+          vc.cdot_tu_1_speed_limit,
+          vc.cdot_tu_2_speed_limit
+        from vision_zero.vw_crashes vc
+        ${this.crashesWhere(dateRange, spatialCondition)}
+      ) inputs;
+    `;
+
     return {
-      annualSummary: await this.queryAnnualSummary(spatialCondition, dateRange),
+      annualSummary: generateAnnualCrashSummaries(results[0].crashes),
     };
   }
 
-  private async queryAnnualSummary(
-    spatialCondition: Prisma.Sql,
-    dateRange: DateRange,
-  ): Promise<AnnualCrashSummary[]> {
-    const dateClause = Prisma.sql`
-      ${dateRange.startDate ? Prisma.sql`and doti.first_occurrence_date >= ${dateRange.startDate}` : Prisma.empty}
-      ${dateRange.endDate ? Prisma.sql`and doti.first_occurrence_date <= ${dateRange.endDate}` : Prisma.empty}
-    `;
+  private crashesWhere(
+    { startDate, endDate }: DateRange,
+    spatialCondition?: Prisma.Sql,
+  ) {
+    const conditions = [
+      spatialCondition,
+      startDate &&
+        Prisma.sql`vc.doti_first_occurrence_date >= ${startDate}::date`,
+      // Inclusive of the whole end date, not just its midnight
+      endDate &&
+        Prisma.sql`vc.doti_first_occurrence_date < ${endDate}::date + 1`,
+    ].filter((condition) => !!condition);
 
-    return this.prisma.$queryRaw<AnnualCrashSummary[]>`
-      select
-        date_part('year', doti.first_occurrence_date)::int as year,
-        count(*)::int as crashes,
-        coalesce(sum(
-          case
-            when cdot.cuid is not null then cdot.number_killed
-            when doti.fatalities > 0 then doti.fatalities
-            when upper(doti.top_traffic_accident_offense) like '%FATAL%' then 1
-            else 0
-          end
-        ), 0)::int as fatalities,
-        coalesce(sum(
-          case
-            when cdot.cuid is not null then cdot.injury_03
-            when doti.seriously_injured > 0 then doti.seriously_injured
-            when upper(doti.top_traffic_accident_offense) like '%SBI%' then 1
-            else 0
-          end
-        ), 0)::int as "seriousInjuries",
-        coalesce(sum(
-          case
-            when doti.bicycle_ind > 0 then doti.bicycle_ind
-            when lower(cdot.tu_1_nm_type) like '%bicycle%' then 1
-            when lower(cdot.tu_1_nm_type) like '%cyclist%' then 1
-            when lower(cdot.tu_1_nm_type) like '%non-motorist%' then 1
-            when lower(cdot.tu_1_nm_type) like '%scooter%' then 1
-            when lower(cdot.tu_2_nm_type) like '%bicycle%' then 1
-            when lower(cdot.tu_2_nm_type) like '%cyclist%' then 1
-            when lower(cdot.tu_2_nm_type) like '%non-motorist%' then 1
-            when lower(cdot.tu_2_nm_type) like '%scooter%' then 1
-            else 0
-          end
-        ), 0)::int as "bicycleInvolvedCrashes",
-        coalesce(sum(
-          case
-            when doti.pedestrian_ind > 0 then doti.pedestrian_ind
-            when lower(cdot.tu_1_nm_type) like '%pedestrian%' then 1
-            when lower(cdot.tu_1_nm_type) like '%personal conveyance%' then 1
-            when lower(cdot.tu_1_nm_type) like '%wheelchair%' then 1
-            when lower(cdot.tu_2_nm_type) like '%pedestrian%' then 1
-            when lower(cdot.tu_2_nm_type) like '%personal conveyance%' then 1
-            when lower(cdot.tu_2_nm_type) like '%wheelchair%' then 1
-            else 0
-          end
-        ), 0)::int as "pedestrianInvolvedCrashes",
-        max(greatest(cdot.tu_1_estimated_speed, cdot.tu_2_estimated_speed))::float8 as "maxSpeedMph",
-        count(*) filter (
-          where cdot.tu_1_estimated_speed > cdot.tu_1_speed_limit
-             or cdot.tu_2_estimated_speed > cdot.tu_2_speed_limit
-        )::int as "crashesOverSpeedLimit",
-        count(*) filter (
-          where cdot.tu_1_estimated_speed > 0
-             or cdot.tu_2_estimated_speed > 0
-        )::int as "crashesWithSpeedData"
-      from vision_zero.incidents_denver doti
-        -- 200 meters. This is somewhat arbitrary, but it should be fine since the dates and times have to match.
-        left join vision_zero.cdot_crashes cdot on
-          ST_DWithin(cdot.geo, doti.geo, 200)
-          and doti.first_occurrence_date =
-            (cdot.crash_date + cdot.crash_time) at time zone 'UTC' at time zone 'America/Denver'
-          and cdot.suspected_duplicate = false
-      where ${dateClause} ${!!dateClause.sql.trim() && !!spatialCondition.sql.trim() ? Prisma.sql`AND` : Prisma.empty} ${spatialCondition}
-      group by date_part('year', doti.first_occurrence_date)::int
-      order by date_part('year', doti.first_occurrence_date)::int
-    `;
+    return conditions.length
+      ? Prisma.sql`where ${Prisma.join(conditions, ' and ')}`
+      : Prisma.empty;
   }
 
   /**
-   * Spatial conditions. Each takes the geometry column to filter on since the
-   * crash and history queries select from different tables.
+   * Spatial conditions on the given geometry column.
    */
   private inBoundingBox(geometry: Prisma.Sql, bbox: BoundingBoxArea['bbox']) {
     const [minLongitude, minLatitude, maxLongitude, maxLatitude] = bbox;
@@ -274,20 +243,7 @@ export class CrashesService {
 }
 
 const CRASH_GEOMETRY = Prisma.raw('vc.priority_geo');
-const INCIDENT_GEOMETRY = Prisma.raw('doti.priority_geo');
 
 export type CrashSummary = {
   annualSummary: AnnualCrashSummary[];
-};
-
-export type AnnualCrashSummary = {
-  year: number;
-  crashes: number;
-  fatalities: number;
-  seriousInjuries: number;
-  bicycleInvolvedCrashes: number;
-  pedestrianInvolvedCrashes: number;
-  maxSpeedMph: number | null;
-  crashesOverSpeedLimit: number;
-  crashesWithSpeedData: number;
 };

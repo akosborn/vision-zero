@@ -231,3 +231,105 @@ const countCdotIndicators = (
   // Sometimes the `mhe` column is populated with an indicator, but the `tu_1_nm_type` and `tu_2_nm_type` columns are empty
   return isIndicated(crash.cdot_mhe) ? 1 : 0;
 };
+
+export type VulnerableRoadUserMode = 'bicycle' | 'pedestrian';
+
+export type AnnualCrashSummary = {
+  year: number;
+  /** Crashes that year */
+  count: number;
+  /** People at each KABCO injury level */
+  kabcoSeverity: Record<KabcoSeverityLevel, number>;
+  /** Crashes involving each vulnerable road user mode */
+  mode: Record<VulnerableRoadUserMode, number>;
+  maxSpeedMph: number | null;
+  crashesOverSpeedLimit: number;
+  crashesWithSpeedData: number;
+};
+
+/**
+ * The `vision_zero.vw_crashes` columns the annual summary depends on, on top of
+ * those the per-crash summary needs.
+ */
+export type AnnualSummarizableCrash = SummarizableCrash & {
+  doti_first_occurrence_date: string;
+  cdot_tu_1_estimated_speed: number | null;
+  cdot_tu_2_estimated_speed: number | null;
+  cdot_tu_1_speed_limit: number | null;
+  cdot_tu_2_speed_limit: number | null;
+};
+
+/**
+ * Groups crashes by calendar year, using `summarizeCrash` for severity and
+ * road-user figures so the history agrees with the search summary.
+ */
+export const generateAnnualCrashSummaries = (
+  crashes: AnnualSummarizableCrash[],
+): AnnualCrashSummary[] => {
+  const summariesByYear = new Map<number, AnnualCrashSummary>();
+
+  for (const crash of crashes) {
+    // Local timestamp such as `2024-03-01T12:34:00`, so the year is the prefix.
+    const year = Number(crash.doti_first_occurrence_date.slice(0, 4));
+    const summary = summariesByYear.get(year) ?? emptyAnnualSummary(year);
+    summariesByYear.set(year, summary);
+
+    const crashSummary = summarizeCrash(crash);
+
+    summary.count++;
+    for (const severity in crashSummary.kabcoSeverityCounts) {
+      summary.kabcoSeverity[severity as KabcoSeverityLevel] +=
+        crashSummary.kabcoSeverityCounts[severity as KabcoSeverityLevel];
+    }
+    if (crashSummary.bicyclesInvolved > 0) {
+      summary.mode.bicycle++;
+    }
+    if (crashSummary.pedestriansInvolved > 0) {
+      summary.mode.pedestrian++;
+    }
+
+    const estimatedSpeeds = [
+      crash.cdot_tu_1_estimated_speed,
+      crash.cdot_tu_2_estimated_speed,
+    ].filter((speed): speed is number => speed !== null);
+    if (estimatedSpeeds.length > 0) {
+      summary.maxSpeedMph = Math.max(
+        summary.maxSpeedMph ?? -Infinity,
+        ...estimatedSpeeds,
+      );
+    }
+    if (
+      isOverSpeedLimit(
+        crash.cdot_tu_1_estimated_speed,
+        crash.cdot_tu_1_speed_limit,
+      ) ||
+      isOverSpeedLimit(
+        crash.cdot_tu_2_estimated_speed,
+        crash.cdot_tu_2_speed_limit,
+      )
+    ) {
+      summary.crashesOverSpeedLimit++;
+    }
+    if (estimatedSpeeds.some((speed) => speed > 0)) {
+      summary.crashesWithSpeedData++;
+    }
+  }
+
+  return [...summariesByYear.values()].sort((a, b) => a.year - b.year);
+};
+
+const isOverSpeedLimit = (
+  estimatedSpeed: number | null,
+  speedLimit: number | null,
+) =>
+  estimatedSpeed !== null && speedLimit !== null && estimatedSpeed > speedLimit;
+
+const emptyAnnualSummary = (year: number): AnnualCrashSummary => ({
+  year,
+  count: 0,
+  kabcoSeverity: { K: 0, A: 0, B: 0, C: 0, O: 0 },
+  mode: { bicycle: 0, pedestrian: 0 },
+  maxSpeedMph: null,
+  crashesOverSpeedLimit: 0,
+  crashesWithSpeedData: 0,
+});

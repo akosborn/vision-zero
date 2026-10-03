@@ -9,6 +9,7 @@ import axios from "axios";
 import type {
   AreaCrashSummary,
   IndividualCrashSummary,
+  KABCO_SEVERITY_LEVEL,
 } from "@/app/components/LocationReport/utils/area-crash-summary";
 
 const API_PATH_BASE = "/api/v1";
@@ -197,11 +198,12 @@ export interface CrashSearchResult {
 
 export interface AnnualCrashSummary {
   year: number;
-  crashes: number;
-  fatalities: number;
-  seriousInjuries: number;
-  bicycleInvolvedCrashes: number;
-  pedestrianInvolvedCrashes: number;
+  /** Crashes that year */
+  count: number;
+  /** People at each KABCO injury level */
+  kabcoSeverity: Record<KABCO_SEVERITY_LEVEL, number>;
+  /** Crashes involving each vulnerable road user mode */
+  mode: Record<"bicycle" | "pedestrian", number>;
   maxSpeedMph: number | null;
   crashesOverSpeedLimit: number;
   crashesWithSpeedData: number;

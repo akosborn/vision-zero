@@ -11,6 +11,7 @@ import {
   Loader,
   Paper,
   SegmentedControl,
+  Select,
   SimpleGrid,
   Table,
   Text,
@@ -24,7 +25,8 @@ import {
 } from "@/app/components/LocationReport/utils/area-crash-summary";
 import { CrashSummary, Crash } from "@/app/lib/api-client";
 import { SEVERITY_LABELS } from "@/app/components/LocationReport/CrashDetails";
-import BarChart from "@/app/components/LocationReport/History/SeverityAreaChart";
+import SeverityBarChart from "@/app/components/LocationReport/History/SeverityBarChart";
+import ModeBarChart from "@/app/components/LocationReport/History/ModeBarChart";
 import { downloadCrashCsv } from "@/app/components/LocationReport/utils/crash-csv";
 import type { SearchTool } from "@/app/page";
 
@@ -48,6 +50,13 @@ type Props = {
 
 type View = "Summary" | "Crashes" | "History";
 
+type HistoryChart = "severity" | "mode";
+
+const HISTORY_CHART_OPTIONS: { value: HistoryChart; label: string }[] = [
+  { value: "severity", label: "Injury severity" },
+  { value: "mode", label: "Bicyclists and pedestrians" },
+];
+
 const LocationReport: React.FC<Props> = ({
   crashSummaryHistory,
   isLoading,
@@ -61,6 +70,8 @@ const LocationReport: React.FC<Props> = ({
   onCrashSelect,
 }) => {
   const [selectedView, setSelectedView] = React.useState<View>("Summary");
+  const [historyChart, setHistoryChart] =
+    React.useState<HistoryChart>("severity");
 
   React.useEffect(() => {
     if (!historyAvailable && selectedView === "History") {
@@ -191,10 +202,31 @@ const LocationReport: React.FC<Props> = ({
             <>
               <Container w="100%" h="100%" px={0}>
                 {crashSummaryHistory && crashSummaryHistory.length > 0 && (
-                  <BarChart
-                    summaries={crashSummaryHistory}
-                    selectedDateRange={selectedDateRange}
-                  />
+                  <>
+                    <Select
+                      aria-label="Chart"
+                      styles={{ input: { fontWeight: 600 } }}
+                      data={HISTORY_CHART_OPTIONS}
+                      value={historyChart}
+                      allowDeselect={false}
+                      onChange={(value) =>
+                        setHistoryChart(
+                          (value as HistoryChart | null) ?? "severity",
+                        )
+                      }
+                    />
+                    {historyChart === "severity" ? (
+                      <SeverityBarChart
+                        summaries={crashSummaryHistory}
+                        selectedDateRange={selectedDateRange}
+                      />
+                    ) : (
+                      <ModeBarChart
+                        summaries={crashSummaryHistory}
+                        selectedDateRange={selectedDateRange}
+                      />
+                    )}
+                  </>
                 )}
               </Container>
             </>
