@@ -1,35 +1,39 @@
 import { Area, AreaChart, Legend, Tooltip, XAxis, YAxis } from "recharts";
 import { RechartsDevtools } from "@recharts/devtools";
 import { CrashSummary } from "@/app/lib/api-client";
-import { severityConfig } from "@/app/components/LocationReport/CrashDetails";
+import {
+  SEVERITY_LABELS,
+  severityConfig,
+} from "@/app/components/LocationReport/CrashDetails";
+import type { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/area-crash-summary";
 import { Text } from "@mantine/core";
 import { useId } from "react";
 
-type AreaData = {
-  Date: number;
-  Fatalities: number;
-  "Serious Injuries": number;
-  "Minor Injury or Property Damage": number;
-};
+type AreaData = { Date: number } & Record<string, number>;
 
 const HIGHLIGHT_COLOR = "#74c0fc";
-const AREA_SERIES = [
+
+// Stacked bottom to top, so the most severe levels sit on top. B, C and O share
+// one color elsewhere in the app, so they get distinct colors here.
+const AREA_SERIES: {
+  severity: KABCO_SEVERITY_LEVEL;
+  dataKey: string;
+  color: string;
+}[] = [
+  { severity: "O", dataKey: SEVERITY_LABELS.O, color: "#9ca3af" },
+  { severity: "C", dataKey: SEVERITY_LABELS.C, color: "#14b8a6" },
+  { severity: "B", dataKey: SEVERITY_LABELS.B, color: "#8b5cf6" },
   {
-    id: "minor-or-property-damage",
-    dataKey: "Minor Injury or Property Damage",
-    color: severityConfig.O.dotColor,
-  },
-  {
-    id: "serious-injuries",
-    dataKey: "Serious Injuries",
+    severity: "A",
+    dataKey: SEVERITY_LABELS.A,
     color: severityConfig.A.dotColor,
   },
   {
-    id: "fatalities",
-    dataKey: "Fatalities",
+    severity: "K",
+    dataKey: SEVERITY_LABELS.K,
     color: severityConfig.K.dotColor,
   },
-] as const;
+];
 
 const StackedAreaChart = ({
   summaries,
@@ -41,10 +45,12 @@ const StackedAreaChart = ({
   const gradientIdPrefix = `selected-period-${useId().replaceAll(":", "")}`;
   const data = summaries.map<AreaData>((summary) => ({
     Date: Date.UTC(summary.year, 6, 1),
-    Fatalities: summary.fatalities,
-    "Serious Injuries": summary.seriousInjuries,
-    "Minor Injury or Property Damage":
-      summary.crashes - summary.fatalities - summary.seriousInjuries,
+    ...Object.fromEntries(
+      AREA_SERIES.map(({ severity, dataKey }) => [
+        dataKey,
+        summary.kabcoSeverity[severity],
+      ]),
+    ),
   }));
 
   const firstYear = summaries.at(0)?.year;
@@ -73,7 +79,7 @@ const StackedAreaChart = ({
         Injury Severity Trends
       </Text>
       <Text size="xs" mt="0" mb="0" c="dimmed">
-        Full-calendar-year crash outcomes
+        People involved in crashes by KABCO injury level, per calendar year
         {selectedPeriod
           ? "; blue highlighting marks where the selected report period overlaps available history"
           : ""}
@@ -123,8 +129,8 @@ const StackedAreaChart = ({
           <defs>
             {AREA_SERIES.map((series) => (
               <linearGradient
-                key={series.id}
-                id={`${gradientIdPrefix}-${series.id}`}
+                key={series.severity}
+                id={`${gradientIdPrefix}-${series.severity}`}
                 x1="0%"
                 y1="0%"
                 x2="100%"
@@ -154,14 +160,14 @@ const StackedAreaChart = ({
         )}
         {AREA_SERIES.map((series) => (
           <Area
-            key={series.id}
+            key={series.severity}
             type="monotone"
             dataKey={series.dataKey}
             stackId="1"
             stroke={series.color}
             fill={
               highlightedRange
-                ? `url(#${gradientIdPrefix}-${series.id})`
+                ? `url(#${gradientIdPrefix}-${series.severity})`
                 : series.color
             }
           />

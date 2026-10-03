@@ -1,6 +1,8 @@
 import { Feature, Point } from 'geojson';
 
 import {
+  AnnualSummarizableCrash,
+  generateAnnualCrashSummaries,
   generateAreaCrashSummary,
   getMaxSeverity,
   summarizeCrash,
@@ -314,6 +316,92 @@ describe('summarizeCrash', () => {
       bicyclesInvolved: 0,
       pedestriansInvolved: 1,
       comprehensiveCost: 1_705_100,
+    });
+  });
+});
+
+describe('generateAnnualCrashSummaries', () => {
+  const annualCrash = (
+    occurredAt: string,
+    crash: SummarizableCrash,
+    speeds: Partial<AnnualSummarizableCrash> = {},
+  ): AnnualSummarizableCrash => ({
+    cdot_tu_1_estimated_speed: null,
+    cdot_tu_2_estimated_speed: null,
+    cdot_tu_1_speed_limit: null,
+    cdot_tu_2_speed_limit: null,
+    ...crash,
+    ...speeds,
+    doti_first_occurrence_date: occurredAt,
+  });
+
+  it('groups crashes by year using the per-crash severity and road-user figures', () => {
+    const summaries = generateAnnualCrashSummaries([
+      annualCrash(
+        '2024-12-31T23:30:00',
+        cdotCrash({
+          cdot_injury_04: 1,
+          cdot_injury_02: 2,
+          cdot_tu_1_nm_type: 'Bicycle',
+          cdot_tu_2_nm_type: 'Scooter',
+        }),
+      ),
+      annualCrash(
+        '2023-06-01T08:00:00',
+        dotiCrash({ doti_pedestrian_count: 1 }),
+      ),
+      annualCrash(
+        '2024-01-01T00:15:00',
+        dotiCrash({ doti_serious_injuries: 1, doti_pedestrian_count: 2 }),
+      ),
+    ]);
+
+    expect(summaries).toEqual([
+      {
+        year: 2023,
+        count: 1,
+        kabcoSeverity: { K: 0, A: 0, B: 0, C: 0, O: 1 },
+        mode: { bicycle: 0, pedestrian: 1 },
+        maxSpeedMph: null,
+        crashesOverSpeedLimit: 0,
+        crashesWithSpeedData: 0,
+      },
+      {
+        year: 2024,
+        count: 2,
+        kabcoSeverity: { K: 1, A: 1, B: 2, C: 0, O: 0 },
+        // Crashes involving each mode, not people
+        mode: { bicycle: 1, pedestrian: 1 },
+        maxSpeedMph: null,
+        crashesOverSpeedLimit: 0,
+        crashesWithSpeedData: 0,
+      },
+    ]);
+  });
+
+  it('summarizes CDOT speed data per year', () => {
+    const [summary] = generateAnnualCrashSummaries([
+      annualCrash('2024-03-01T12:00:00', cdotCrash(), {
+        cdot_tu_1_estimated_speed: 45,
+        cdot_tu_1_speed_limit: 30,
+        cdot_tu_2_estimated_speed: 25,
+        cdot_tu_2_speed_limit: 30,
+      }),
+      annualCrash('2024-04-01T12:00:00', cdotCrash(), {
+        cdot_tu_1_estimated_speed: 50,
+        cdot_tu_1_speed_limit: 55,
+      }),
+      annualCrash('2024-05-01T12:00:00', cdotCrash(), {
+        cdot_tu_1_estimated_speed: 0,
+      }),
+      annualCrash('2024-06-01T12:00:00', dotiCrash()),
+    ]);
+
+    expect(summary).toMatchObject({
+      count: 4,
+      maxSpeedMph: 50,
+      crashesOverSpeedLimit: 1,
+      crashesWithSpeedData: 2,
     });
   });
 });

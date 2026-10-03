@@ -62,11 +62,9 @@ vi.mock("@recharts/devtools", () => ({
 
 const summary = (year: number): AnnualCrashSummary => ({
   year,
-  crashes: 10,
-  fatalities: 1,
-  seriousInjuries: 2,
-  bicycleInvolvedCrashes: 3,
-  pedestrianInvolvedCrashes: 4,
+  count: 10,
+  kabcoSeverity: { K: 1, A: 2, B: 3, C: 4, O: 5 },
+  mode: { bicycle: 3, pedestrian: 4 },
   maxSpeedMph: 35,
   crashesOverSpeedLimit: 1,
   crashesWithSpeedData: 5,
@@ -106,8 +104,8 @@ describe("SeverityAreaChart history period", () => {
     ]);
 
     const gradients = container.querySelectorAll("linearGradient");
-    expect(gradients).toHaveLength(3);
-    expect(chartHarness.areaProps).toHaveLength(3);
+    expect(gradients).toHaveLength(5);
+    expect(chartHarness.areaProps).toHaveLength(5);
     for (const area of chartHarness.areaProps) {
       expect(area.fill).toMatch(/^url\(#selected-period-.+\)$/);
     }
@@ -159,9 +157,37 @@ describe("SeverityAreaChart history period", () => {
     ]);
     expect(container.querySelectorAll("linearGradient")).toHaveLength(0);
     expect(chartHarness.areaProps.map((area) => area.fill)).toEqual([
-      "#145480",
+      "#9ca3af",
+      "#14b8a6",
+      "#8b5cf6",
       "#eab308",
       "#ef4444",
+    ]);
+  });
+
+  it("plots people at each KABCO level, least severe at the bottom of the stack", () => {
+    render(
+      <MantineProvider>
+        <SeverityAreaChart summaries={[summary(2024)]} />
+      </MantineProvider>,
+    );
+
+    expect(chartHarness.areaProps.map((area) => area.dataKey)).toEqual([
+      "No Injury, Property Damage (O)",
+      "Complaint of Injury (C)",
+      "Non-Incapacitating Injury (B)",
+      "Incapacitating Injury (A)",
+      "Fatal (K)",
+    ]);
+    expect(chartHarness.data).toEqual([
+      {
+        Date: Date.UTC(2024, 6, 1),
+        "Fatal (K)": 1,
+        "Incapacitating Injury (A)": 2,
+        "Non-Incapacitating Injury (B)": 3,
+        "Complaint of Injury (C)": 4,
+        "No Injury, Property Damage (O)": 5,
+      },
     ]);
   });
 });
