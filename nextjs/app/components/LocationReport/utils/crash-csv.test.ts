@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { Crash } from "@/app/lib/api-client";
 
+import type { IndividualCrashSummary } from "./area-crash-summary";
+
 import {
   CRASH_CSV_COLUMNS,
   crashFeaturesToCsv,
@@ -29,6 +31,18 @@ const feature = (
   properties: crash(properties),
 });
 
+// The per-crash figures vz-backend attaches to every search result.
+const crashSummary = (
+  overrides: Partial<IndividualCrashSummary> = {},
+): IndividualCrashSummary => ({
+  maxKabcoSeverity: "O",
+  kabcoSeverityCounts: { K: 0, A: 0, B: 0, C: 0, O: 1 },
+  bicyclesInvolved: 0,
+  pedestriansInvolved: 0,
+  comprehensiveCost: 18_100,
+  ...overrides,
+});
+
 const dotiCrash = (properties: Partial<Crash> = {}): Partial<Crash> => ({
   doti_incident_id: "DOTI-123",
   doti_first_occurrence_date: "2026-08-20T13:45:00-06:00",
@@ -38,6 +52,7 @@ const dotiCrash = (properties: Partial<Crash> = {}): Partial<Crash> => ({
   doti_bicycle_count: 0,
   doti_pedestrian_count: 0,
   cdot_cuid: null,
+  summary: crashSummary(),
   ...properties,
 });
 
@@ -112,13 +127,18 @@ describe("crashFeaturesToCsv", () => {
     expect(values[CRASH_CSV_COLUMNS.indexOf("longitude")]).toBe("-104.987654");
   });
 
-  it("exports mixed DOTI and CDOT-enriched records with both identifiers and report-consistent calculations", () => {
+  it("exports mixed DOTI and CDOT-enriched records with both identifiers and the backend's per-crash figures", () => {
     const csv = crashFeaturesToCsv([
       feature(
         dotiCrash({
           doti_incident_id: "DOTI-ONLY",
           doti_fatalities: 1,
           doti_bicycle_count: 2,
+          summary: crashSummary({
+            maxKabcoSeverity: "K",
+            kabcoSeverityCounts: { K: 1, A: 0, B: 0, C: 0, O: 0 },
+            bicyclesInvolved: 2,
+          }),
         }),
       ),
       feature(
@@ -132,6 +152,11 @@ describe("crashFeaturesToCsv", () => {
           cdot_total_vehicles: 2,
           cdot_tu_1_speed_limit: 30,
           cdot_tu_1_estimated_speed: 42,
+          summary: crashSummary({
+            maxKabcoSeverity: "A",
+            kabcoSeverityCounts: { K: 0, A: 2, B: 0, C: 0, O: 0 },
+            pedestriansInvolved: 1,
+          }),
         }),
       ),
     ]);

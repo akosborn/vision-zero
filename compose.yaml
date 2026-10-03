@@ -45,13 +45,9 @@ services:
     ports:
       - "3001:3000" # Maps host port 3001 to container port 3000
     environment:
-      - DB_HOST=postgres17
-      - DB_PORT=5432
-      - DB_USER=${DATABASE_USER}
-      - DB_PASSWORD=${DATABASE_PASSWORD}
-      - DB_NAME=primary
+      - VZ_BACKEND_URL=http://vz-backend:3000
     depends_on:
-      - postgres
+      - vz-backend
 
   vz-backend:
     image: ghcr.io/akosborn/vision-zero-vz-backend:latest

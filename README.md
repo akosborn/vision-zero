@@ -5,7 +5,6 @@ Mapbox, and Metabase.
 
 ## Project Documentation
 
-- [Architecture overview](ARCHITECTURE.md)
 - [Prioritized TODO checklist](TODO.md)
 - [Next.js application notes](nextjs/README.md)
 

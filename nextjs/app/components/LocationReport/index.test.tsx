@@ -8,6 +8,7 @@ import { Crash } from "@/app/lib/api-client";
 
 import LocationReport, { ExportCsvButton } from ".";
 import { DEFAULT_CRASH_LIST_FILTERS } from "./CrashList";
+import { EMPTY_AREA_CRASH_SUMMARY } from "./utils/area-crash-summary";
 import { downloadCrashCsv } from "./utils/crash-csv";
 
 Object.defineProperty(window, "matchMedia", {
@@ -94,6 +95,7 @@ describe("LocationReport history availability", () => {
         <LocationReport
           isLoading={false}
           crashFeatures={[]}
+          summary={EMPTY_AREA_CRASH_SUMMARY}
           setViewport={vi.fn()}
           zoomToLayer={vi.fn()}
           crashSummaryHistory={[]}
@@ -124,6 +126,7 @@ describe("LocationReport history availability", () => {
         <LocationReport
           isLoading={false}
           crashFeatures={[]}
+          summary={EMPTY_AREA_CRASH_SUMMARY}
           setViewport={vi.fn()}
           zoomToLayer={vi.fn()}
           crashSummaryHistory={[]}

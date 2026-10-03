@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
         source: "/api/v1/streets/buffered",
         destination: "http://localhost:4000/api/v1/streets/buffered",
       },
+      {
+        source: "/api/v1/crashes/search",
+        destination: "http://localhost:4000/api/v1/crashes/search",
+      },
+      {
+        source: "/api/v1/crashes/summary",
+        destination: "http://localhost:4000/api/v1/crashes/summary",
+      },
     ];
   },
 };

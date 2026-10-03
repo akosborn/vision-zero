@@ -7,11 +7,7 @@ import {
   SEVERITY_LABELS,
 } from "@/app/components/LocationReport/CrashDetails";
 import { Crash } from "@/app/lib/api-client";
-import {
-  getMaxSeverity,
-  getVulnerableRoadUserCounts,
-  KABCO_SEVERITY_LEVEL,
-} from "@/app/components/LocationReport/utils/location-report";
+import { KABCO_SEVERITY_LEVEL } from "@/app/components/LocationReport/utils/area-crash-summary";
 import { getCrashSourceLinks } from "@/app/components/LocationReport/utils/crash-source-links";
 
 type Props = {
@@ -100,7 +96,7 @@ const CrashList: React.FC<Props> = ({
         {sortedFeatures.map((feature) => {
           const { geometry, properties } = feature;
           const type = getType(properties);
-          const severity = getMaxSeverity(properties);
+          const severity = properties.summary.maxKabcoSeverity;
 
           const [lng, lat] = geometry.coordinates;
           const sourceLinks = getCrashSourceLinks(properties);
@@ -169,7 +165,7 @@ export const getVisibleCrashFeatures = <G extends Geometry>(
     .filter(({ properties }) => {
       if (
         filters.severity !== "all" &&
-        getMaxSeverity(properties) !== filters.severity
+        properties.summary.maxKabcoSeverity !== filters.severity
       ) {
         return false;
       }
@@ -190,9 +186,12 @@ const isRoadUserInvolved = (
   crash: Crash,
   roadUser: Exclude<RoadUserFilter, "all">,
 ) => {
-  const counts = getVulnerableRoadUserCounts(crash);
+  const count =
+    roadUser === "bicycle"
+      ? crash.summary.bicyclesInvolved
+      : crash.summary.pedestriansInvolved;
 
-  if (counts[roadUser] > 0) {
+  if (count > 0) {
     return true;
   }
 

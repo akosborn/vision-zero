@@ -1,7 +1,17 @@
-import { FeatureCollection, GeoJsonProperties, Geometry, Point } from "geojson";
+import {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  Geometry,
+  Point,
+} from "geojson";
 import axios from "axios";
+import type {
+  AreaCrashSummary,
+  IndividualCrashSummary,
+} from "@/app/components/LocationReport/utils/area-crash-summary";
 
-const API_PATH_BASE = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/api`;
+const API_PATH_BASE = "/api/v1";
 
 export type Street = {
   fullName: string;
@@ -13,7 +23,7 @@ export const getStreetCenterlines = async (params: {
   crossStreets?: { from?: string; to?: string };
 }) => {
   const response = await axios.get<FeatureCollection>(
-    `/api/v1/streets/centerline`,
+    `${API_PATH_BASE}/streets/centerline`,
     {
       params: {
         fullStreetName: params.fullName,
@@ -31,7 +41,7 @@ export const getBufferedStreetCenterlines = async (params: {
   bufferInFeet: number;
 }) => {
   const response = await axios.get<FeatureCollection>(
-    `/api/v1/streets/buffered`,
+    `${API_PATH_BASE}/streets/buffered`,
     {
       params: {
         fullStreetName: params.fullName,
@@ -45,115 +55,59 @@ export const getBufferedStreetCenterlines = async (params: {
 };
 
 export const getStreets = async () => {
-  const response = await axios.get<Street[]>(`/api/v1/streets`);
+  const response = await axios.get<Street[]>(`${API_PATH_BASE}/streets`);
   return response.data;
 };
 
-/**
- * Incidents
- */
-
-export const getIncidents = async (params: {
+export const searchCrashes = async (filter: {
   startDate?: string;
   endDate?: string;
-  bbox?: string;
-  lat?: number;
-  lng?: number;
-  radiusInFeet?: number;
+  area: Area;
 }) => {
-  const response = await axios.get<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents`,
-    { params },
+  const response = await axios.post<CrashSearchResult>(
+    `${API_PATH_BASE}/crashes/search`,
+    { ...filter },
   );
   return response.data;
 };
 
-export const getIncidentsWithinBufferedStreet = async (params: {
-  fullStreetName: string;
-  crossStreets?: { from?: string; to?: string };
-  bufferInFeet: number;
+export const getCrashSummary = async (filter: {
   startDate?: string;
   endDate?: string;
+  area: Area;
 }) => {
-  const response = await axios.get<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents/buffered-street`,
-    {
-      params: {
-        fullStreetName: params.fullStreetName,
-        crossStreet1: params.crossStreets?.from,
-        crossStreet2: params.crossStreets?.to,
-        bufferInFeet: params.bufferInFeet,
-        startDate: params.startDate,
-        endDate: params.endDate,
-      },
-    },
+  const response = await axios.post<CrashSummary>(
+    `${API_PATH_BASE}/crashes/summary`,
+    { ...filter },
   );
   return response.data;
 };
 
-export const getIncidentsWithinBufferedRoute = async (params: {
-  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
-  bufferInFeet: number;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const response = await axios.post<FeatureCollection<Point, Crash>>(
-    `${API_PATH_BASE}/incidents/buffered-route`,
-    {
-      route: params.route,
-      bufferInFeet: params.bufferInFeet,
-      startDate: params.startDate,
-      endDate: params.endDate,
-    },
-  );
-  return response.data;
-};
-
-/**
- * Annual Summary
- */
-
-export const getAnnualCrashHistory = async (params: {
-  fullStreetName: string;
-  crossStreets?: { from?: string; to?: string };
-  bufferInFeet: number;
-}) => {
-  const response = await axios.get<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/buffered-street/history`,
-    {
-      params: {
-        fullStreetName: params.fullStreetName,
-        crossStreet1: params.crossStreets?.from,
-        crossStreet2: params.crossStreets?.to,
-        bufferInFeet: params.bufferInFeet,
-      },
-    },
-  );
-  return response.data;
-};
-
-export const getAnnualRadiusCrashHistory = async (params: {
-  lat: number;
-  lng: number;
-  radiusInFeet: number;
-}) => {
-  const response = await axios.get<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/history`,
-    { params },
-  );
-  return response.data;
-};
-
-export const getAnnualRouteCrashHistory = async (params: {
-  route: FeatureCollection<Geometry | null, GeoJsonProperties>;
-  bufferInFeet: number;
-}) => {
-  const response = await axios.post<AnnualCrashSummary[]>(
-    `${API_PATH_BASE}/incidents/buffered-route/history`,
-    params,
-  );
-  return response.data;
-};
+type Area =
+  | {
+      type: "bbox";
+      bbox: [number, number, number, number];
+    }
+  | {
+      type: "radius";
+      lat: number;
+      lng: number;
+      radiusInFeet: number;
+    }
+  | {
+      type: "street";
+      fullStreetName: string;
+      crossStreets?: [string, string];
+      bufferInFeet: number;
+    }
+  | {
+      type: "route";
+      route: {
+        type: "FeatureCollection";
+        features: Feature<Geometry, GeoJsonProperties>[];
+      };
+      bufferInFeet: number;
+    };
 
 export interface CrashSourceLinks {
   dotiRecordUrl?: string;
@@ -232,6 +186,13 @@ export interface Crash {
   cdot_tu_2_nm_type: string | null;
   cdot_tu_2_age: number | null;
   cdot_tu_2_sex: string | null;
+
+  summary: IndividualCrashSummary;
+}
+
+export interface CrashSearchResult {
+  crashes: FeatureCollection<Point, Crash>;
+  summary: AreaCrashSummary;
 }
 
 export interface AnnualCrashSummary {
@@ -244,4 +205,8 @@ export interface AnnualCrashSummary {
   maxSpeedMph: number | null;
   crashesOverSpeedLimit: number;
   crashesWithSpeedData: number;
+}
+
+export interface CrashSummary {
+  annualSummary: AnnualCrashSummary[];
 }

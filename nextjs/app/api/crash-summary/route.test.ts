@@ -1,84 +1,49 @@
-import type { FeatureCollection, Point } from "geojson";
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Crash } from "@/app/lib/api-client";
+import type { AreaCrashSummary } from "@/app/components/LocationReport/utils/area-crash-summary";
 import type { QueryDefinitionV1 } from "@/app/lib/query-definition";
 import { serializeQueryUrl } from "@/app/lib/query-url";
 
-const {
-  getRadiusIncidents,
-  getBufferedStreetIncidents,
-  getBufferedRouteIncidents,
-} = vi.hoisted(() => ({
-  getRadiusIncidents: vi.fn(),
-  getBufferedStreetIncidents: vi.fn(),
-  getBufferedRouteIncidents: vi.fn(),
-}));
-
-vi.mock("@/app/api/incidents/route", () => ({ GET: getRadiusIncidents }));
-vi.mock("@/app/api/incidents/buffered-street/route", () => ({
-  GET: getBufferedStreetIncidents,
-}));
-vi.mock("@/app/api/incidents/buffered-route/route", () => ({
-  POST: getBufferedRouteIncidents,
-}));
-
 import { GET as getCrashSummary } from "./route";
+
+const fetchMock = vi.fn();
 
 const request = (params = "") =>
   ({
     nextUrl: new URL(`http://localhost/map/api/crash-summary?${params}`),
   }) as NextRequest;
 
-const feature = (
-  id: string,
-  properties: Partial<Crash>,
-): FeatureCollection<Point, Crash>["features"][number] => ({
-  type: "Feature",
-  id,
-  geometry: { type: "Point", coordinates: [-104.99, 39.74] },
-  properties: {
-    doti_incident_id: null,
-    doti_fatalities: 0,
-    doti_serious_injuries: 0,
-    doti_bicycle_involved: false,
-    doti_pedestrian_involved: false,
-    doti_bicycle_count: 0,
-    doti_pedestrian_count: 0,
-    cdot_cuid: null,
-    cdot_injury_00: null,
-    cdot_injury_01: null,
-    cdot_injury_02: null,
-    cdot_injury_03: null,
-    cdot_injury_04: null,
-    cdot_tu_1_nm_type: null,
-    cdot_tu_2_nm_type: null,
-    ...properties,
-  } as Crash,
-});
+// What vz-backend returns for one fatal CDOT crash and one serious DOTI crash.
+const areaSummary: AreaCrashSummary = {
+  crashes: 2,
+  maxKabcoSeverityCounts: { K: 1, A: 1, B: 0, C: 0, O: 0 },
+  kabcoSeverityCounts: { K: 1, A: 3, B: 1, C: 1, O: 1 },
+  bicyclesInvolved: 1,
+  pedestriansInvolved: 2,
+  comprehensiveCosts: 17_693_100,
+};
 
-const incidents: FeatureCollection<Point, Crash> = {
-  type: "FeatureCollection",
-  features: [
-    feature("cdot-fatal", {
-      cdot_cuid: "CDOT-1",
-      cdot_injury_04: 1,
-      cdot_injury_03: 1,
-      cdot_injury_02: 1,
-      cdot_injury_01: 1,
-      cdot_injury_00: 1,
-      cdot_tu_1_nm_type: "Bicycle",
-    }),
-    feature("doti-serious", {
-      doti_incident_id: "DOTI-1",
-      doti_serious_injuries: 2,
-      doti_pedestrian_count: 2,
-    }),
-  ],
+const searchResponse = () =>
+  Response.json({
+    crashes: { type: "FeatureCollection", features: [] },
+    summary: areaSummary,
+  });
+
+const backendRequest = () => {
+  const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+  return { url, init, body: JSON.parse(init.body as string) };
 };
 
 const dateRange = { from: "2025-01-01", to: "2025-12-31" };
+
+const radiusQuery: QueryDefinitionV1 = {
+  version: 1,
+  tool: "radius",
+  dateRange,
+  center: { lat: 39.74, lng: -104.99 },
+  radiusFeet: 20,
+};
 
 const expectSummary = async (
   response: Response,
@@ -113,34 +78,35 @@ const expectSummary = async (
 
 describe("public crash-summary route", () => {
   beforeEach(() => {
-    getRadiusIncidents.mockReset();
-    getBufferedStreetIncidents.mockReset();
-    getBufferedRouteIncidents.mockReset();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("VZ_BACKEND_URL", "http://backend.test");
   });
 
-  it("runs a radius URL query and returns the report summary as JSON", async () => {
-    const radiusQuery: QueryDefinitionV1 = {
-      version: 1,
-      tool: "radius",
-      dateRange,
-      center: { lat: 39.74, lng: -104.99 },
-      radiusFeet: 20,
-    };
-    getRadiusIncidents.mockResolvedValue(Response.json(incidents));
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("proxies a radius URL query to the backend search and returns the public summary", async () => {
+    fetchMock.mockResolvedValue(searchResponse());
 
     const response = await getCrashSummary(
       request(serializeQueryUrl(radiusQuery).toString()),
     );
 
-    const downstreamRequest = getRadiusIncidents.mock
-      .calls[0][0] as NextRequest;
-    expect(downstreamRequest.nextUrl.searchParams.toString()).toBe(
-      "startDate=2025-01-01&endDate=2025-12-31&lat=39.74&lng=-104.99&radiusInFeet=20",
-    );
+    const { url, init, body } = backendRequest();
+    expect(url).toBe("http://backend.test/api/v1/crashes/search");
+    expect(init.method).toBe("POST");
+    expect(body).toEqual({
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+      area: { type: "radius", lat: 39.74, lng: -104.99, radiusInFeet: 20 },
+    });
     await expectSummary(response, radiusQuery);
   });
 
-  it("adapts a street URL query to the existing street API", async () => {
+  it("adapts a street URL query to a backend street search", async () => {
     const streetQuery: QueryDefinitionV1 = {
       version: 1,
       tool: "street",
@@ -149,21 +115,26 @@ describe("public crash-summary route", () => {
       crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
       bufferFeet: 20,
     };
-    getBufferedStreetIncidents.mockResolvedValue(Response.json(incidents));
+    fetchMock.mockResolvedValue(searchResponse());
 
     const response = await getCrashSummary(
       request(serializeQueryUrl(streetQuery).toString()),
     );
 
-    const downstreamRequest = getBufferedStreetIncidents.mock
-      .calls[0][0] as NextRequest;
-    expect(downstreamRequest.nextUrl.searchParams.toString()).toBe(
-      "fullStreetName=E+COLFAX+AVE&crossStreet1=N+BROADWAY&crossStreet2=N+LINCOLN+ST&bufferInFeet=20&startDate=2025-01-01&endDate=2025-12-31",
-    );
+    expect(backendRequest().body).toEqual({
+      startDate: "2025-01-01",
+      endDate: "2025-12-31",
+      area: {
+        type: "street",
+        fullStreetName: "E COLFAX AVE",
+        crossStreets: ["N BROADWAY", "N LINCOLN ST"],
+        bufferInFeet: 20,
+      },
+    });
     await expectSummary(response, streetQuery);
   });
 
-  it("adapts a drawn-route URL query to the existing route API", async () => {
+  it("adapts a drawn-route URL query to a backend route search", async () => {
     const drawQuery: QueryDefinitionV1 = {
       version: 1,
       tool: "draw",
@@ -186,19 +157,16 @@ describe("public crash-summary route", () => {
       },
       bufferFeet: 20,
     };
-    getBufferedRouteIncidents.mockResolvedValue(Response.json(incidents));
+    fetchMock.mockResolvedValue(searchResponse());
 
     const response = await getCrashSummary(
       request(serializeQueryUrl(drawQuery).toString()),
     );
 
-    const downstreamRequest = getBufferedRouteIncidents.mock
-      .calls[0][0] as NextRequest;
-    await expect(downstreamRequest.json()).resolves.toEqual({
-      route: drawQuery.route,
-      bufferInFeet: 20,
+    expect(backendRequest().body).toEqual({
       startDate: "2025-01-01",
       endDate: "2025-12-31",
+      area: { type: "route", route: drawQuery.route, bufferInFeet: 20 },
     });
     await expectSummary(response, drawQuery);
   });
@@ -210,31 +178,59 @@ describe("public crash-summary route", () => {
       "This query link is invalid: Invalid input: expected number, received NaN.",
     ],
   ])(
-    "rejects an invalid query before accessing the database",
+    "rejects an invalid query before calling the backend",
     async (params, error) => {
       const response = await getCrashSummary(request(params));
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toEqual({ error });
-      expect(getRadiusIncidents).not.toHaveBeenCalled();
-      expect(getBufferedStreetIncidents).not.toHaveBeenCalled();
-      expect(getBufferedRouteIncidents).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
     },
   );
 
-  it("preserves the safe database failure response", async () => {
-    getRadiusIncidents.mockResolvedValue(
-      Response.json({ error: "Database query failed" }, { status: 500 }),
+  it("flattens backend validation errors into the existing error shape", async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        {
+          statusCode: 400,
+          error: "Bad Request",
+          message: [
+            { path: "area.radiusInFeet", message: "Too big" },
+            { path: "", message: "Bad dates" },
+          ],
+        },
+        { status: 400 },
+      ),
     );
-    const params = serializeQueryUrl({
-      version: 1,
-      tool: "radius",
-      dateRange,
-      center: { lat: 39.74, lng: -104.99 },
-      radiusFeet: 20,
-    }).toString();
 
-    const response = await getCrashSummary(request(params));
+    const response = await getCrashSummary(
+      request(serializeQueryUrl(radiusQuery).toString()),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "area.radiusInFeet: Too big; Bad dates",
+    });
+  });
+
+  it.each([
+    [
+      "a backend failure",
+      () =>
+        fetchMock.mockResolvedValue(
+          Response.json({ message: "stack trace" }, { status: 500 }),
+        ),
+    ],
+    [
+      "an unreachable backend",
+      () => fetchMock.mockRejectedValue(new TypeError("fetch failed")),
+    ],
+  ])("preserves the safe failure response for %s", async (_case, setup) => {
+    setup();
+
+    const response = await getCrashSummary(
+      request(serializeQueryUrl(radiusQuery).toString()),
+    );
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({

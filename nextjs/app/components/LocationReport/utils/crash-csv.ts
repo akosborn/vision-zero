@@ -1,6 +1,5 @@
 import { Feature, Point } from "geojson";
 
-import { generateLocationReport, getMaxSeverity } from "./location-report";
 import { getCrashSourceLinks } from "./crash-source-links";
 import { Crash } from "@/app/lib/api-client";
 
@@ -121,8 +120,8 @@ export const escapeCsvField = (value: CsvValue): string => {
 
 const crashFeatureToCsvRow = (feature: Feature<Point, Crash>): CsvValue[] => {
   const { properties } = feature;
+  const { summary } = properties;
   const [longitude, latitude] = feature.geometry.coordinates;
-  const report = generateLocationReport([feature]);
 
   return [
     properties.doti_incident_id,
@@ -131,11 +130,11 @@ const crashFeatureToCsvRow = (feature: Feature<Point, Crash>): CsvValue[] => {
     properties.doti_address,
     finiteNumberOrEmpty(latitude),
     finiteNumberOrEmpty(longitude),
-    getMaxSeverity(properties),
-    report.kabcoSeverityCounts.K,
-    report.kabcoSeverityCounts.A,
-    report.bicyclesInvolved,
-    report.pedestriansInvolved,
+    summary.maxKabcoSeverity,
+    summary.kabcoSeverityCounts.K,
+    summary.kabcoSeverityCounts.A,
+    summary.bicyclesInvolved,
+    summary.pedestriansInvolved,
     properties.doti_top_traffic_accident_offense,
     properties.doti_neighborhood_id,
     properties.doti_road_location,

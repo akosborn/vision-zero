@@ -24,19 +24,19 @@ import {
   DEFAULT_CRASH_LIST_FILTERS,
   getVisibleCrashFeatures,
 } from "@/app/components/LocationReport/CrashList";
+import {
+  AreaCrashSummary,
+  EMPTY_AREA_CRASH_SUMMARY,
+} from "@/app/components/LocationReport/utils/area-crash-summary";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
-  AnnualCrashSummary,
+  CrashSummary,
   Crash,
-  getAnnualCrashHistory,
-  getAnnualRadiusCrashHistory,
-  getAnnualRouteCrashHistory,
+  getCrashSummary,
   getBufferedStreetCenterlines,
-  getIncidents,
-  getIncidentsWithinBufferedRoute,
-  getIncidentsWithinBufferedStreet,
   getStreetCenterlines,
   getStreets,
+  searchCrashes,
   Street,
 } from "@/app/lib/api-client";
 import zoomToLayerUtil from "@/app/utils/map/zoom-to-layer";
@@ -44,8 +44,8 @@ import {
   createFinalRoute,
   createRoutePreview,
   INITIAL_ROUTE_DRAWING_STATE,
-  routeDrawingReducer,
   isValidRouteLine,
+  routeDrawingReducer,
 } from "@/app/lib/route-drawing";
 import { prepareRouteSearch } from "@/app/lib/route-search";
 import {
@@ -85,6 +85,7 @@ type ActiveCrashResults = {
   query: QueryDefinitionV1 | null;
   uploadDateRange?: { from?: string; to?: string };
   features: Feature<Point, Crash>[];
+  summary: AreaCrashSummary;
 };
 
 const DEFAULT_RADIUS_SEARCH_RADIUS_IN_FEET = 1000;
@@ -124,8 +125,8 @@ function HomeContent() {
   const [incidentGeoJson, setIncidentGeoJson] =
     React.useState<FeatureCollection<Point, Crash> | null>(null);
 
-  const [crashSummaryHistory, setCrashSummaryHistory] = React.useState<
-    AnnualCrashSummary[] | null
+  const [areaAnnualCrashSummary, setAreaAnnualCrashSummary] = React.useState<
+    CrashSummary["annualSummary"] | null
   >(null);
 
   const [activeCrashResults, setActiveCrashResults] =
@@ -140,7 +141,7 @@ function HomeContent() {
   const clearCrashResults = React.useCallback(() => {
     setIncidentGeoJson(null);
     setAreaOfInterestIncidentGeoJson(null);
-    setCrashSummaryHistory(null);
+    setAreaAnnualCrashSummary(null);
     setActiveCrashResults(null);
     setSelectedCrashFeature(null);
     setSelectedCrashCalloutIsOpen(false);
@@ -272,18 +273,24 @@ function HomeContent() {
 
       try {
         if (query.tool === "radius") {
-          const [crashes, history] = await Promise.all([
-            getIncidents({
+          const [{ crashes, summary }, areaCrashSummary] = await Promise.all([
+            searchCrashes({
               startDate: query.dateRange.from,
               endDate: query.dateRange.to,
-              lat: query.center.lat,
-              lng: query.center.lng,
-              radiusInFeet: query.radiusFeet,
+              area: {
+                type: "radius",
+                lat: query.center.lat,
+                lng: query.center.lng,
+                radiusInFeet: query.radiusFeet,
+              },
             }),
-            getAnnualRadiusCrashHistory({
-              lat: query.center.lat,
-              lng: query.center.lng,
-              radiusInFeet: query.radiusFeet,
+            getCrashSummary({
+              area: {
+                type: "radius",
+                lat: query.center.lat,
+                lng: query.center.lng,
+                radiusInFeet: query.radiusFeet,
+              },
             }),
           ]);
 
@@ -293,35 +300,59 @@ function HomeContent() {
           setBufferedStreet(null);
           setRouteGeometry(null);
           setRouteSearchArea(null);
-          setCrashSummaryHistory(history);
-          setActiveCrashResults({ query, features: crashes.features });
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
+          setActiveCrashResults({ query, features: crashes.features, summary });
           zoomToLayer(crashes);
         } else if (query.tool === "street") {
           const streetSegment = {
             fullName: query.street,
             crossStreets: query.crossStreets,
           };
-          const [centerlines, buffer, incidentsInBuffer, history] =
-            await Promise.all([
-              getStreetCenterlines(streetSegment),
-              getBufferedStreetCenterlines({
-                ...streetSegment,
-                fullName: query.street,
-                bufferInFeet: query.bufferFeet,
-              }),
-              getIncidentsWithinBufferedStreet({
-                ...streetSegment,
+          const [
+            centerlines,
+            buffer,
+            { crashes: incidentsInBuffer, summary },
+            areaCrashSummary,
+          ] = await Promise.all([
+            getStreetCenterlines(streetSegment),
+            getBufferedStreetCenterlines({
+              ...streetSegment,
+              fullName: query.street,
+              bufferInFeet: query.bufferFeet,
+            }),
+            searchCrashes({
+              startDate: query.dateRange.from,
+              endDate: query.dateRange.to,
+              area: {
+                type: "street",
                 fullStreetName: query.street,
+                crossStreets:
+                  streetSegment.crossStreets?.from &&
+                  streetSegment.crossStreets?.to
+                    ? [
+                        streetSegment.crossStreets?.from,
+                        streetSegment.crossStreets?.to,
+                      ]
+                    : undefined,
                 bufferInFeet: query.bufferFeet,
-                startDate: query.dateRange.from,
-                endDate: query.dateRange.to,
-              }),
-              getAnnualCrashHistory({
-                ...streetSegment,
+              },
+            }),
+            getCrashSummary({
+              area: {
+                type: "street",
                 fullStreetName: query.street,
+                crossStreets:
+                  streetSegment.crossStreets?.from &&
+                  streetSegment.crossStreets?.to
+                    ? [
+                        streetSegment.crossStreets?.from,
+                        streetSegment.crossStreets?.to,
+                      ]
+                    : undefined,
                 bufferInFeet: query.bufferFeet,
-              }),
-            ]);
+              },
+            }),
+          ]);
 
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
@@ -329,10 +360,11 @@ function HomeContent() {
           setBufferedStreet(buffer);
           setRouteGeometry(null);
           setRouteSearchArea(null);
-          setCrashSummaryHistory(history);
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
+            summary,
           });
           zoomToLayer(incidentsInBuffer);
         } else {
@@ -345,13 +377,23 @@ function HomeContent() {
             throw new Error("Invalid drawn route");
           }
 
-          const [incidentsInBuffer, history] = await Promise.all([
-            getIncidentsWithinBufferedRoute(preparedSearch.request),
-            getAnnualRouteCrashHistory({
-              route: preparedSearch.route,
-              bufferInFeet: preparedSearch.request.bufferInFeet,
-            }),
-          ]);
+          const { startDate, endDate, bufferInFeet, route } =
+            preparedSearch.request;
+          const [{ crashes: incidentsInBuffer, summary }, areaCrashSummary] =
+            await Promise.all([
+              searchCrashes({
+                startDate,
+                endDate,
+                area: { type: "route", bufferInFeet, route },
+              }),
+              getCrashSummary({
+                area: {
+                  type: "route",
+                  route: preparedSearch.route,
+                  bufferInFeet: preparedSearch.request.bufferInFeet,
+                },
+              }),
+            ]);
 
           setIncidentGeoJson(null);
           setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
@@ -359,10 +401,11 @@ function HomeContent() {
           setBufferedStreet(null);
           setRouteGeometry(preparedSearch.route);
           setRouteSearchArea(preparedSearch.searchArea);
-          setCrashSummaryHistory(history);
+          setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
           setActiveCrashResults({
             query,
             features: incidentsInBuffer.features,
+            summary,
           });
           zoomToLayer(preparedSearch.route);
         }
@@ -554,24 +597,35 @@ function HomeContent() {
     closeMobileFilters();
     openLocationReport();
     try {
-      const [incidentsInBuffer, history] = await Promise.all([
-        getIncidentsWithinBufferedRoute(preparedSearch.request),
-        getAnnualRouteCrashHistory({
-          route: preparedSearch.route,
-          bufferInFeet: preparedSearch.request.bufferInFeet,
-        }),
-      ]);
+      const { startDate, endDate, bufferInFeet, route } =
+        preparedSearch.request;
+      const [{ crashes: incidentsInBuffer, summary }, areaCrashSummary] =
+        await Promise.all([
+          searchCrashes({
+            startDate,
+            endDate,
+            area: { type: "route", bufferInFeet, route },
+          }),
+          getCrashSummary({
+            area: {
+              type: "route",
+              bufferInFeet,
+              route,
+            },
+          }),
+        ]);
       setIncidentGeoJson(null);
       setAreaOfInterestIncidentGeoJson(incidentsInBuffer);
       setStreetCenterlines(null);
       setBufferedStreet(null);
       setRouteGeometry(preparedSearch.route);
       setRouteSearchArea(preparedSearch.searchArea);
-      setCrashSummaryHistory(history);
+      setAreaAnnualCrashSummary(areaCrashSummary.annualSummary);
       setActiveCrashResults({
         query: null,
         uploadDateRange: range,
         features: incidentsInBuffer.features,
+        summary,
       });
       zoomToLayer(preparedSearch.route);
       router.replace(window.location.pathname || "/map", { scroll: false });
@@ -656,6 +710,7 @@ function HomeContent() {
     activeCrashResults?.query?.dateRange || activeCrashResults?.uploadDateRange;
   const reportCrashFeatures =
     activeCrashResults?.features || EMPTY_CRASH_FEATURES;
+  const reportSummary = activeCrashResults?.summary ?? EMPTY_AREA_CRASH_SUMMARY;
   const exportCrashFeatures = React.useMemo(
     () => getVisibleCrashFeatures(reportCrashFeatures, crashListFilters),
     [crashListFilters, reportCrashFeatures],
@@ -874,13 +929,14 @@ function HomeContent() {
                     </Drawer.Header>
                     <Drawer.Body>
                       <LocationReport
-                        crashSummaryHistory={crashSummaryHistory}
+                        crashSummaryHistory={areaAnnualCrashSummary}
                         isLoading={isLoading}
                         crashFeatures={reportCrashFeatures}
+                        summary={reportSummary}
                         setViewport={setViewport}
                         zoomToLayer={zoomToLayer}
                         droppedPin={filters.droppedPin}
-                        historyAvailable={crashSummaryHistory !== null}
+                        historyAvailable={areaAnnualCrashSummary !== null}
                         selectedDateRange={reportDateRange}
                         crashListFilters={crashListFilters}
                         onCrashListFiltersChange={setCrashListFilters}
@@ -921,13 +977,14 @@ function HomeContent() {
                   </Flex>
                 </Flex>
                 <LocationReport
-                  crashSummaryHistory={crashSummaryHistory}
+                  crashSummaryHistory={areaAnnualCrashSummary}
                   isLoading={isLoading}
                   crashFeatures={reportCrashFeatures}
+                  summary={reportSummary}
                   setViewport={setViewport}
                   zoomToLayer={zoomToLayer}
                   droppedPin={filters.droppedPin}
-                  historyAvailable={crashSummaryHistory !== null}
+                  historyAvailable={areaAnnualCrashSummary !== null}
                   selectedDateRange={reportDateRange}
                   crashListFilters={crashListFilters}
                   onCrashListFiltersChange={setCrashListFilters}
