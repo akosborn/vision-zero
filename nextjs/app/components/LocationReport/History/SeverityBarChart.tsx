@@ -67,7 +67,7 @@ const SeverityBarChart = ({
       <Text size="xs" mt="0" mb="0" c="dimmed">
         People involved in crashes by KABCO injury level, per calendar year
         {highlightedYears
-          ? "; blue highlighting marks where the selected report period overlaps available history"
+          ? "; blue highlighting marks where the selected report period overlaps the filtered data"
           : ""}
       </Text>
       <BarChart
@@ -185,7 +185,7 @@ const getSelectedYears = (
   };
 };
 
-/** The calendar years where the selected period overlaps available history. */
+/** The calendar years where the selected period overlaps the filtered data. */
 const getHighlightedYears = (
   selectedYears: { from: number; to: number } | null,
   firstYear: number | undefined,

@@ -75,7 +75,7 @@ const years = () =>
   (chartHarness.data as { year: number }[]).map(({ year }) => year);
 
 const HIGHLIGHT_TEXT =
-  /blue highlighting marks where the selected report period overlaps available history/;
+  /blue highlighting marks where the selected report period overlaps the filtered history/;
 
 describe("SeverityBarChart", () => {
   beforeEach(() => {
