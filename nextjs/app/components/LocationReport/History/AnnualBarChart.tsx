@@ -69,6 +69,8 @@ const AnnualBarChart = ({
           aspectRatio: 1.618,
         }}
         data={data}
+        barCategoryGap="30%"
+        barGap={2}
         margin={{
           top: 20,
           right: 10,
@@ -76,7 +78,13 @@ const AnnualBarChart = ({
           bottom: 5,
         }}
       >
-        <XAxis dataKey="year" minTickGap={8} />
+        <XAxis
+          dataKey="year"
+          interval={0}
+          angle={-45}
+          textAnchor="end"
+          height={45}
+        />
         <YAxis width={40} />
         <Tooltip
           contentStyle={{
