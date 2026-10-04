@@ -53,8 +53,8 @@ type View = "Summary" | "Crashes" | "History";
 type HistoryChart = "severity" | "mode";
 
 const HISTORY_CHART_OPTIONS: { value: HistoryChart; label: string }[] = [
-  { value: "severity", label: "Injury severity" },
-  { value: "mode", label: "Bicyclists and pedestrians" },
+  { value: "severity", label: "Injury Severity Trend" },
+  { value: "mode", label: "Vulnerable Road Users" },
 ];
 
 const LocationReport: React.FC<Props> = ({
