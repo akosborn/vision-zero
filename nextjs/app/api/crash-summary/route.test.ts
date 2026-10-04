@@ -11,7 +11,7 @@ const fetchMock = vi.fn();
 
 const request = (params = "") =>
   ({
-    nextUrl: new URL(`http://localhost/map/api/crash-summary?${params}`),
+    nextUrl: new URL(`http://localhost/api/crash-summary?${params}`),
   }) as NextRequest;
 
 // What vz-backend returns for one fatal CDOT crash and one serious DOTI crash.

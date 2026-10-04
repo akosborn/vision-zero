@@ -15,19 +15,6 @@ services:
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
     restart: always
 
-  metabase:
-    image: metabase/metabase:latest
-    container_name: metabase
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: metabase
-      MB_DB_PORT: 5432
-      MB_DB_USER: metabase
-      MB_DB_PASS: ${METABASE_DATABASE_PASSWORD}
-      MB_DB_HOST: postgres17
-    ports:
-      - 3000:3000
-
   nginx:
     image: nginx:alpine
     ports:

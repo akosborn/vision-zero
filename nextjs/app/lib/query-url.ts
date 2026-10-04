@@ -320,12 +320,12 @@ export const serializeQueryUrl = (
 
 export const createCanonicalQueryPath = (
   query: QueryDefinitionV1,
-  pathname = "/map",
+  pathname = "/",
 ) => `${pathname}?${serializeQueryUrl(query).toString()}`;
 
 export const isCanonicalQueryUrlShareable = (
   query: QueryDefinitionV1,
-  pathname = "/map",
+  pathname = "/",
 ) => {
   try {
     return (

@@ -21,7 +21,7 @@ const CopyQueryLinkButton: React.FC<Props> = ({ query }) => {
     query !== null &&
     isCanonicalQueryUrlShareable(
       query,
-      typeof window === "undefined" ? "/map" : window.location.pathname,
+      typeof window === "undefined" ? "/" : window.location.pathname,
     );
   const disabledReason = !query
     ? "Run a supported query before copying its link."
