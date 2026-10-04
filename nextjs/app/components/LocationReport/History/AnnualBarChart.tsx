@@ -30,6 +30,7 @@ export type AnnualBarSeries = {
 const AnnualBarChart = ({
   title,
   description,
+  note,
   series,
   stacked,
   summaries,
@@ -37,6 +38,8 @@ const AnnualBarChart = ({
 }: {
   title: string;
   description: string;
+  /** Data caveat shown on its own line below the description */
+  note?: string;
   series: AnnualBarSeries[];
   stacked: boolean;
   summaries: AnnualCrashSummary[];
@@ -60,6 +63,11 @@ const AnnualBarChart = ({
           ? "; blue highlighting marks where the selected report period overlaps the filtered data"
           : ""}
       </Text>
+      {note && (
+        <Text size="xs" mt={4} mb="0" c="dimmed" fs="italic">
+          {note}
+        </Text>
+      )}
       <BarChart
         title={title}
         style={{

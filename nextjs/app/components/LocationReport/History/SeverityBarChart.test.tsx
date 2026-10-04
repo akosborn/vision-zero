@@ -84,10 +84,10 @@ describe("SeverityBarChart", () => {
     chartHarness.data = null;
   });
 
-  it("plots people at each KABCO level as stacked bars, least severe at the bottom", () => {
+  it("plots injured people as stacked bars, most severe at the bottom, leaving out no-injury cases", () => {
     render(
       <MantineProvider>
-        <SeverityBarChart summaries={[summary(2024)]} />
+        <SeverityBarChart summaries={[summary(2023), summary(2024)]} />
       </MantineProvider>,
     );
 
@@ -98,15 +98,11 @@ describe("SeverityBarChart", () => {
         fill,
       })),
     ).toEqual([
+      { dataKey: "Fatal (K)", stackId: "annual", fill: "#ef4444" },
       {
-        dataKey: "No Injury, Property Damage (O)",
+        dataKey: "Incapacitating Injury (A)",
         stackId: "annual",
-        fill: "#9ca3af",
-      },
-      {
-        dataKey: "Complaint of Injury (C)",
-        stackId: "annual",
-        fill: "#14b8a6",
+        fill: "#eab308",
       },
       {
         dataKey: "Non-Incapacitating Injury (B)",
@@ -114,22 +110,30 @@ describe("SeverityBarChart", () => {
         fill: "#8b5cf6",
       },
       {
-        dataKey: "Incapacitating Injury (A)",
+        dataKey: "Complaint of Injury (C)",
         stackId: "annual",
-        fill: "#eab308",
+        fill: "#14b8a6",
       },
-      { dataKey: "Fatal (K)", stackId: "annual", fill: "#ef4444" },
     ]);
     expect(chartHarness.data).toEqual([
+      {
+        year: 2023,
+        "Fatal (K)": 1,
+        "Incapacitating Injury (A)": 2,
+        "Non-Incapacitating Injury (B)": 3,
+        "Complaint of Injury (C)": 4,
+      },
       {
         year: 2024,
         "Fatal (K)": 1,
         "Incapacitating Injury (A)": 2,
         "Non-Incapacitating Injury (B)": 3,
         "Complaint of Injury (C)": 4,
-        "No Injury, Property Damage (O)": 5,
       },
     ]);
+    expect(
+      screen.getByText("Not shown: 10 No Injury, Property Damage (O) cases"),
+    ).toBeInTheDocument();
   });
 
   it("plots every year in the history, with zeros for years without crashes", () => {
@@ -146,7 +150,6 @@ describe("SeverityBarChart", () => {
       "Incapacitating Injury (A)": 0,
       "Non-Incapacitating Injury (B)": 0,
       "Complaint of Injury (C)": 0,
-      "No Injury, Property Damage (O)": 0,
     });
     expect(chartHarness.referenceAreaProps).toHaveLength(0);
     expect(screen.queryByText(HIGHLIGHT_TEXT)).not.toBeInTheDocument();
