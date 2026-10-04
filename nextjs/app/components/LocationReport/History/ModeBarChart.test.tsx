@@ -98,8 +98,8 @@ describe("ModeBarChart", () => {
         fill,
       })),
     ).toEqual([
-      { dataKey: "Bicyclist crashes", stackId: undefined, fill: "#f97316" },
-      { dataKey: "Pedestrian crashes", stackId: undefined, fill: "#16a34a" },
+      { dataKey: "Bicyclist crashes", stackId: undefined, fill: "#97a6c4" },
+      { dataKey: "Pedestrian crashes", stackId: undefined, fill: "#384860" },
     ]);
     expect(chartHarness.data).toEqual([
       { year: 2023, "Bicyclist crashes": 3, "Pedestrian crashes": 4 },

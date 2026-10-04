@@ -7,12 +7,12 @@ import AnnualBarChart, { AnnualBarSeries } from "./AnnualBarChart";
 const MODE_SERIES: AnnualBarSeries[] = [
   {
     label: "Bicyclist crashes",
-    color: "#f97316",
+    color: "#97a6c4",
     value: (summary) => summary.mode.bicycle,
   },
   {
     label: "Pedestrian crashes",
-    color: "#16a34a",
+    color: "#384860",
     value: (summary) => summary.mode.pedestrian,
   },
 ];
@@ -22,7 +22,7 @@ const ModeBarChart = (props: {
   selectedDateRange?: { from?: string; to?: string };
 }) => (
   <AnnualBarChart
-    title="Bicyclist and Pedestrian Crashes"
+    title="Vulnerable Road User Crashes"
     description="Crashes involving a bicyclist or pedestrian, per calendar year"
     series={MODE_SERIES}
     stacked={false}

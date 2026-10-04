@@ -189,7 +189,7 @@ describe("LocationReport history charts", () => {
 
     await user.click(screen.getByRole("textbox", { name: "Chart" }));
     await user.click(
-      screen.getByRole("option", { name: "Bicyclists and pedestrians" }),
+      screen.getByRole("option", { name: "Vulnerable Road Users" }),
     );
 
     expect(screen.getByText("Mode chart")).toBeInTheDocument();

@@ -30,6 +30,7 @@ export type AnnualBarSeries = {
 const AnnualBarChart = ({
   title,
   description,
+  note,
   series,
   stacked,
   summaries,
@@ -37,6 +38,8 @@ const AnnualBarChart = ({
 }: {
   title: string;
   description: string;
+  /** Data caveat shown on its own line below the description */
+  note?: string;
   series: AnnualBarSeries[];
   stacked: boolean;
   summaries: AnnualCrashSummary[];
@@ -60,6 +63,11 @@ const AnnualBarChart = ({
           ? "; blue highlighting marks where the selected report period overlaps the filtered data"
           : ""}
       </Text>
+      {note && (
+        <Text size="xs" mt={4} mb="0" c="dimmed" fs="italic">
+          {note}
+        </Text>
+      )}
       <BarChart
         title={title}
         style={{
@@ -69,6 +77,8 @@ const AnnualBarChart = ({
           aspectRatio: 1.618,
         }}
         data={data}
+        barCategoryGap="30%"
+        barGap={2}
         margin={{
           top: 20,
           right: 10,
@@ -76,7 +86,13 @@ const AnnualBarChart = ({
           bottom: 5,
         }}
       >
-        <XAxis dataKey="year" minTickGap={8} />
+        <XAxis
+          dataKey="year"
+          interval={0}
+          angle={-45}
+          textAnchor="end"
+          height={45}
+        />
         <YAxis width={40} />
         <Tooltip
           contentStyle={{
