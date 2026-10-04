@@ -244,7 +244,7 @@ function HomeContent() {
 
   const replaceUrlForSuccessfulQuery = React.useCallback(
     (query: QueryDefinitionV1) => {
-      const pathname = window.location.pathname || "/map";
+      const pathname = window.location.pathname || "/";
       if (!isCanonicalQueryUrlShareable(query, pathname)) {
         router.replace(pathname, { scroll: false });
         return;
@@ -628,7 +628,7 @@ function HomeContent() {
         summary,
       });
       zoomToLayer(preparedSearch.route);
-      router.replace(window.location.pathname || "/map", { scroll: false });
+      router.replace(window.location.pathname || "/", { scroll: false });
     } catch {
       setQueryError(
         "The query could not be completed. The previous report is unchanged.",

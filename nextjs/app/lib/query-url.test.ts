@@ -172,7 +172,7 @@ describe("version-1 query URLs", () => {
 
   it("enforces the final canonical path size policy", () => {
     expect(createCanonicalQueryPath(queries[0])).toBe(
-      "/map?v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500",
+      "/?v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500",
     );
     expect(isCanonicalQueryUrlShareable(queries[0])).toBe(true);
     expect(
