@@ -134,9 +134,22 @@ const renderMap = (
   return { ...rendered, props };
 };
 
-const selectFeature = (selectedFeature: GeoJSONFeature) => {
+const mockMapTarget = (renderedFeatures: GeoJSONFeature[] = []) => ({
+  queryRenderedFeatures: () => renderedFeatures,
+  project: ([lng, lat]: [number, number]) => ({ x: lng, y: lat }),
+  unproject: ([x, y]: [number, number]) => ({ lng: x, lat: y }),
+});
+
+const selectFeature = (
+  selectedFeature: GeoJSONFeature,
+  renderedFeatures: GeoJSONFeature[] = [],
+) => {
   act(() => {
-    mapHarness.onClick?.({ features: [selectedFeature] });
+    mapHarness.onClick?.({
+      features: [selectedFeature],
+      point: { x: 0, y: 0 },
+      target: mockMapTarget(renderedFeatures),
+    });
   });
 };
 
@@ -162,7 +175,10 @@ describe("Map crash popup source action", () => {
 
     expect(mapHarness.interactiveLayerIds).toEqual([
       "incident-layer",
+      "incident-cluster-layer",
       "area-of-interest-incident-layer",
+      "area-of-interest-incident-cluster-layer",
+      "spiderfy-leaf-layer",
     ]);
 
     const sourceLink = screen.getByRole("link", {
