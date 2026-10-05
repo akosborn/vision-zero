@@ -359,8 +359,9 @@ export default forwardRef<MapRef | null, Props>(function MapComponent(
         geometry: spiderfyLeafFeature.geometry,
         properties: spiderfyLeafFeature.properties as Crash,
       });
+      // Keep the cluster fanned out so the other leaves stay reachable after
+      // the popup is dismissed.
       setFilters((prevState) => ({ ...prevState, droppedPin: undefined }));
-      setSpiderfy(null);
       return;
     }
 
