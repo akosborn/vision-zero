@@ -5,3 +5,6 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom does not implement scrollIntoView, which Mantine's Combobox calls.
+Element.prototype.scrollIntoView ??= () => {};

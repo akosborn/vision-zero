@@ -61,28 +61,20 @@ const harness = vi.hoisted(() => ({
   captureMapProps: vi.fn(),
   exportCsvButtonProps: null as ExportCsvButtonProps | null,
   getStreets: vi.fn(),
-  getIncidentsWithinBufferedRoute: vi.fn(),
-  getAnnualRouteCrashHistory: vi.fn(),
-  getAnnualRadiusCrashHistory: vi.fn(),
-  getIncidents: vi.fn(),
-  getAnnualCrashHistory: vi.fn(),
+  searchCrashes: vi.fn(),
+  getCrashSummary: vi.fn(),
   getBufferedStreetCenterlines: vi.fn(),
-  getIncidentsWithinBufferedStreet: vi.fn(),
   getStreetCenterlines: vi.fn(),
   replace: vi.fn(),
   searchParams: new URLSearchParams(),
 }));
 
 vi.mock("@/app/lib/api-client", () => ({
-  getAnnualCrashHistory: harness.getAnnualCrashHistory,
-  getAnnualRadiusCrashHistory: harness.getAnnualRadiusCrashHistory,
-  getAnnualRouteCrashHistory: harness.getAnnualRouteCrashHistory,
   getBufferedStreetCenterlines: harness.getBufferedStreetCenterlines,
-  getIncidents: harness.getIncidents,
-  getIncidentsWithinBufferedRoute: harness.getIncidentsWithinBufferedRoute,
-  getIncidentsWithinBufferedStreet: harness.getIncidentsWithinBufferedStreet,
+  getCrashSummary: harness.getCrashSummary,
   getStreetCenterlines: harness.getStreetCenterlines,
   getStreets: harness.getStreets,
+  searchCrashes: harness.searchCrashes,
 }));
 
 vi.mock("./components/FilterPanel", () => ({
@@ -193,10 +185,22 @@ const crashResults = (id: string): FeatureCollection<Point> => ({
         doti_bicycle_count: 0,
         doti_pedestrian_count: 0,
         cdot_cuid: null,
+        summary: {
+          maxKabcoSeverity: "O",
+          kabcoSeverityCounts: { K: 0, A: 0, B: 0, C: 0, O: 1 },
+          bicyclesInvolved: 0,
+          pedestriansInvolved: 0,
+          comprehensiveCost: 0,
+        },
       },
       geometry: { type: "Point", coordinates: [-104.985, 39.745] },
     },
   ],
+});
+
+const searchResult = (crashes: FeatureCollection<Point>) => ({
+  crashes,
+  summary: {},
 });
 
 const latestFilterPanelProps = (): FilterPanelProps => {
@@ -217,19 +221,11 @@ describe("page-owned query execution", () => {
     harness.captureMapProps.mockReset();
     harness.exportCsvButtonProps = null;
     harness.getStreets.mockReset().mockResolvedValue([]);
-    harness.getIncidentsWithinBufferedRoute.mockReset();
-    harness.getAnnualRouteCrashHistory
+    harness.searchCrashes.mockReset();
+    harness.getCrashSummary
       .mockReset()
-      .mockResolvedValue([{ year: 2024 }]);
-    harness.getAnnualRadiusCrashHistory
-      .mockReset()
-      .mockResolvedValue([{ year: 2024 }]);
-    harness.getIncidents.mockReset();
-    harness.getAnnualCrashHistory
-      .mockReset()
-      .mockResolvedValue([{ year: 2024 }]);
+      .mockResolvedValue({ annualSummary: [{ year: 2024 }] });
     harness.getBufferedStreetCenterlines.mockReset();
-    harness.getIncidentsWithinBufferedStreet.mockReset();
     harness.getStreetCenterlines.mockReset();
     harness.replace.mockReset();
     harness.searchParams = new URLSearchParams();
@@ -279,7 +275,9 @@ describe("page-owned query execution", () => {
   });
 
   it("runs blank-map radius searches through the page API boundary", async () => {
-    harness.getIncidents.mockResolvedValueOnce(crashResults("radius-result"));
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("radius-result")),
+    );
 
     render(
       <MantineProvider>
@@ -293,18 +291,18 @@ describe("page-owned query execution", () => {
     });
 
     await waitFor(() => {
-      expect(harness.getIncidents).toHaveBeenCalledWith({
+      const area = {
+        type: "radius",
+        lat: 39.75,
+        lng: -104.96,
+        radiusInFeet: 1000,
+      };
+      expect(harness.searchCrashes).toHaveBeenCalledWith({
         startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         endDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-        lat: 39.75,
-        lng: -104.96,
-        radiusInFeet: 1000,
+        area,
       });
-      expect(harness.getAnnualRadiusCrashHistory).toHaveBeenCalledWith({
-        lat: 39.75,
-        lng: -104.96,
-        radiusInFeet: 1000,
-      });
+      expect(harness.getCrashSummary).toHaveBeenCalledWith({ area });
       expect(screen.getByTestId("location-report")).toHaveTextContent(
         "radius-result",
       );
@@ -318,7 +316,9 @@ describe("page-owned query execution", () => {
     harness.searchParams = new URLSearchParams(
       "v=1&tool=radius&from=2025-01-01&to=2025-12-31&lat=39.7392&lng=-104.9903&radiusFeet=500",
     );
-    harness.getIncidents.mockResolvedValueOnce(crashResults("restored-radius"));
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("restored-radius")),
+    );
 
     render(
       <MantineProvider>
@@ -333,7 +333,7 @@ describe("page-owned query execution", () => {
         bufferRadiusInFeet: 500,
         droppedPin: { lat: 39.7392, lng: -104.9903 },
       });
-      expect(harness.getIncidents).toHaveBeenCalledOnce();
+      expect(harness.searchCrashes).toHaveBeenCalledOnce();
       expect(screen.getByTestId("location-report")).toHaveTextContent(
         "restored-radius",
       );
@@ -342,10 +342,9 @@ describe("page-owned query execution", () => {
   });
 
   it("enables copying after a successful zero-result query", async () => {
-    harness.getIncidents.mockResolvedValueOnce({
-      type: "FeatureCollection",
-      features: [],
-    });
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult({ type: "FeatureCollection", features: [] }),
+    );
 
     render(
       <MantineProvider>
@@ -364,10 +363,9 @@ describe("page-owned query execution", () => {
   });
 
   it("runs an oversized drawn route but disables its link", async () => {
-    harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce({
-      type: "FeatureCollection",
-      features: [],
-    });
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult({ type: "FeatureCollection", features: [] }),
+    );
 
     render(
       <MantineProvider>
@@ -395,7 +393,7 @@ describe("page-owned query execution", () => {
     });
 
     await waitFor(() => {
-      expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
+      expect(harness.searchCrashes).toHaveBeenCalledOnce();
       expect(
         screen.getByRole("button", { name: "Copy query link" }),
       ).toBeDisabled();
@@ -443,8 +441,8 @@ describe("page-owned query execution", () => {
       route,
       bufferFeet: 125,
     });
-    harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce(
-      crashResults("restored-route"),
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("restored-route")),
     );
 
     render(
@@ -464,11 +462,10 @@ describe("page-owned query execution", () => {
         "restored-route",
       );
     });
-    expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledWith({
-      route,
-      bufferInFeet: 125,
+    expect(harness.searchCrashes).toHaveBeenCalledWith({
       startDate: "2025-01-01",
       endDate: "2025-12-31",
+      area: { type: "route", route, bufferInFeet: 125 },
     });
   });
 
@@ -484,8 +481,8 @@ describe("page-owned query execution", () => {
       type: "FeatureCollection",
       features: [],
     });
-    harness.getIncidentsWithinBufferedStreet.mockResolvedValueOnce(
-      crashResults("legacy-street"),
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("legacy-street")),
     );
 
     render(
@@ -525,16 +522,15 @@ describe("page-owned query execution", () => {
     );
 
     expect(await screen.findByText(/query link is invalid/i)).toBeVisible();
-    expect(harness.getIncidents).not.toHaveBeenCalled();
-    expect(harness.getIncidentsWithinBufferedStreet).not.toHaveBeenCalled();
-    expect(harness.getIncidentsWithinBufferedRoute).not.toHaveBeenCalled();
+    expect(harness.searchCrashes).not.toHaveBeenCalled();
+    expect(harness.getCrashSummary).not.toHaveBeenCalled();
     expect(harness.replace).not.toHaveBeenCalled();
     expect(latestFilterPanelProps().filters.searchTool).toBe("Radius Search");
   });
 
   it("keeps the previous report and URL when a replacement query fails", async () => {
-    harness.getIncidents
-      .mockResolvedValueOnce(crashResults("stable-result"))
+    harness.searchCrashes
+      .mockResolvedValueOnce(searchResult(crashResults("stable-result")))
       .mockRejectedValueOnce(new Error("network unavailable"));
 
     render(
@@ -573,8 +569,8 @@ describe("page-owned query execution", () => {
     const buffer = { type: "FeatureCollection", features: [] };
     harness.getStreetCenterlines.mockResolvedValueOnce(centerlines);
     harness.getBufferedStreetCenterlines.mockResolvedValueOnce(buffer);
-    harness.getIncidentsWithinBufferedStreet.mockResolvedValueOnce(
-      crashResults("street-result"),
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("street-result")),
     );
 
     render(
@@ -604,14 +600,18 @@ describe("page-owned query execution", () => {
       fullName: "E COLFAX AVE",
       crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
     });
-    expect(harness.getIncidentsWithinBufferedStreet).toHaveBeenCalledWith({
-      fullName: "E COLFAX AVE",
+    const area = {
+      type: "street",
       fullStreetName: "E COLFAX AVE",
-      crossStreets: { from: "N BROADWAY", to: "N LINCOLN ST" },
+      crossStreets: ["N BROADWAY", "N LINCOLN ST"],
       bufferInFeet: 250,
+    };
+    expect(harness.searchCrashes).toHaveBeenCalledWith({
       startDate: "2025-01-01",
       endDate: "2025-12-31",
+      area,
     });
+    expect(harness.getCrashSummary).toHaveBeenCalledWith({ area });
     expect(screen.getByTestId("location-report")).toHaveTextContent(
       "street-result",
     );
@@ -620,9 +620,9 @@ describe("page-owned query execution", () => {
   it.each([false, true])(
     "reruns the same route and replaces results for new dates (multiple lines: %s)",
     async (multipleLines) => {
-      harness.getIncidentsWithinBufferedRoute
-        .mockResolvedValueOnce(crashResults("old-result"))
-        .mockResolvedValueOnce(crashResults("new-result"));
+      harness.searchCrashes
+        .mockResolvedValueOnce(searchResult(crashResults("old-result")))
+        .mockResolvedValueOnce(searchResult(crashResults("new-result")));
 
       render(
         <MantineProvider>
@@ -662,7 +662,7 @@ describe("page-owned query execution", () => {
       });
 
       await waitFor(() => {
-        expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledOnce();
+        expect(harness.searchCrashes).toHaveBeenCalledOnce();
         expect(latestFilterPanelProps().hasAppliedRoute).toBe(true);
         expect(harness.locationReportProps?.historyAvailable).toBe(true);
         expect(harness.locationReportProps?.crashSummaryHistory).toEqual([
@@ -673,12 +673,13 @@ describe("page-owned query execution", () => {
         );
       });
 
-      const firstRequest =
-        harness.getIncidentsWithinBufferedRoute.mock.calls[0][0];
-      expect(firstRequest.route.features).toHaveLength(multipleLines ? 2 : 1);
-      expect(harness.getAnnualRouteCrashHistory).toHaveBeenLastCalledWith({
-        route: firstRequest.route,
-        bufferInFeet: firstRequest.bufferInFeet,
+      const firstRequest = harness.searchCrashes.mock.calls[0][0];
+      expect(firstRequest.area.type).toBe("route");
+      expect(firstRequest.area.route.features).toHaveLength(
+        multipleLines ? 2 : 1,
+      );
+      expect(harness.getCrashSummary).toHaveBeenLastCalledWith({
+        area: firstRequest.area,
       });
       const appliedPath = harness.replace.mock.calls.at(-1)![0];
       const restored = parseQueryUrl(
@@ -686,7 +687,7 @@ describe("page-owned query execution", () => {
       );
       expect(restored.status).toBe("success");
       if (restored.status === "success" && restored.query.tool === "draw") {
-        expect(restored.query.route).toEqual(firstRequest.route);
+        expect(restored.query.route).toEqual(firstRequest.area.route);
       }
       const newDateRange = { from: "2024-01-01", to: "2024-12-31" };
 
@@ -695,9 +696,7 @@ describe("page-owned query execution", () => {
       });
 
       await waitFor(() => {
-        expect(harness.getIncidentsWithinBufferedRoute).toHaveBeenCalledTimes(
-          2,
-        );
+        expect(harness.searchCrashes).toHaveBeenCalledTimes(2);
         expect(screen.getByTestId("location-report")).toHaveTextContent(
           "new-result",
         );
@@ -706,15 +705,12 @@ describe("page-owned query execution", () => {
         );
       });
 
-      const secondRequest =
-        harness.getIncidentsWithinBufferedRoute.mock.calls[1][0];
+      const secondRequest = harness.searchCrashes.mock.calls[1][0];
       expect(secondRequest).toEqual({
         ...firstRequest,
         startDate: newDateRange.from,
         endDate: newDateRange.to,
       });
-      expect(secondRequest.route).toEqual(firstRequest.route);
-      expect(secondRequest.bufferInFeet).toBe(firstRequest.bufferInFeet);
       expect(screen.getByTestId("location-report")).not.toHaveTextContent(
         "old-result",
       );
@@ -722,8 +718,8 @@ describe("page-owned query execution", () => {
   );
 
   it("passes only crash-list matches to CSV export", async () => {
-    harness.getIncidentsWithinBufferedRoute.mockResolvedValueOnce(
-      crashResults("property-damage-vehicle"),
+    harness.searchCrashes.mockResolvedValueOnce(
+      searchResult(crashResults("property-damage-vehicle")),
     );
 
     render(

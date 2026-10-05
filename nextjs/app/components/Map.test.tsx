@@ -134,9 +134,22 @@ const renderMap = (
   return { ...rendered, props };
 };
 
-const selectFeature = (selectedFeature: GeoJSONFeature) => {
+const mockMapTarget = (renderedFeatures: GeoJSONFeature[] = []) => ({
+  queryRenderedFeatures: () => renderedFeatures,
+  project: ([lng, lat]: [number, number]) => ({ x: lng, y: lat }),
+  unproject: ([x, y]: [number, number]) => ({ lng: x, lat: y }),
+});
+
+const selectFeature = (
+  selectedFeature: GeoJSONFeature,
+  renderedFeatures: GeoJSONFeature[] = [],
+) => {
   act(() => {
-    mapHarness.onClick?.({ features: [selectedFeature] });
+    mapHarness.onClick?.({
+      features: [selectedFeature],
+      point: { x: 0, y: 0 },
+      target: mockMapTarget(renderedFeatures),
+    });
   });
 };
 
@@ -162,7 +175,10 @@ describe("Map crash popup source action", () => {
 
     expect(mapHarness.interactiveLayerIds).toEqual([
       "incident-layer",
+      "incident-cluster-layer",
       "area-of-interest-incident-layer",
+      "area-of-interest-incident-cluster-layer",
+      "spiderfy-leaf-layer",
     ]);
 
     const sourceLink = screen.getByRole("link", {
@@ -395,6 +411,50 @@ describe("Map crash popup source action", () => {
       ).not.toBeInTheDocument();
     },
   );
+});
+
+describe("Map spiderfied crash selection", () => {
+  beforeEach(() => {
+    mapHarness.onClick = undefined;
+    mapHarness.sourceData = {};
+  });
+
+  it("keeps stacked crashes fanned out after selecting one of them", () => {
+    const stacked = [
+      {
+        ...feature({ doti_incident_id: "A" }, 1),
+        layer: { id: "incident-layer", source: "incidents" },
+      },
+      {
+        ...feature({ doti_incident_id: "B" }, 2),
+        layer: { id: "incident-layer", source: "incidents" },
+      },
+    ] as unknown as GeoJSONFeature[];
+    const { props } = renderMap();
+
+    selectFeature(stacked[0], stacked);
+
+    const legs = mapHarness.sourceData["spiderfy-leaves-source"] as
+      | FeatureCollection
+      | undefined;
+    expect(legs?.features).toHaveLength(2);
+
+    const leaf = {
+      ...legs!.features[1],
+      layer: { id: "spiderfy-leaf-layer" },
+    } as unknown as GeoJSONFeature;
+    selectFeature(leaf);
+
+    expect(props.onCrashSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({ doti_incident_id: "B" }),
+      }),
+    );
+    expect(
+      (mapHarness.sourceData["spiderfy-leaves-source"] as FeatureCollection)
+        .features,
+    ).toHaveLength(2);
+  });
 });
 
 describe("Map drawn route interaction", () => {
